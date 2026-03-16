@@ -3,6 +3,9 @@ import { getTwseStockCodes } from "@/lib/stocks";
 
 export const dynamic = "force-dynamic";
 
+// 興櫃股票 — TWSE 查不到，需用 Fugle API
+const EMERGING_STOCKS = ["6826", "7822", "7853"];
+
 export type StockPrice = {
   ticker: string;
   name: string;
@@ -17,102 +20,141 @@ function parseNumber(s: string): number | null {
   return isNaN(n) ? null : n;
 }
 
-// Split array into chunks
-function chunk<T>(arr: T[], size: number): T[][] {
-  const result: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) {
-    result.push(arr.slice(i, i + size));
+async function fetchWithRetry(
+  url: string,
+  retries = 3,
+): Promise<Response | null> {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, 500 * attempt));
+    }
+    try {
+      const res = await fetch(url, {
+        headers: { "User-Agent": "Mozilla/5.0" },
+        cache: "no-store",
+      });
+      if (res.ok) return res;
+    } catch {
+      // retry
+    }
   }
-  return result;
+  return null;
 }
 
-async function fetchMisTwse(
-  codes: string[],
-  exchange: "tse" | "otc",
-): Promise<Map<string, StockPrice>> {
-  const map = new Map<string, StockPrice>();
-  if (codes.length === 0) return map;
+function parseMsgArray(
+  msgArray: Record<string, string>[],
+  map: Map<string, StockPrice>,
+) {
+  for (const item of msgArray) {
+    const ticker = item.c;
+    const price = parseNumber(item.z);
+    const yesterday = parseNumber(item.y);
+    const effectivePrice = price ?? yesterday;
 
-  const exCh = codes.map((c) => `${exchange}_${c}.tw`).join("|");
-  const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${exCh}`;
+    const change =
+      effectivePrice !== null && yesterday !== null
+        ? Math.round((effectivePrice - yesterday) * 100) / 100
+        : null;
+    const changePercent =
+      change !== null && yesterday !== null && yesterday !== 0
+        ? Math.round((change / yesterday) * 10000) / 100
+        : null;
 
-  try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0" },
-      cache: "no-store",
+    map.set(ticker, {
+      ticker,
+      name: item.n || "",
+      price: effectivePrice,
+      change,
+      changePercent,
     });
-    if (!res.ok) return map;
-
-    const data = await res.json();
-    if (!data.msgArray) return map;
-
-    for (const item of data.msgArray) {
-      const ticker = item.c;
-      const price = parseNumber(item.z);
-      const yesterday = parseNumber(item.y);
-
-      // If no trade price, try best bid/ask midpoint or yesterday close
-      const effectivePrice = price ?? yesterday;
-
-      const change =
-        effectivePrice !== null && yesterday !== null
-          ? Math.round((effectivePrice - yesterday) * 100) / 100
-          : null;
-      const changePercent =
-        change !== null && yesterday !== null && yesterday !== 0
-          ? Math.round((change / yesterday) * 10000) / 100
-          : null;
-
-      map.set(ticker, {
-        ticker,
-        name: item.n || "",
-        price: effectivePrice,
-        change,
-        changePercent,
-      });
-    }
-  } catch {
-    // fetch failed
   }
-
-  return map;
 }
 
 async function fetchAllPrices(): Promise<Map<string, StockPrice>> {
   const allCodes = getTwseStockCodes();
-  const batches = chunk(allCodes, 20);
-  const combined = new Map<string, StockPrice>();
+  const map = new Map<string, StockPrice>();
 
-  // First pass: try all as TSE (上市)
-  const tsePromises = batches.map((batch) => fetchMisTwse(batch, "tse"));
-  const tseResults = await Promise.all(tsePromises);
-  for (const result of tseResults) {
-    for (const [k, v] of result) {
-      combined.set(k, v);
+  // Separate emerging stocks
+  const regularCodes = allCodes.filter(
+    (c) => !EMERGING_STOCKS.includes(c),
+  );
+  const emergingCodes = allCodes.filter((c) =>
+    EMERGING_STOCKS.includes(c),
+  );
+
+  // Build TSE + OTC URLs with all regular codes (API ignores invalid ones)
+  const tseExCh = regularCodes.map((c) => `tse_${c}.tw`).join("|");
+  const otcExCh = regularCodes.map((c) => `otc_${c}.tw`).join("|");
+
+  const tseUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${tseExCh}`;
+  const otcUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${otcExCh}`;
+
+  // Fetch TSE + OTC in parallel
+  const [tseRes, otcRes] = await Promise.all([
+    fetchWithRetry(tseUrl),
+    fetchWithRetry(otcUrl),
+  ]);
+
+  // OTC first, then TSE overwrites (TSE takes priority for dual-listed)
+  if (otcRes) {
+    try {
+      const data = await otcRes.json();
+      if (data.msgArray) parseMsgArray(data.msgArray, map);
+    } catch {
+      // parse error
     }
   }
 
-  // Second pass: missing codes as OTC (上櫃)
-  const missingCodes = allCodes.filter((c) => !combined.has(c));
-  if (missingCodes.length > 0) {
-    const otcBatches = chunk(missingCodes, 20);
-    const otcPromises = otcBatches.map((batch) => fetchMisTwse(batch, "otc"));
-    const otcResults = await Promise.all(otcPromises);
-    for (const result of otcResults) {
-      for (const [k, v] of result) {
-        combined.set(k, v);
+  if (tseRes) {
+    try {
+      const data = await tseRes.json();
+      if (data.msgArray) parseMsgArray(data.msgArray, map);
+    } catch {
+      // parse error
+    }
+  }
+
+  // Fetch emerging stocks via Fugle API
+  if (emergingCodes.length > 0) {
+    const fuglePromises = emergingCodes.map(async (code) => {
+      try {
+        const res = await fetchWithRetry(
+          `https://api.fugle.tw/marketdata/v1.0/stock/intraday/quote/${code}`,
+        );
+        if (!res) return;
+        const data = await res.json();
+        const price = data.lastPrice ?? data.closePrice ?? null;
+        const yesterday = data.previousClose ?? null;
+        const change =
+          price !== null && yesterday !== null
+            ? Math.round((price - yesterday) * 100) / 100
+            : null;
+        const changePercent =
+          change !== null && yesterday !== null && yesterday !== 0
+            ? Math.round((change / yesterday) * 10000) / 100
+            : null;
+
+        map.set(code, {
+          ticker: code,
+          name: data.name || "",
+          price,
+          change,
+          changePercent,
+        });
+      } catch {
+        // fugle failed for this code
       }
-    }
+    });
+    await Promise.all(fuglePromises);
   }
 
-  return combined;
+  return map;
 }
 
 export async function GET() {
   try {
     const quotes = await fetchAllPrices();
     const result: Record<string, StockPrice> = {};
-
     for (const [ticker, data] of quotes) {
       result[ticker] = data;
     }
