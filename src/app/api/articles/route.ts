@@ -14,7 +14,7 @@ const stockListText = allStocks
 
 export async function POST(req: NextRequest) {
   try {
-    const { title, content, source } = await req.json();
+    const { title, content, source, article_date } = await req.json();
 
     if (!title || !content) {
       return NextResponse.json(
@@ -51,11 +51,14 @@ ${stockListText}
 ${content}`,
     });
 
-    // 2. 從標題解析文章日期（如 "20260303 XXXX" → 2026-03-03）
-    const dateMatch = title.match(/^(\d{4})(\d{2})(\d{2})\s/);
-    const articleDate = dateMatch
-      ? `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`
-      : new Date().toISOString().slice(0, 10);
+    // 2. 文章日期：優先使用前端傳入，否則從標題解析，最後預設今天
+    let articleDate = article_date;
+    if (!articleDate) {
+      const dateMatch = title.match(/^(\d{4})(\d{2})(\d{2})\s/);
+      articleDate = dateMatch
+        ? `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`
+        : new Date().toISOString().slice(0, 10);
+    }
 
     // 3. 存入文章
     const { data: article, error: articleErr } = await getSupabase()

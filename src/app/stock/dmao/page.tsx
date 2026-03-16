@@ -3,9 +3,17 @@
 import { useState } from "react";
 
 export default function DmaoPage() {
+  const today = new Date().toISOString().slice(0, 10);
   const [formTitle, setFormTitle] = useState("");
+  const [formDate, setFormDate] = useState(today);
   const [formContent, setFormContent] = useState("");
   const [formSource, setFormSource] = useState("");
+
+  const handleTitleChange = (value: string) => {
+    setFormTitle(value);
+    const m = value.match(/^(\d{4})(\d{2})(\d{2})\s/);
+    setFormDate(m ? `${m[1]}-${m[2]}-${m[3]}` : today);
+  };
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<string | null>(null);
 
@@ -21,12 +29,14 @@ export default function DmaoPage() {
           title: formTitle,
           content: formContent,
           source: formSource || undefined,
+          article_date: formDate,
         }),
       });
       const json = await res.json();
       if (json.ok) {
         setSubmitResult(`已儲存，標記了 ${json.annotationCount} 個股票提及`);
         setFormTitle("");
+        setFormDate(today);
         setFormContent("");
         setFormSource("");
       } else {
@@ -55,9 +65,18 @@ export default function DmaoPage() {
           <input
             type="text"
             value={formTitle}
-            onChange={(e) => setFormTitle(e.target.value)}
+            onChange={(e) => handleTitleChange(e.target.value)}
             placeholder="文章標題"
             style={{ width: "100%", padding: "8px 12px", border: "1px solid #ccc", borderRadius: 4, fontSize: 14, boxSizing: "border-box" }}
+          />
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ display: "block", fontWeight: "bold", marginBottom: 4, fontSize: 14 }}>文章日期</label>
+          <input
+            type="date"
+            value={formDate}
+            onChange={(e) => setFormDate(e.target.value)}
+            style={{ padding: "8px 12px", border: "1px solid #ccc", borderRadius: 4, fontSize: 14 }}
           />
         </div>
         <div style={{ marginBottom: 12 }}>
