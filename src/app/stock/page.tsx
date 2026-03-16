@@ -41,12 +41,10 @@ export default function StockPage() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif" }}>
-      {/* Back link */}
       <a href="/" style={{ color: "#1a56db", textDecoration: "none", fontSize: 15 }}>
         ← 首頁
       </a>
 
-      {/* Title row */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "24px 0 20px" }}>
         <h1 style={{ fontSize: 28, fontWeight: "bold", margin: 0 }}>
           股票即時報價
@@ -73,7 +71,6 @@ export default function StockPage() {
         </button>
       </div>
 
-      {/* Table */}
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15 }}>
         <thead>
           <tr style={{ background: "#1e3a5f", color: "#fff" }}>
@@ -88,7 +85,6 @@ export default function StockPage() {
         <tbody>
           {categories.map((cat) => (
             <>
-              {/* Category header row */}
               <tr key={`cat-${cat.id}`} style={{ background: "#f0f4f8" }}>
                 <td
                   colSpan={6}
@@ -97,7 +93,6 @@ export default function StockPage() {
                   {cat.label}
                 </td>
               </tr>
-              {/* Stock rows */}
               {cat.stocks.map((stock, i) => {
                 const p = prices[stock.ticker];
                 const hasTwData = isTwStock(stock.ticker) && p;

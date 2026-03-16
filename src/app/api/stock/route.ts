@@ -1,26 +1,7 @@
 import { NextResponse } from "next/server";
 import { getTwseStockCodes } from "@/lib/stocks";
 
-export const revalidate = 30; // cache for 30 seconds
-
-type TwseRow = [
-  string, // 0: 證券代號
-  string, // 1: 證券名稱
-  string, // 2: 成交股數
-  string, // 3: 成交筆數
-  string, // 4: 成交金額
-  string, // 5: 開盤價
-  string, // 6: 最高價
-  string, // 7: 最低價
-  string, // 8: 收盤價
-  string, // 9: 漲跌(+/-)
-  string, // 10: 漲跌價差
-  string, // 11: 最後揭示買價
-  string, // 12: 最後揭示買量
-  string, // 13: 最後揭示賣價
-  string, // 14: 最後揭示賣量
-  string, // 15: 本益比
-];
+export const dynamic = "force-dynamic";
 
 export type StockPrice = {
   ticker: string;
@@ -28,155 +9,125 @@ export type StockPrice = {
   price: number | null;
   change: number | null;
   changePercent: number | null;
-  open: number | null;
-  high: number | null;
-  low: number | null;
-  volume: number | null;
-  time: string;
 };
 
 function parseNumber(s: string): number | null {
-  if (!s || s === "--" || s === "---") return null;
+  if (!s || s === "--" || s === "---" || s === " ") return null;
   const n = parseFloat(s.replace(/,/g, ""));
   return isNaN(n) ? null : n;
 }
 
-async function fetchTwseQuotes(): Promise<Map<string, StockPrice>> {
+// Split array into chunks
+function chunk<T>(arr: T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    result.push(arr.slice(i, i + size));
+  }
+  return result;
+}
+
+async function fetchMisTwse(
+  codes: string[],
+  exchange: "tse" | "otc",
+): Promise<Map<string, StockPrice>> {
   const map = new Map<string, StockPrice>();
+  if (codes.length === 0) return map;
 
-  // TWSE 全部股價 API (上市)
-  const now = new Date();
-  const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-
-  const twseUrl = `https://www.twse.com.tw/exchangeReport/STOCK_DAY_ALL?response=json&date=${dateStr}`;
-
-  // Also try the real-time endpoint for today's prices
-  const realtimeUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${getTwseStockCodes().map((c) => `tse_${c}.tw`).join("|")}`;
+  const exCh = codes.map((c) => `${exchange}_${c}.tw`).join("|");
+  const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${exCh}`;
 
   try {
-    const res = await fetch(realtimeUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-        Accept: "application/json",
-      },
-      next: { revalidate: 30 },
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      cache: "no-store",
     });
+    if (!res.ok) return map;
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data.msgArray) {
-        for (const item of data.msgArray) {
-          const ticker = item.c; // stock code
-          const price = parseNumber(item.z); // latest trade price
-          const open = parseNumber(item.o); // open
-          const high = parseNumber(item.h); // high
-          const low = parseNumber(item.l); // low
-          const yesterday = parseNumber(item.y); // yesterday close
-          const volume = parseNumber(item.v); // volume (lots)
+    const data = await res.json();
+    if (!data.msgArray) return map;
 
-          const change =
-            price !== null && yesterday !== null ? price - yesterday : null;
-          const changePercent =
-            change !== null && yesterday !== null && yesterday !== 0
-              ? (change / yesterday) * 100
-              : null;
+    for (const item of data.msgArray) {
+      const ticker = item.c;
+      const price = parseNumber(item.z);
+      const yesterday = parseNumber(item.y);
 
-          map.set(ticker, {
-            ticker,
-            name: item.n || "",
-            price,
-            change: change !== null ? Math.round(change * 100) / 100 : null,
-            changePercent:
-              changePercent !== null
-                ? Math.round(changePercent * 100) / 100
-                : null,
-            open,
-            high,
-            low,
-            volume: volume !== null ? volume * 1000 : null,
-            time: item.t || "",
-          });
-        }
-      }
+      // If no trade price, try best bid/ask midpoint or yesterday close
+      const effectivePrice = price ?? yesterday;
+
+      const change =
+        effectivePrice !== null && yesterday !== null
+          ? Math.round((effectivePrice - yesterday) * 100) / 100
+          : null;
+      const changePercent =
+        change !== null && yesterday !== null && yesterday !== 0
+          ? Math.round((change / yesterday) * 10000) / 100
+          : null;
+
+      map.set(ticker, {
+        ticker,
+        name: item.n || "",
+        price: effectivePrice,
+        change,
+        changePercent,
+      });
     }
   } catch {
-    // If real-time fails, try OTC
-  }
-
-  // Also fetch OTC (上櫃) stocks
-  const otcCodes = getTwseStockCodes();
-  const missingCodes = otcCodes.filter((c) => !map.has(c));
-
-  if (missingCodes.length > 0) {
-    try {
-      const otcRealtimeUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${missingCodes.map((c) => `otc_${c}.tw`).join("|")}`;
-      const res = await fetch(otcRealtimeUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0",
-          Accept: "application/json",
-        },
-        next: { revalidate: 30 },
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.msgArray) {
-          for (const item of data.msgArray) {
-            const ticker = item.c;
-            const price = parseNumber(item.z);
-            const open = parseNumber(item.o);
-            const high = parseNumber(item.h);
-            const low = parseNumber(item.l);
-            const yesterday = parseNumber(item.y);
-            const volume = parseNumber(item.v);
-
-            const change =
-              price !== null && yesterday !== null ? price - yesterday : null;
-            const changePercent =
-              change !== null && yesterday !== null && yesterday !== 0
-                ? (change / yesterday) * 100
-                : null;
-
-            map.set(ticker, {
-              ticker,
-              name: item.n || "",
-              price,
-              change: change !== null ? Math.round(change * 100) / 100 : null,
-              changePercent:
-                changePercent !== null
-                  ? Math.round(changePercent * 100) / 100
-                  : null,
-              open,
-              high,
-              low,
-              volume: volume !== null ? volume * 1000 : null,
-              time: item.t || "",
-            });
-          }
-        }
-      }
-    } catch {
-      // OTC fetch failed
-    }
+    // fetch failed
   }
 
   return map;
 }
 
+async function fetchAllPrices(): Promise<Map<string, StockPrice>> {
+  const allCodes = getTwseStockCodes();
+  const batches = chunk(allCodes, 20);
+  const combined = new Map<string, StockPrice>();
+
+  // First pass: try all as TSE (上市)
+  const tsePromises = batches.map((batch) => fetchMisTwse(batch, "tse"));
+  const tseResults = await Promise.all(tsePromises);
+  for (const result of tseResults) {
+    for (const [k, v] of result) {
+      combined.set(k, v);
+    }
+  }
+
+  // Second pass: missing codes as OTC (上櫃)
+  const missingCodes = allCodes.filter((c) => !combined.has(c));
+  if (missingCodes.length > 0) {
+    const otcBatches = chunk(missingCodes, 20);
+    const otcPromises = otcBatches.map((batch) => fetchMisTwse(batch, "otc"));
+    const otcResults = await Promise.all(otcPromises);
+    for (const result of otcResults) {
+      for (const [k, v] of result) {
+        combined.set(k, v);
+      }
+    }
+  }
+
+  return combined;
+}
+
 export async function GET() {
   try {
-    const quotes = await fetchTwseQuotes();
+    const quotes = await fetchAllPrices();
     const result: Record<string, StockPrice> = {};
 
     for (const [ticker, data] of quotes) {
       result[ticker] = data;
     }
 
-    return NextResponse.json({
-      ok: true,
-      data: result,
-      updatedAt: new Date().toISOString(),
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        data: result,
+        count: Object.keys(result).length,
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        headers: { "Cache-Control": "s-maxage=30, stale-while-revalidate=60" },
+      },
+    );
   } catch {
     return NextResponse.json(
       { ok: false, error: "Failed to fetch stock data" },
