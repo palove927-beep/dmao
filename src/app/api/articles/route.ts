@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { categories } from "@/lib/stocks";
-import { google } from "@ai-sdk/google";
 import { generateObject } from "ai";
 import { z } from "zod";
 
@@ -26,7 +25,7 @@ export async function POST(req: NextRequest) {
 
     // 1. 用 AI 抽取股票提及
     const { object: annotations } = await generateObject({
-      model: google("gemini-2.0-flash"),
+      model: "google/gemini-3-flash",
       schema: z.object({
         mentions: z.array(
           z.object({
