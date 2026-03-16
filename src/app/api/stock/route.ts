@@ -48,9 +48,10 @@ function parseMsgArray(
 ) {
   for (const item of msgArray) {
     const ticker = item.c;
-    const price = parseNumber(item.z);
     const yesterday = parseNumber(item.y);
-    const effectivePrice = price ?? yesterday;
+    // z=成交價, b=買價, a=賣價, u=漲停價, w=跌停價, y=昨收
+    const effectivePrice =
+      parseNumber(item.z) ?? parseNumber(item.b?.split("_")[0]) ?? parseNumber(item.a?.split("_")[0]) ?? parseNumber(item.u) ?? parseNumber(item.w) ?? yesterday;
 
     const change =
       effectivePrice !== null && yesterday !== null
@@ -63,7 +64,7 @@ function parseMsgArray(
 
     map.set(ticker, {
       ticker,
-      name: item.n || "",
+      name: (item.n || "").replace(/\*/g, ""),
       price: effectivePrice,
       change,
       changePercent,
@@ -139,7 +140,7 @@ async function fetchAllPrices(): Promise<Map<string, StockPrice>> {
 
         map.set(code, {
           ticker: code,
-          name: data.name || "",
+          name: `${data.name || ""}*`,
           price,
           change,
           changePercent,
