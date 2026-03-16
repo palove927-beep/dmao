@@ -37,7 +37,6 @@ export default function DmaoPage() {
   const [formTitle, setFormTitle] = useState("");
   const [formDate, setFormDate] = useState(today);
   const [formContent, setFormContent] = useState("");
-  const [formSource, setFormSource] = useState("");
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ message: string; persistent?: boolean } | null>(null);
@@ -130,7 +129,6 @@ export default function DmaoPage() {
         body: JSON.stringify({
           title: formTitle,
           content: formContent,
-          source: formSource || undefined,
           article_date: formDate,
           images: imageUrls,
         }),
@@ -180,16 +178,6 @@ export default function DmaoPage() {
             value={formDate}
             onChange={(e) => setFormDate(e.target.value)}
             style={{ padding: "8px 12px", border: "1px solid #ccc", borderRadius: 4, fontSize: 14 }}
-          />
-        </div>
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ display: "block", fontWeight: "bold", marginBottom: 4, fontSize: 14 }}>來源</label>
-          <input
-            type="text"
-            value={formSource}
-            onChange={(e) => setFormSource(e.target.value)}
-            placeholder="例：工商時報、MoneyDJ（選填）"
-            style={{ width: "100%", padding: "8px 12px", border: "1px solid #ccc", borderRadius: 4, fontSize: 14, boxSizing: "border-box" }}
           />
         </div>
         <div style={{ marginBottom: 12 }}>
