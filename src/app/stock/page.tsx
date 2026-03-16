@@ -284,6 +284,11 @@ export default function StockPage() {
                                       <span key={f.id} style={{ background: "#fef9c3", padding: "3px 10px", borderRadius: 6, fontSize: 13 }}>
                                         {f.forecast_year}年：<strong>{f.eps}</strong>元
                                         {f.prev_eps != null && <span style={{ color: "#9ca3af", marginLeft: 4 }}>(前次 {f.prev_eps})</span>}
+                                        {f.dmao_articles?.article_date && (
+                                          <span style={{ color: "#9ca3af", marginLeft: 6, fontSize: 12 }}>
+                                            {new Date(f.dmao_articles.article_date).toLocaleDateString("zh-TW")}
+                                          </span>
+                                        )}
                                       </span>
                                     ))}
                                   </div>
