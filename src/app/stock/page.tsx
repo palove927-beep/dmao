@@ -34,6 +34,7 @@ export default function StockPage() {
   const [annotations, setAnnotations] = useState<Record<string, Annotation[]>>({});
   const [epsForecasts, setEpsForecasts] = useState<Record<string, EpsForecast[]>>({});
   const [annotationCounts, setAnnotationCounts] = useState<Record<string, number>>({});
+  const [latestEps, setLatestEps] = useState<Record<string, number>>({});
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
   const [loadingAnnotations, setLoadingAnnotations] = useState<string | null>(null);
 
@@ -43,6 +44,22 @@ export default function StockPage() {
       const json = await res.json();
       if (json.ok) {
         setAnnotationCounts(json.counts);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const fetchLatestEps = useCallback(async () => {
+    try {
+      const res = await fetch("/api/eps-forecasts?forecast_year=2026&latest=1");
+      const json = await res.json();
+      if (json.ok) {
+        const map: Record<string, number> = {};
+        for (const f of json.forecasts) {
+          map[f.ticker] = f.eps;
+        }
+        setLatestEps(map);
       }
     } catch {
       // ignore
@@ -67,9 +84,10 @@ export default function StockPage() {
   useEffect(() => {
     fetchPrices();
     fetchAnnotationCounts();
+    fetchLatestEps();
     const interval = setInterval(fetchPrices, 30000);
     return () => clearInterval(interval);
-  }, [fetchPrices, fetchAnnotationCounts]);
+  }, [fetchPrices, fetchAnnotationCounts, fetchLatestEps]);
 
   const fetchAnnotations = async (ticker: string) => {
     if (expandedTicker === ticker) {
@@ -162,6 +180,7 @@ export default function StockPage() {
             <th style={thStyle}>股票</th>
             <th style={thStyle}>代號</th>
             <th style={{ ...thStyle, textAlign: "right" }}>現價</th>
+            <th style={{ ...thStyle, textAlign: "right" }}>2026 EPS</th>
             <th style={{ ...thStyle, textAlign: "center", width: 60 }}>標記</th>
           </tr>
         </thead>
@@ -170,7 +189,7 @@ export default function StockPage() {
             <>
               <tr key={`cat-${cat.id}`} style={{ background: "#f0f4f8" }}>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   style={{ padding: "10px 14px", fontWeight: "bold", fontSize: 15, color: "#1e3a5f" }}
                 >
                   {cat.label}
@@ -204,6 +223,9 @@ export default function StockPage() {
                       }}>
                         {hasTwData ? formatPrice(p.price) : "-"}
                       </td>
+                      <td style={{ ...tdStyle, textAlign: "right", color: "#b45309", fontWeight: latestEps[stock.ticker] ? "bold" : "normal" }}>
+                        {latestEps[stock.ticker] != null ? latestEps[stock.ticker] : "-"}
+                      </td>
                       <td style={{ ...tdStyle, textAlign: "center" }}>
                         {(() => {
                           const count = annotationCounts[stock.ticker] || 0;
@@ -232,7 +254,7 @@ export default function StockPage() {
                     </tr>
                     {isExpanded && (
                       <tr key={`ann-${stock.ticker}`}>
-                        <td colSpan={6} style={{ padding: 0 }}>
+                        <td colSpan={7} style={{ padding: 0 }}>
                           <div style={{ background: "#f8fafc", borderLeft: "3px solid #1a56db", margin: "0 14px 8px", padding: "12px 16px" }}>
                             {isLoadingThis ? (
                               <div style={{ color: "#999", fontSize: 13 }}>載入中...</div>
