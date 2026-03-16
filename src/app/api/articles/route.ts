@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     // 1. 用 AI 抽取股票提及
     const { object: annotations } = await generateObject({
-      model: "google/gemini-3-flash",
+      model: "google/gemini-3.1-flash-lite-preview",
       schema: z.object({
         mentions: z.array(
           z.object({
