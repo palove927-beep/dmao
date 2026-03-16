@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 type Article = {
   id: string;
@@ -21,9 +21,11 @@ type Annotation = {
 
 export default function ArticlePage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const [article, setArticle] = useState<Article | null>(null);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -57,6 +59,24 @@ export default function ArticlePage() {
   const stockKeywords = [...new Set(annotations.flatMap((a) => [a.stock_name, a.ticker]))].filter(Boolean);
   stockKeywords.sort((a, b) => b.length - a.length); // match longer names first
 
+  const handleDelete = async () => {
+    if (!confirm("確定要刪除這篇文章？（文章、標記、圖片將一併刪除）")) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/articles/${id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (json.ok) {
+        router.push("/articles");
+      } else {
+        alert(`刪除失敗：${json.error}`);
+      }
+    } catch {
+      alert("刪除失敗");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const highlightStocks = (text: string) => {
     if (stockKeywords.length === 0) return [text];
     const escaped = stockKeywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
@@ -77,9 +97,28 @@ export default function ArticlePage() {
         ← 回到股票頁
       </a>
 
-      <h1 style={{ fontSize: 24, fontWeight: "bold", marginTop: 20, marginBottom: 8 }}>
-        {article.title}
-      </h1>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginTop: 20, marginBottom: 8, gap: 12 }}>
+        <h1 style={{ fontSize: 24, fontWeight: "bold", margin: 0 }}>
+          {article.title}
+        </h1>
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          style={{
+            padding: "6px 14px",
+            fontSize: 13,
+            border: "1px solid #dc2626",
+            borderRadius: 4,
+            background: "#fff",
+            color: "#dc2626",
+            cursor: deleting ? "not-allowed" : "pointer",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+          }}
+        >
+          {deleting ? "刪除中..." : "刪除文章"}
+        </button>
+      </div>
 
       <div style={{ fontSize: 13, color: "#999", marginBottom: 20 }}>
         {article.source && <span style={{ marginRight: 12 }}>來源：{article.source}</span>}
