@@ -23,6 +23,7 @@ function parseNumber(s: string): number | null {
 async function fetchWithRetry(
   url: string,
   retries = 3,
+  extraHeaders?: Record<string, string>,
 ): Promise<Response | null> {
   for (let attempt = 0; attempt < retries; attempt++) {
     if (attempt > 0) {
@@ -30,7 +31,7 @@ async function fetchWithRetry(
     }
     try {
       const res = await fetch(url, {
-        headers: { "User-Agent": "Mozilla/5.0" },
+        headers: { "User-Agent": "Mozilla/5.0", ...extraHeaders },
         cache: "no-store",
       });
       if (res.ok) return res;
@@ -120,6 +121,8 @@ async function fetchAllPrices(): Promise<Map<string, StockPrice>> {
       try {
         const res = await fetchWithRetry(
           `https://api.fugle.tw/marketdata/v1.0/stock/intraday/quote/${code}`,
+          3,
+          { "X-API-KEY": process.env.FUGLE_API_KEY || "" },
         );
         if (!res) return;
         const data = await res.json();

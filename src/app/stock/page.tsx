@@ -40,7 +40,7 @@ export default function StockPage() {
   const isTwStock = (ticker: string) => /^\d+$/.test(ticker);
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif" }}>
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
       <a href="/" style={{ color: "#1a56db", textDecoration: "none", fontSize: 15 }}>
         ← 首頁
       </a>
@@ -108,7 +108,14 @@ export default function StockPage() {
                     <td style={tdStyle}>{cat.label}</td>
                     <td style={tdStyle}>{hasTwData ? p.name || stock.name : stock.name}</td>
                     <td style={tdStyle}>{stock.ticker}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold" }}>
+                    <td style={{
+                      ...tdStyle,
+                      textAlign: "right",
+                      fontWeight: "bold",
+                      color: hasTwData && p.change !== null
+                        ? p.change > 0 ? "#d32f2f" : p.change < 0 ? "#2e7d32" : "#333"
+                        : "#333",
+                    }}>
                       {hasTwData ? formatPrice(p.price) : "-"}
                     </td>
                     <td style={{ ...tdStyle, textAlign: "right", color: "#999" }}>-</td>
@@ -138,4 +145,5 @@ const thStyle: React.CSSProperties = {
 
 const tdStyle: React.CSSProperties = {
   padding: "10px 14px",
+  color: "#222",
 };
