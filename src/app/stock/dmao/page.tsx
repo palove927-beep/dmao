@@ -32,12 +32,12 @@ function Toast({ message, persistent, onClose }: { message: string; persistent?:
 export default function DmaoPage() {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const today = new Date().toISOString().slice(0, 10);
   const [formTitle, setFormTitle] = useState("");
   const [formDate, setFormDate] = useState(today);
   const [formContent, setFormContent] = useState("");
   const [formSource, setFormSource] = useState("");
-  const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ message: string; persistent?: boolean } | null>(null);
@@ -51,6 +51,29 @@ export default function DmaoPage() {
   const clearToast = useCallback(() => setToast(null), []);
   const showToast = useCallback((message: string, persistent?: boolean) => setToast({ message, persistent }), []);
 
+  const insertImageAtCursor = (url: string) => {
+    const tag = `![圖片](${url})`;
+    const ta = textareaRef.current;
+    if (ta) {
+      const start = ta.selectionStart;
+      const end = ta.selectionEnd;
+      const before = formContent.slice(0, start);
+      const after = formContent.slice(end);
+      const needNewlineBefore = before.length > 0 && !before.endsWith("\n") ? "\n" : "";
+      const needNewlineAfter = after.length > 0 && !after.startsWith("\n") ? "\n" : "";
+      const newContent = before + needNewlineBefore + tag + needNewlineAfter + after;
+      setFormContent(newContent);
+      const cursorPos = (before + needNewlineBefore + tag + needNewlineAfter).length;
+      requestAnimationFrame(() => {
+        ta.selectionStart = cursorPos;
+        ta.selectionEnd = cursorPos;
+        ta.focus();
+      });
+    } else {
+      setFormContent((prev) => prev + (prev && !prev.endsWith("\n") ? "\n" : "") + tag + "\n");
+    }
+  };
+
   const uploadFile = async (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -59,7 +82,7 @@ export default function DmaoPage() {
       const res = await fetch("/api/upload", { method: "POST", body: formData });
       const json = await res.json();
       if (json.ok) {
-        setImages((prev) => [...prev, json.url]);
+        insertImageAtCursor(json.url);
         showToast("圖片上傳成功");
       } else {
         showToast(`上傳失敗：${json.error}`);
@@ -94,14 +117,12 @@ export default function DmaoPage() {
     }
   };
 
-  const removeImage = (index: number) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
-  };
-
   const handleSubmitArticle = async () => {
     if (!formTitle.trim() || !formContent.trim()) return;
     setSubmitting(true);
     showToast("分析中...", true);
+    // Extract image URLs from content
+    const imageUrls = Array.from(formContent.matchAll(/!\[.*?\]\((.*?)\)/g)).map((m) => m[1]);
     try {
       const res = await fetch("/api/articles", {
         method: "POST",
@@ -111,7 +132,7 @@ export default function DmaoPage() {
           content: formContent,
           source: formSource || undefined,
           article_date: formDate,
-          images,
+          images: imageUrls,
         }),
       });
       const json = await res.json();
@@ -174,9 +195,10 @@ export default function DmaoPage() {
         <div style={{ marginBottom: 12 }}>
           <label style={{ display: "block", fontWeight: "bold", marginBottom: 4, fontSize: 14 }}>文章內容 *</label>
           <textarea
+            ref={textareaRef}
             value={formContent}
             onChange={(e) => setFormContent(e.target.value)}
-            placeholder="貼上文章全文...（也可直接 Ctrl+V 貼上圖片）"
+            placeholder="貼上文章全文...（也可直接 Ctrl+V 貼上圖片，圖片會插入在游標位置）"
             rows={15}
             style={{ width: "100%", padding: "8px 12px", border: "1px solid #ccc", borderRadius: 4, fontSize: 14, resize: "vertical", boxSizing: "border-box" }}
           />
@@ -184,7 +206,6 @@ export default function DmaoPage() {
 
         {/* Image upload */}
         <div style={{ marginBottom: 12 }}>
-          <label style={{ display: "block", fontWeight: "bold", marginBottom: 4, fontSize: 14 }}>圖片</label>
           <input
             ref={fileRef}
             type="file"
@@ -206,45 +227,11 @@ export default function DmaoPage() {
               cursor: uploading ? "not-allowed" : "pointer",
             }}
           >
-            {uploading ? "上傳中..." : "選擇圖片"}
+            {uploading ? "上傳中..." : "插入圖片"}
           </button>
           <span style={{ fontSize: 12, color: "#999", marginLeft: 8 }}>
-            或在頁面任意處 Ctrl+V 貼上圖片
+            或 Ctrl+V 貼上圖片（會插入在游標位置）
           </span>
-
-          {images.length > 0 && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-              {images.map((url, i) => (
-                <div key={i} style={{ position: "relative" }}>
-                  <img
-                    src={url}
-                    alt={`uploaded-${i}`}
-                    style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 4, border: "1px solid #ddd" }}
-                  />
-                  <button
-                    onClick={() => removeImage(i)}
-                    style={{
-                      position: "absolute",
-                      top: -6,
-                      right: -6,
-                      width: 20,
-                      height: 20,
-                      borderRadius: "50%",
-                      border: "none",
-                      background: "#dc2626",
-                      color: "#fff",
-                      fontSize: 12,
-                      cursor: "pointer",
-                      lineHeight: "20px",
-                      padding: 0,
-                    }}
-                  >
-                    x
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         <div>
