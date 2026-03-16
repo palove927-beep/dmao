@@ -40,6 +40,8 @@ export default function DmaoPage() {
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ message: string; persistent?: boolean } | null>(null);
+  // Pending images: placeholder URL -> File (local) or string (remote URL to proxy)
+  const pendingImagesRef = useRef<Map<string, File | string>>(new Map());
 
   const handleTitleChange = (value: string) => {
     setFormTitle(value);
@@ -73,64 +75,34 @@ export default function DmaoPage() {
     }
   };
 
-  const uploadFile = async (file: File) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("article_date", formDate);
-    setUploading(true);
-    try {
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
-      const json = await res.json();
-      if (json.ok) {
-        insertImageAtCursor(json.url);
-        showToast("圖片上傳成功");
-      } else {
-        showToast(`上傳失敗：${json.error}`);
-      }
-    } catch {
-      showToast("圖片上傳失敗");
-    } finally {
-      setUploading(false);
-    }
+  // Queue a local file for deferred upload; return a blob URL for preview
+  const queueLocalFile = (file: File): string => {
+    const blobUrl = URL.createObjectURL(file);
+    pendingImagesRef.current.set(blobUrl, file);
+    return blobUrl;
+  };
+
+  // Queue a remote URL for deferred upload; return a placeholder
+  const queueRemoteUrl = (src: string): string => {
+    // Use the remote URL directly as the placeholder key
+    const placeholder = `pending:${src}`;
+    pendingImagesRef.current.set(placeholder, src);
+    return placeholder;
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      Array.from(files).forEach(uploadFile);
+      Array.from(files).forEach((file) => {
+        const blobUrl = queueLocalFile(file);
+        insertImageAtCursor(blobUrl);
+      });
+      showToast(`已插入 ${files.length} 張圖片`);
     }
     e.target.value = "";
   };
 
-  const uploadImageUrl = async (src: string): Promise<string | null> => {
-    try {
-      // Use server-side proxy to avoid CORS when fetching external images
-      const res = await fetch("/api/upload-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ src, article_date: formDate }),
-      });
-      const json = await res.json();
-      return json.ok ? json.url : null;
-    } catch {
-      return null;
-    }
-  };
-
-  const uploadImageBlob = async (file: File): Promise<string | null> => {
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("article_date", formDate);
-    try {
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const json = await res.json();
-      return json.ok ? json.url : null;
-    } catch {
-      return null;
-    }
-  };
-
-  const handlePaste = async (e: React.ClipboardEvent) => {
+  const handlePaste = (e: React.ClipboardEvent) => {
     const items = Array.from(e.clipboardData.items);
     const html = e.clipboardData.getData("text/html");
     const hasImages = items.some((item) => item.type.startsWith("image/"));
@@ -138,28 +110,21 @@ export default function DmaoPage() {
     // Case 1: HTML with <img> tags (e.g. copy from webpage with text+images)
     if (html && html.includes("<img")) {
       e.preventDefault();
-      setUploading(true);
 
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, "text/html");
 
       // Build content by walking through nodes
       const parts: string[] = [];
-      const imgUploadPromises: Map<string, Promise<string | null>> = new Map();
 
-      // Collect all img srcs and start uploading
+      // Queue all img srcs for deferred upload
+      const imgPlaceholders = new Map<string, string>();
       const imgs = doc.querySelectorAll("img");
       for (const img of imgs) {
         const src = img.getAttribute("src");
-        if (src && !imgUploadPromises.has(src)) {
-          imgUploadPromises.set(src, uploadImageUrl(src));
+        if (src && !imgPlaceholders.has(src)) {
+          imgPlaceholders.set(src, queueRemoteUrl(src));
         }
-      }
-
-      // Wait for all uploads
-      const uploadResults = new Map<string, string | null>();
-      for (const [src, promise] of imgUploadPromises) {
-        uploadResults.set(src, await promise);
       }
 
       // Walk the body to build text with image placeholders
@@ -171,9 +136,9 @@ export default function DmaoPage() {
           const el = node as Element;
           if (el.tagName === "IMG") {
             const src = el.getAttribute("src");
-            const uploadedUrl = src ? uploadResults.get(src) : null;
-            if (uploadedUrl) {
-              parts.push(`![圖片](${uploadedUrl})`);
+            const placeholder = src ? imgPlaceholders.get(src) : null;
+            if (placeholder) {
+              parts.push(`![圖片](${placeholder})`);
             }
           } else if (el.tagName === "BR") {
             parts.push("\n");
@@ -201,9 +166,8 @@ export default function DmaoPage() {
         setFormContent((prev) => prev + (prev ? "\n" : "") + pastedContent);
       }
 
-      const uploadCount = Array.from(uploadResults.values()).filter(Boolean).length;
-      showToast(uploadCount > 0 ? `已貼上，含 ${uploadCount} 張圖片` : "已貼上");
-      setUploading(false);
+      const imgCount = imgPlaceholders.size;
+      showToast(imgCount > 0 ? `已貼上，含 ${imgCount} 張圖片（儲存時上傳）` : "已貼上");
       return;
     }
 
@@ -218,30 +182,93 @@ export default function DmaoPage() {
       }
       if (imageFiles.length > 0) {
         e.preventDefault();
-        setUploading(true);
         for (const file of imageFiles) {
-          const url = await uploadImageBlob(file);
-          if (url) insertImageAtCursor(url);
+          const blobUrl = queueLocalFile(file);
+          insertImageAtCursor(blobUrl);
         }
-        showToast(`已上傳 ${imageFiles.length} 張圖片`);
-        setUploading(false);
+        showToast(`已插入 ${imageFiles.length} 張圖片（儲存時上傳）`);
       }
     }
+  };
+
+  const uploadPendingImages = async (content: string): Promise<string> => {
+    const pending = pendingImagesRef.current;
+    if (pending.size === 0) return content;
+
+    let result = content;
+    const entries = Array.from(pending.entries());
+
+    // Upload all pending images in parallel
+    const uploads = entries.map(async ([placeholder, source]) => {
+      try {
+        let url: string | null = null;
+        if (source instanceof File) {
+          // Local file → upload via /api/upload
+          const fd = new FormData();
+          fd.append("file", source);
+          fd.append("article_date", formDate);
+          const res = await fetch("/api/upload", { method: "POST", body: fd });
+          const json = await res.json();
+          url = json.ok ? json.url : null;
+        } else {
+          // Remote URL → upload via /api/upload-url
+          const remoteSrc = placeholder.replace(/^pending:/, "");
+          const res = await fetch("/api/upload-url", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ src: remoteSrc, article_date: formDate }),
+          });
+          const json = await res.json();
+          url = json.ok ? json.url : null;
+        }
+        return { placeholder, url };
+      } catch {
+        return { placeholder, url: null };
+      }
+    });
+
+    const results = await Promise.all(uploads);
+    for (const { placeholder, url } of results) {
+      if (url) {
+        result = result.split(placeholder).join(url);
+      } else {
+        // Remove failed image references
+        result = result.replace(new RegExp(`!\\[.*?\\]\\(${placeholder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\)\\n?`, "g"), "");
+      }
+    }
+
+    // Clean up blob URLs
+    for (const [placeholder, source] of entries) {
+      if (source instanceof File && placeholder.startsWith("blob:")) {
+        URL.revokeObjectURL(placeholder);
+      }
+    }
+    pending.clear();
+
+    return result;
   };
 
   const handleSubmitArticle = async () => {
     if (!formTitle.trim() || !formContent.trim()) return;
     setSubmitting(true);
-    showToast("分析中...", true);
-    // Extract image URLs from content
-    const imageUrls = Array.from(formContent.matchAll(/!\[.*?\]\((.*?)\)/g)).map((m) => m[1]);
+
     try {
+      // Upload pending images first
+      const hasPending = pendingImagesRef.current.size > 0;
+      if (hasPending) {
+        showToast("上傳圖片中...", true);
+      }
+      const finalContent = await uploadPendingImages(formContent);
+
+      showToast("分析中...", true);
+      // Extract image URLs from content
+      const imageUrls = Array.from(finalContent.matchAll(/!\[.*?\]\((.*?)\)/g)).map((m) => m[1]);
       const res = await fetch("/api/articles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: formTitle,
-          content: formContent,
+          content: finalContent,
           article_date: formDate,
           images: imageUrls,
         }),
