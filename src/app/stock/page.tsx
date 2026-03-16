@@ -12,7 +12,7 @@ type Annotation = {
   stock_name: string;
   paragraph: string;
   article_id: string;
-  articles: { id: string; title: string; created_at: string } | null;
+  dmao_articles: { id: string; title: string; created_at: string } | null;
 };
 
 type EpsForecast = {
@@ -22,7 +22,7 @@ type EpsForecast = {
   forecast_year: number;
   eps: number;
   prev_eps: number | null;
-  articles: { id: string; title: string; article_date: string } | null;
+  dmao_articles: { id: string; title: string; article_date: string } | null;
 };
 
 export default function StockPage() {
@@ -255,10 +255,10 @@ export default function StockPage() {
                               {stockAnnotations.map((ann) => (
                                 <div key={ann.id} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid #e5e7eb" }}>
                                   <div style={{ fontSize: 13, color: "#666", marginBottom: 4 }}>
-                                    <strong>{ann.articles?.title || "無標題"}</strong>
-                                    {ann.articles?.created_at && (
+                                    <strong>{ann.dmao_articles?.title || "無標題"}</strong>
+                                    {ann.dmao_articles?.created_at && (
                                       <span style={{ marginLeft: 8 }}>
-                                        {new Date(ann.articles.created_at).toLocaleDateString("zh-TW")}
+                                        {new Date(ann.dmao_articles.created_at).toLocaleDateString("zh-TW")}
                                       </span>
                                     )}
                                     <a

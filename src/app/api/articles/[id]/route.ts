@@ -10,7 +10,7 @@ export async function GET(
   const { id } = await params;
 
   const { data, error } = await getSupabase()
-    .from("articles")
+    .from("dmao_articles")
     .select("*")
     .eq("id", id)
     .single();
@@ -34,7 +34,7 @@ export async function DELETE(
 
   // 1. Fetch article to get image URLs
   const { data: article } = await supabase
-    .from("articles")
+    .from("dmao_articles")
     .select("content, images")
     .eq("id", id)
     .single();
@@ -44,8 +44,8 @@ export async function DELETE(
   }
 
   // 2. Delete annotations
-  await supabase.from("annotations").delete().eq("article_id", id);
-  await supabase.from("eps_forecasts").delete().eq("article_id", id);
+  await supabase.from("dmao_annotations").delete().eq("article_id", id);
+  await supabase.from("dmao_eps_forecasts").delete().eq("article_id", id);
 
   // 3. Delete images from R2
   const imageUrls: string[] = [];
@@ -71,7 +71,7 @@ export async function DELETE(
   );
 
   // 4. Delete article
-  const { error } = await supabase.from("articles").delete().eq("id", id);
+  const { error } = await supabase.from("dmao_articles").delete().eq("id", id);
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

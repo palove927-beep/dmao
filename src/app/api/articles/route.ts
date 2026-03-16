@@ -14,7 +14,7 @@ const stockListText = allStocks
 
 export async function GET() {
   const { data, error } = await getSupabase()
-    .from("articles")
+    .from("dmao_articles")
     .select("id, title, source, article_date, created_at")
     .order("article_date", { ascending: false });
 
@@ -96,7 +96,7 @@ ${content}`,
 
     // 3. 存入文章
     const { data: article, error: articleErr } = await getSupabase()
-      .from("articles")
+      .from("dmao_articles")
       .insert({ title, content, source: source || null, article_date: articleDate, images: images || [] })
       .select("id")
       .single();
@@ -125,7 +125,7 @@ ${content}`,
       }));
 
       const { error: annErr } = await getSupabase()
-        .from("annotations")
+        .from("dmao_annotations")
         .insert(rows);
 
       if (annErr) {
@@ -149,7 +149,7 @@ ${content}`,
       }));
 
       const { error: epsErr } = await getSupabase()
-        .from("eps_forecasts")
+        .from("dmao_eps_forecasts")
         .insert(epsRows);
 
       if (epsErr) {

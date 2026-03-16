@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   // Return counts grouped by ticker
   if (mode === "counts") {
     const { data, error } = await getSupabase()
-      .from("annotations")
+      .from("dmao_annotations")
       .select("ticker");
 
     if (error) {
@@ -27,8 +27,8 @@ export async function GET(req: NextRequest) {
   }
 
   let query = getSupabase()
-    .from("annotations")
-    .select("*, articles(id, title, created_at)")
+    .from("dmao_annotations")
+    .select("*, dmao_articles(id, title, created_at)")
     .order("created_at", { ascending: false });
 
   if (ticker) {
