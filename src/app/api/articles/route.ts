@@ -12,6 +12,19 @@ const stockListText = allStocks
   .map((s) => `${s.ticker} ${s.name}`)
   .join("\n");
 
+export async function GET() {
+  const { data, error } = await getSupabase()
+    .from("articles")
+    .select("id, title, source, article_date, created_at")
+    .order("article_date", { ascending: false });
+
+  if (error) {
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true, articles: data });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { title, content, source, article_date } = await req.json();
