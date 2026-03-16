@@ -112,9 +112,6 @@ export default function StockPage() {
                       ...tdStyle,
                       textAlign: "right",
                       fontWeight: "bold",
-                      color: hasTwData && p.change !== null
-                        ? p.change > 0 ? "#d32f2f" : p.change < 0 ? "#2e7d32" : "#333"
-                        : "#333",
                     }}>
                       {hasTwData ? formatPrice(p.price) : "-"}
                     </td>
