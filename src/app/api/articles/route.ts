@@ -43,7 +43,7 @@ ${stockListText}
 規則：
 1. 只回傳清單中存在的股票
 2. paragraph 必須是文章中的原文段落，不要自行編寫
-3. 同一支股票如果在多個段落被提及，每個段落都要分別列出
+3. 每支股票只回傳一次，選擇最相關、資訊最豐富的那個段落
 4. 股票名稱可能以簡稱、全名或代號出現
 
 文章標題：${title}
@@ -65,9 +65,16 @@ ${content}`,
       );
     }
 
-    // 3. 存入標記
-    if (annotations.mentions.length > 0) {
-      const rows = annotations.mentions.map((m) => ({
+    // 3. 存入標記（每支股票只保留一筆）
+    const seen = new Set<string>();
+    const uniqueMentions = annotations.mentions.filter((m) => {
+      if (seen.has(m.ticker)) return false;
+      seen.add(m.ticker);
+      return true;
+    });
+
+    if (uniqueMentions.length > 0) {
+      const rows = uniqueMentions.map((m) => ({
         article_id: article.id,
         ticker: m.ticker,
         stock_name: m.stock_name,
@@ -89,7 +96,7 @@ ${content}`,
     return NextResponse.json({
       ok: true,
       articleId: article.id,
-      annotationCount: annotations.mentions.length,
+      annotationCount: uniqueMentions.length,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
