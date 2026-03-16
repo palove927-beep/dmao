@@ -78,14 +78,17 @@ export default function DmaoPage() {
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
-    const items = e.clipboardData.items;
-    for (const item of Array.from(items)) {
+    const items = Array.from(e.clipboardData.items);
+    const imageFiles: File[] = [];
+    for (const item of items) {
       if (item.type.startsWith("image/")) {
-        e.preventDefault();
         const file = item.getAsFile();
-        if (file) uploadFile(file);
-        return;
+        if (file) imageFiles.push(file);
       }
+    }
+    if (imageFiles.length > 0) {
+      imageFiles.forEach(uploadFile);
+      // Don't preventDefault — let text paste through normally
     }
   };
 
