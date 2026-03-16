@@ -6,6 +6,7 @@ create table articles (
   content text not null,
   source text,
   article_date date default current_date,
+  images text[] default '{}',
   created_at timestamptz default now()
 );
 

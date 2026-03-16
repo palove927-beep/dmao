@@ -27,7 +27,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { title, content, source, article_date } = await req.json();
+    const { title, content, source, article_date, images } = await req.json();
 
     if (!title || !content) {
       return NextResponse.json(
@@ -76,7 +76,7 @@ ${content}`,
     // 3. 存入文章
     const { data: article, error: articleErr } = await getSupabase()
       .from("articles")
-      .insert({ title, content, source: source || null, article_date: articleDate })
+      .insert({ title, content, source: source || null, article_date: articleDate, images: images || [] })
       .select("id")
       .single();
 

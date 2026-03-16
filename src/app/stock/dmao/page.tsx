@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
@@ -30,11 +30,14 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 
 export default function DmaoPage() {
   const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
   const today = new Date().toISOString().slice(0, 10);
   const [formTitle, setFormTitle] = useState("");
   const [formDate, setFormDate] = useState(today);
   const [formContent, setFormContent] = useState("");
   const [formSource, setFormSource] = useState("");
+  const [images, setImages] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -45,6 +48,50 @@ export default function DmaoPage() {
   };
 
   const clearToast = useCallback(() => setToast(null), []);
+
+  const uploadFile = async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    setUploading(true);
+    try {
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const json = await res.json();
+      if (json.ok) {
+        setImages((prev) => [...prev, json.url]);
+        setToast("圖片上傳成功");
+      } else {
+        setToast(`上傳失敗：${json.error}`);
+      }
+    } catch {
+      setToast("圖片上傳失敗");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      Array.from(files).forEach(uploadFile);
+    }
+    e.target.value = "";
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) uploadFile(file);
+        return;
+      }
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmitArticle = async () => {
     if (!formTitle.trim() || !formContent.trim()) return;
@@ -59,6 +106,7 @@ export default function DmaoPage() {
           content: formContent,
           source: formSource || undefined,
           article_date: formDate,
+          images,
         }),
       });
       const json = await res.json();
@@ -76,7 +124,10 @@ export default function DmaoPage() {
   };
 
   return (
-    <div style={{ maxWidth: 700, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
+    <div
+      style={{ maxWidth: 700, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}
+      onPaste={handlePaste}
+    >
       <a href="/stock" style={{ color: "#1a56db", textDecoration: "none", fontSize: 15 }}>
         ← 股票報價
       </a>
@@ -120,11 +171,77 @@ export default function DmaoPage() {
           <textarea
             value={formContent}
             onChange={(e) => setFormContent(e.target.value)}
-            placeholder="貼上文章全文..."
+            placeholder="貼上文章全文...（也可直接 Ctrl+V 貼上圖片）"
             rows={15}
             style={{ width: "100%", padding: "8px 12px", border: "1px solid #ccc", borderRadius: 4, fontSize: 14, resize: "vertical", boxSizing: "border-box" }}
           />
         </div>
+
+        {/* Image upload */}
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ display: "block", fontWeight: "bold", marginBottom: 4, fontSize: 14 }}>圖片</label>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFileChange}
+            style={{ display: "none" }}
+          />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            style={{
+              padding: "6px 16px",
+              fontSize: 13,
+              border: "1px solid #ccc",
+              borderRadius: 4,
+              background: "#fff",
+              cursor: uploading ? "not-allowed" : "pointer",
+            }}
+          >
+            {uploading ? "上傳中..." : "選擇圖片"}
+          </button>
+          <span style={{ fontSize: 12, color: "#999", marginLeft: 8 }}>
+            或在頁面任意處 Ctrl+V 貼上圖片
+          </span>
+
+          {images.length > 0 && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+              {images.map((url, i) => (
+                <div key={i} style={{ position: "relative" }}>
+                  <img
+                    src={url}
+                    alt={`uploaded-${i}`}
+                    style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 4, border: "1px solid #ddd" }}
+                  />
+                  <button
+                    onClick={() => removeImage(i)}
+                    style={{
+                      position: "absolute",
+                      top: -6,
+                      right: -6,
+                      width: 20,
+                      height: 20,
+                      borderRadius: "50%",
+                      border: "none",
+                      background: "#dc2626",
+                      color: "#fff",
+                      fontSize: 12,
+                      cursor: "pointer",
+                      lineHeight: "20px",
+                      padding: 0,
+                    }}
+                  >
+                    x
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div>
           <button
             onClick={handleSubmitArticle}
