@@ -49,9 +49,9 @@ function parseMsgArray(
   for (const item of msgArray) {
     const ticker = item.c;
     const yesterday = parseNumber(item.y);
-    // z=最近成交價, h=最高, l=最低, o=開盤; 盤後 z 常為 "--"
+    // z=成交價, b=買價, a=賣價, u=漲停價, w=跌停價, y=昨收
     const effectivePrice =
-      parseNumber(item.z) ?? parseNumber(item.h) ?? parseNumber(item.o) ?? yesterday;
+      parseNumber(item.z) ?? parseNumber(item.b?.split("_")[0]) ?? parseNumber(item.a?.split("_")[0]) ?? parseNumber(item.u) ?? parseNumber(item.w) ?? yesterday;
 
     const change =
       effectivePrice !== null && yesterday !== null
