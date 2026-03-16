@@ -15,13 +15,24 @@ type Annotation = {
   articles: { id: string; title: string; created_at: string } | null;
 };
 
+type EpsForecast = {
+  id: string;
+  ticker: string;
+  stock_name: string;
+  forecast_year: number;
+  eps: number;
+  prev_eps: number | null;
+  articles: { id: string; title: string; article_date: string } | null;
+};
+
 export default function StockPage() {
   const [prices, setPrices] = useState<PriceMap>({});
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<string>("");
 
-  // Annotations
+  // Annotations & EPS
   const [annotations, setAnnotations] = useState<Record<string, Annotation[]>>({});
+  const [epsForecasts, setEpsForecasts] = useState<Record<string, EpsForecast[]>>({});
   const [annotationCounts, setAnnotationCounts] = useState<Record<string, number>>({});
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
   const [loadingAnnotations, setLoadingAnnotations] = useState<string | null>(null);
@@ -70,10 +81,15 @@ export default function StockPage() {
 
     setLoadingAnnotations(ticker);
     try {
-      const res = await fetch(`/api/annotations?ticker=${ticker}`);
-      const json = await res.json();
-      if (json.ok) {
-        setAnnotations((prev) => ({ ...prev, [ticker]: json.annotations }));
+      const [annRes, epsRes] = await Promise.all([
+        fetch(`/api/annotations?ticker=${ticker}`).then((r) => r.json()),
+        fetch(`/api/eps-forecasts?ticker=${ticker}`).then((r) => r.json()),
+      ]);
+      if (annRes.ok) {
+        setAnnotations((prev) => ({ ...prev, [ticker]: annRes.annotations }));
+      }
+      if (epsRes.ok) {
+        setEpsForecasts((prev) => ({ ...prev, [ticker]: epsRes.forecasts }));
       }
     } catch {
       // ignore
@@ -165,6 +181,7 @@ export default function StockPage() {
                 const hasTwData = isTwStock(stock.ticker) && p;
                 const isExpanded = expandedTicker === stock.ticker;
                 const stockAnnotations = annotations[stock.ticker] || [];
+                const stockEps = epsForecasts[stock.ticker] || [];
                 const isLoadingThis = loadingAnnotations === stock.ticker;
 
                 return (
@@ -219,10 +236,23 @@ export default function StockPage() {
                           <div style={{ background: "#f8fafc", borderLeft: "3px solid #1a56db", margin: "0 14px 8px", padding: "12px 16px" }}>
                             {isLoadingThis ? (
                               <div style={{ color: "#999", fontSize: 13 }}>載入中...</div>
-                            ) : stockAnnotations.length === 0 ? (
+                            ) : stockAnnotations.length === 0 && stockEps.length === 0 ? (
                               <div style={{ color: "#999", fontSize: 13 }}>尚無標記段落</div>
-                            ) : (
-                              stockAnnotations.map((ann) => (
+                            ) : (<>
+                              {stockEps.length > 0 && (
+                                <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid #e5e7eb" }}>
+                                  <div style={{ fontSize: 13, fontWeight: "bold", color: "#b45309", marginBottom: 6 }}>財測 EPS</div>
+                                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                    {stockEps.map((f) => (
+                                      <span key={f.id} style={{ background: "#fef9c3", padding: "3px 10px", borderRadius: 6, fontSize: 13 }}>
+                                        {f.forecast_year}年：<strong>{f.eps}</strong>元
+                                        {f.prev_eps != null && <span style={{ color: "#9ca3af", marginLeft: 4 }}>(前次 {f.prev_eps})</span>}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {stockAnnotations.map((ann) => (
                                 <div key={ann.id} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid #e5e7eb" }}>
                                   <div style={{ fontSize: 13, color: "#666", marginBottom: 4 }}>
                                     <strong>{ann.articles?.title || "無標題"}</strong>
@@ -242,8 +272,8 @@ export default function StockPage() {
                                     {ann.paragraph}
                                   </div>
                                 </div>
-                              ))
-                            )}
+                              ))}
+                            </>)}
                           </div>
                         </td>
                       </tr>

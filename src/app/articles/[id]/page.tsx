@@ -19,11 +19,21 @@ type Annotation = {
   paragraph: string;
 };
 
+type EpsForecast = {
+  id: string;
+  ticker: string;
+  stock_name: string;
+  forecast_year: number;
+  eps: number;
+  prev_eps: number | null;
+};
+
 export default function ArticlePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [article, setArticle] = useState<Article | null>(null);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [epsForecasts, setEpsForecasts] = useState<EpsForecast[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
 
@@ -32,9 +42,11 @@ export default function ArticlePage() {
     Promise.all([
       fetch(`/api/articles/${id}`).then((r) => r.json()),
       fetch(`/api/annotations?article_id=${id}`).then((r) => r.json()),
-    ]).then(([artJson, annJson]) => {
+      fetch(`/api/eps-forecasts?article_id=${id}`).then((r) => r.json()),
+    ]).then(([artJson, annJson, epsJson]) => {
       if (artJson.ok) setArticle(artJson.article);
       if (annJson.ok) setAnnotations(annJson.annotations);
+      if (epsJson.ok) setEpsForecasts(epsJson.forecasts);
       setLoading(false);
     });
   }, [id]);
@@ -145,6 +157,35 @@ export default function ArticlePage() {
               </span>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* EPS Forecasts */}
+      {epsForecasts.length > 0 && (
+        <div style={{ background: "#fefce8", borderRadius: 8, padding: "12px 16px", marginBottom: 20 }}>
+          <div style={{ fontWeight: "bold", fontSize: 14, marginBottom: 8 }}>財測 EPS：</div>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
+                <th style={{ textAlign: "left", padding: "4px 8px" }}>股票</th>
+                <th style={{ textAlign: "center", padding: "4px 8px" }}>年度</th>
+                <th style={{ textAlign: "right", padding: "4px 8px" }}>財測 EPS</th>
+                <th style={{ textAlign: "right", padding: "4px 8px" }}>前次預估</th>
+              </tr>
+            </thead>
+            <tbody>
+              {epsForecasts.map((f) => (
+                <tr key={f.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                  <td style={{ padding: "4px 8px" }}>{f.stock_name} ({f.ticker})</td>
+                  <td style={{ textAlign: "center", padding: "4px 8px" }}>{f.forecast_year}</td>
+                  <td style={{ textAlign: "right", padding: "4px 8px", fontWeight: "bold", color: "#b45309" }}>{f.eps}</td>
+                  <td style={{ textAlign: "right", padding: "4px 8px", color: "#9ca3af" }}>
+                    {f.prev_eps != null ? f.prev_eps : "-"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 

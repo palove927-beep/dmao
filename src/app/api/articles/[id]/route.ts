@@ -45,6 +45,7 @@ export async function DELETE(
 
   // 2. Delete annotations
   await supabase.from("annotations").delete().eq("article_id", id);
+  await supabase.from("eps_forecasts").delete().eq("article_id", id);
 
   // 3. Delete images from R2
   const imageUrls: string[] = [];
