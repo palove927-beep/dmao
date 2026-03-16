@@ -194,6 +194,19 @@ export default function ArticlePage() {
         {article.content.split("\n").map((para, i) => {
           const trimmed = para.trim();
           if (!trimmed) return <br key={i} />;
+          // Render markdown images: ![alt](url)
+          const imgMatch = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+          if (imgMatch) {
+            return (
+              <div key={i} style={{ margin: "12px 0" }}>
+                <img
+                  src={imgMatch[2]}
+                  alt={imgMatch[1] || "image"}
+                  style={{ maxWidth: "100%", borderRadius: 6, border: "1px solid #e5e7eb" }}
+                />
+              </div>
+            );
+          }
           return (
             <p key={i} style={{ margin: "8px 0" }}>
               {highlightStocks(trimmed)}
