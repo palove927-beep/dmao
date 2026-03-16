@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 
-function Toast({ message, onClose }: { message: string; onClose: () => void }) {
+function Toast({ message, persistent, onClose }: { message: string; persistent?: boolean; onClose: () => void }) {
   useEffect(() => {
+    if (persistent) return;
     const t = setTimeout(onClose, 3000);
     return () => clearTimeout(t);
-  }, [onClose]);
+  }, [onClose, persistent]);
 
   return (
     <div style={{
@@ -39,7 +40,7 @@ export default function DmaoPage() {
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; persistent?: boolean } | null>(null);
 
   const handleTitleChange = (value: string) => {
     setFormTitle(value);
@@ -48,6 +49,7 @@ export default function DmaoPage() {
   };
 
   const clearToast = useCallback(() => setToast(null), []);
+  const showToast = useCallback((message: string, persistent?: boolean) => setToast({ message, persistent }), []);
 
   const uploadFile = async (file: File) => {
     const formData = new FormData();
@@ -58,12 +60,12 @@ export default function DmaoPage() {
       const json = await res.json();
       if (json.ok) {
         setImages((prev) => [...prev, json.url]);
-        setToast("圖片上傳成功");
+        showToast("圖片上傳成功");
       } else {
-        setToast(`上傳失敗：${json.error}`);
+        showToast(`上傳失敗：${json.error}`);
       }
     } catch {
-      setToast("圖片上傳失敗");
+      showToast("圖片上傳失敗");
     } finally {
       setUploading(false);
     }
@@ -99,7 +101,7 @@ export default function DmaoPage() {
   const handleSubmitArticle = async () => {
     if (!formTitle.trim() || !formContent.trim()) return;
     setSubmitting(true);
-    setToast("分析中...");
+    showToast("分析中...", true);
     try {
       const res = await fetch("/api/articles", {
         method: "POST",
@@ -114,13 +116,13 @@ export default function DmaoPage() {
       });
       const json = await res.json();
       if (json.ok) {
-        setToast(`已儲存，標記了 ${json.annotationCount} 個股票提及`);
+        showToast(`已儲存，標記了 ${json.annotationCount} 個股票提及`);
         setTimeout(() => router.push("/articles"), 1500);
       } else {
-        setToast(`錯誤：${json.error}`);
+        showToast(`錯誤：${json.error}`);
       }
     } catch (err) {
-      setToast(`提交失敗：${err instanceof Error ? err.message : "未知錯誤"}`);
+      showToast(`提交失敗：${err instanceof Error ? err.message : "未知錯誤"}`);
     } finally {
       setSubmitting(false);
     }
@@ -265,7 +267,7 @@ export default function DmaoPage() {
         </div>
       </div>
 
-      {toast && <Toast message={toast} onClose={clearToast} />}
+      {toast && <Toast message={toast.message} persistent={toast.persistent} onClose={clearToast} />}
     </div>
   );
 }
