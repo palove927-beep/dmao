@@ -104,15 +104,13 @@ export default function DmaoPage() {
 
   const uploadImageUrl = async (src: string): Promise<string | null> => {
     try {
-      const res = await fetch(src);
-      const blob = await res.blob();
-      const ext = blob.type.split("/")[1]?.split(";")[0] || "png";
-      const file = new File([blob], `pasted.${ext}`, { type: blob.type });
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("article_date", formDate);
-      const uploadRes = await fetch("/api/upload", { method: "POST", body: fd });
-      const json = await uploadRes.json();
+      // Use server-side proxy to avoid CORS when fetching external images
+      const res = await fetch("/api/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ src, article_date: formDate }),
+      });
+      const json = await res.json();
       return json.ok ? json.url : null;
     } catch {
       return null;
