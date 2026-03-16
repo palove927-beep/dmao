@@ -102,18 +102,132 @@ export default function DmaoPage() {
     e.target.value = "";
   };
 
-  const handlePaste = (e: React.ClipboardEvent) => {
-    const items = Array.from(e.clipboardData.items);
-    const imageFiles: File[] = [];
-    for (const item of items) {
-      if (item.type.startsWith("image/")) {
-        const file = item.getAsFile();
-        if (file) imageFiles.push(file);
-      }
+  const uploadImageUrl = async (src: string): Promise<string | null> => {
+    try {
+      const res = await fetch(src);
+      const blob = await res.blob();
+      const ext = blob.type.split("/")[1]?.split(";")[0] || "png";
+      const file = new File([blob], `pasted.${ext}`, { type: blob.type });
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("article_date", formDate);
+      const uploadRes = await fetch("/api/upload", { method: "POST", body: fd });
+      const json = await uploadRes.json();
+      return json.ok ? json.url : null;
+    } catch {
+      return null;
     }
-    if (imageFiles.length > 0) {
-      imageFiles.forEach(uploadFile);
-      // Don't preventDefault — let text paste through normally
+  };
+
+  const uploadImageBlob = async (file: File): Promise<string | null> => {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("article_date", formDate);
+    try {
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const json = await res.json();
+      return json.ok ? json.url : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = Array.from(e.clipboardData.items);
+    const html = e.clipboardData.getData("text/html");
+    const hasImages = items.some((item) => item.type.startsWith("image/"));
+
+    // Case 1: HTML with <img> tags (e.g. copy from webpage with text+images)
+    if (html && html.includes("<img")) {
+      e.preventDefault();
+      setUploading(true);
+
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, "text/html");
+
+      // Build content by walking through nodes
+      const parts: string[] = [];
+      const imgUploadPromises: Map<string, Promise<string | null>> = new Map();
+
+      // Collect all img srcs and start uploading
+      const imgs = doc.querySelectorAll("img");
+      for (const img of imgs) {
+        const src = img.getAttribute("src");
+        if (src && !imgUploadPromises.has(src)) {
+          imgUploadPromises.set(src, uploadImageUrl(src));
+        }
+      }
+
+      // Wait for all uploads
+      const uploadResults = new Map<string, string | null>();
+      for (const [src, promise] of imgUploadPromises) {
+        uploadResults.set(src, await promise);
+      }
+
+      // Walk the body to build text with image placeholders
+      const walk = (node: Node) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          const text = node.textContent?.trim();
+          if (text) parts.push(text);
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          const el = node as Element;
+          if (el.tagName === "IMG") {
+            const src = el.getAttribute("src");
+            const uploadedUrl = src ? uploadResults.get(src) : null;
+            if (uploadedUrl) {
+              parts.push(`![圖片](${uploadedUrl})`);
+            }
+          } else if (el.tagName === "BR") {
+            parts.push("\n");
+          } else {
+            const isBlock = ["P", "DIV", "H1", "H2", "H3", "H4", "H5", "H6", "LI", "TR", "BLOCKQUOTE", "SECTION", "ARTICLE"].includes(el.tagName);
+            if (isBlock && parts.length > 0) parts.push("\n");
+            for (const child of el.childNodes) walk(child);
+            if (isBlock) parts.push("\n");
+          }
+        }
+      };
+      walk(doc.body);
+
+      const pastedContent = parts.join("").replace(/\n{3,}/g, "\n\n").trim();
+      const ta = textareaRef.current;
+      if (ta) {
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        const before = formContent.slice(0, start);
+        const after = formContent.slice(end);
+        const sep1 = before.length > 0 && !before.endsWith("\n") ? "\n" : "";
+        const sep2 = after.length > 0 && !after.startsWith("\n") ? "\n" : "";
+        setFormContent(before + sep1 + pastedContent + sep2 + after);
+      } else {
+        setFormContent((prev) => prev + (prev ? "\n" : "") + pastedContent);
+      }
+
+      const uploadCount = Array.from(uploadResults.values()).filter(Boolean).length;
+      showToast(uploadCount > 0 ? `已貼上，含 ${uploadCount} 張圖片` : "已貼上");
+      setUploading(false);
+      return;
+    }
+
+    // Case 2: Pure image paste (e.g. screenshot, Ctrl+V image)
+    if (hasImages) {
+      const imageFiles: File[] = [];
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) imageFiles.push(file);
+        }
+      }
+      if (imageFiles.length > 0) {
+        e.preventDefault();
+        setUploading(true);
+        for (const file of imageFiles) {
+          const url = await uploadImageBlob(file);
+          if (url) insertImageAtCursor(url);
+        }
+        showToast(`已上傳 ${imageFiles.length} 張圖片`);
+        setUploading(false);
+      }
     }
   };
 
