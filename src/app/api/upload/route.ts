@@ -12,8 +12,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "No file" }, { status: 400 });
     }
 
+    const articleDate = (formData.get("article_date") as string) || new Date().toISOString().slice(0, 10);
+    const dateStr = articleDate.replace(/-/g, "");
+    const rand = crypto.randomBytes(3).toString("hex"); // 6 chars
     const ext = file.name.split(".").pop() || "png";
-    const key = `articles/${Date.now()}-${crypto.randomBytes(4).toString("hex")}.${ext}`;
+    const key = `articles/${dateStr}-${rand}.${ext}`;
 
     const buffer = Buffer.from(await file.arrayBuffer());
 

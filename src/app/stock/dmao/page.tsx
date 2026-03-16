@@ -76,6 +76,7 @@ export default function DmaoPage() {
   const uploadFile = async (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("article_date", formDate);
     setUploading(true);
     try {
       const res = await fetch("/api/upload", { method: "POST", body: formData });
