@@ -4,6 +4,27 @@ import { getSupabase } from "@/lib/supabase";
 export async function GET(req: NextRequest) {
   const ticker = req.nextUrl.searchParams.get("ticker");
   const articleId = req.nextUrl.searchParams.get("article_id");
+  const mode = req.nextUrl.searchParams.get("mode");
+
+  // Return counts grouped by ticker
+  if (mode === "counts") {
+    const { data, error } = await getSupabase()
+      .from("annotations")
+      .select("ticker");
+
+    if (error) {
+      return NextResponse.json(
+        { ok: false, error: error.message },
+        { status: 500 }
+      );
+    }
+
+    const counts: Record<string, number> = {};
+    for (const row of data || []) {
+      counts[row.ticker] = (counts[row.ticker] || 0) + 1;
+    }
+    return NextResponse.json({ ok: true, counts });
+  }
 
   let query = getSupabase()
     .from("annotations")

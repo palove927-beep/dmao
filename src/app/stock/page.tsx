@@ -22,8 +22,21 @@ export default function StockPage() {
 
   // Annotations
   const [annotations, setAnnotations] = useState<Record<string, Annotation[]>>({});
+  const [annotationCounts, setAnnotationCounts] = useState<Record<string, number>>({});
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
   const [loadingAnnotations, setLoadingAnnotations] = useState<string | null>(null);
+
+  const fetchAnnotationCounts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/annotations?mode=counts");
+      const json = await res.json();
+      if (json.ok) {
+        setAnnotationCounts(json.counts);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const fetchPrices = useCallback(async () => {
     try {
@@ -42,9 +55,10 @@ export default function StockPage() {
 
   useEffect(() => {
     fetchPrices();
+    fetchAnnotationCounts();
     const interval = setInterval(fetchPrices, 30000);
     return () => clearInterval(interval);
-  }, [fetchPrices]);
+  }, [fetchPrices, fetchAnnotationCounts]);
 
   const fetchAnnotations = async (ticker: string) => {
     if (expandedTicker === ticker) {
@@ -174,19 +188,29 @@ export default function StockPage() {
                         {hasTwData ? formatPrice(p.price) : "-"}
                       </td>
                       <td style={{ ...tdStyle, textAlign: "center" }}>
-                        <button
-                          onClick={() => fetchAnnotations(stock.ticker)}
-                          style={{
-                            padding: "2px 10px",
-                            fontSize: 12,
-                            border: "1px solid #ccc",
-                            borderRadius: 4,
-                            background: isExpanded ? "#e0e7ff" : "#fff",
-                            cursor: "pointer",
-                          }}
-                        >
-                          {isExpanded ? "▲" : "▼"}
-                        </button>
+                        {(() => {
+                          const count = annotationCounts[stock.ticker] || 0;
+                          return count > 0 ? (
+                            <button
+                              onClick={() => fetchAnnotations(stock.ticker)}
+                              style={{
+                                padding: "2px 10px",
+                                fontSize: 13,
+                                fontWeight: "bold",
+                                border: "none",
+                                borderRadius: 10,
+                                background: isExpanded ? "#1a56db" : "#e0e7ff",
+                                color: isExpanded ? "#fff" : "#1a56db",
+                                cursor: "pointer",
+                                minWidth: 28,
+                              }}
+                            >
+                              {count}
+                            </button>
+                          ) : (
+                            <span style={{ color: "#ccc", fontSize: 13 }}>0</span>
+                          );
+                        })()}
                       </td>
                     </tr>
                     {isExpanded && (
