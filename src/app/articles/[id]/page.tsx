@@ -53,8 +53,23 @@ export default function ArticlePage() {
     );
   }
 
-  // Collect unique annotated paragraphs for highlighting
-  const annotatedParagraphs = annotations.map((a) => a.paragraph);
+  // Collect unique stock names and tickers for inline highlighting
+  const stockKeywords = [...new Set(annotations.flatMap((a) => [a.stock_name, a.ticker]))].filter(Boolean);
+  stockKeywords.sort((a, b) => b.length - a.length); // match longer names first
+
+  const highlightStocks = (text: string) => {
+    if (stockKeywords.length === 0) return [text];
+    const escaped = stockKeywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    const regex = new RegExp(`(${escaped.join("|")})`, "g");
+    const parts = text.split(regex);
+    return parts.map((part, i) =>
+      stockKeywords.includes(part) ? (
+        <mark key={i} style={{ background: "#fef9c3", padding: "1px 2px", borderRadius: 2 }}>{part}</mark>
+      ) : (
+        part
+      )
+    );
+  };
 
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
@@ -94,25 +109,14 @@ export default function ArticlePage() {
         </div>
       )}
 
-      {/* Article content with highlighting */}
+      {/* Article content with inline stock highlighting */}
       <div style={{ lineHeight: 1.8, fontSize: 15 }}>
         {article.content.split("\n").map((para, i) => {
           const trimmed = para.trim();
           if (!trimmed) return <br key={i} />;
-          const isAnnotated = annotatedParagraphs.some(
-            (ap) => trimmed.includes(ap) || ap.includes(trimmed)
-          );
           return (
-            <p
-              key={i}
-              style={{
-                margin: "8px 0",
-                ...(isAnnotated
-                  ? { background: "#fef9c3", borderLeft: "3px solid #eab308", paddingLeft: 12 }
-                  : {}),
-              }}
-            >
-              {trimmed}
+            <p key={i} style={{ margin: "8px 0" }}>
+              {highlightStocks(trimmed)}
             </p>
           );
         })}
