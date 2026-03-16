@@ -5,6 +5,7 @@ create table articles (
   title text not null,
   content text not null,
   source text,
+  article_date date default current_date,
   created_at timestamptz default now()
 );
 

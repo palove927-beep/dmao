@@ -51,10 +51,16 @@ ${stockListText}
 ${content}`,
     });
 
-    // 2. 存入文章
+    // 2. 從標題解析文章日期（如 "20260303 XXXX" → 2026-03-03）
+    const dateMatch = title.match(/^(\d{4})(\d{2})(\d{2})\s/);
+    const articleDate = dateMatch
+      ? `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`
+      : new Date().toISOString().slice(0, 10);
+
+    // 3. 存入文章
     const { data: article, error: articleErr } = await getSupabase()
       .from("articles")
-      .insert({ title, content, source: source || null })
+      .insert({ title, content, source: source || null, article_date: articleDate })
       .select("id")
       .single();
 
@@ -65,7 +71,7 @@ ${content}`,
       );
     }
 
-    // 3. 存入標記（每支股票只保留一筆）
+    // 4. 存入標記（每支股票只保留一筆）
     const seen = new Set<string>();
     const uniqueMentions = annotations.mentions.filter((m) => {
       if (seen.has(m.ticker)) return false;
