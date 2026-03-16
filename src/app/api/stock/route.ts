@@ -63,7 +63,7 @@ function parseMsgArray(
 
     map.set(ticker, {
       ticker,
-      name: item.n || "",
+      name: (item.n || "").replace(/\*/g, ""),
       price: effectivePrice,
       change,
       changePercent,
@@ -139,7 +139,7 @@ async function fetchAllPrices(): Promise<Map<string, StockPrice>> {
 
         map.set(code, {
           ticker: code,
-          name: data.name || "",
+          name: `*${data.name || ""}`,
           price,
           change,
           changePercent,
