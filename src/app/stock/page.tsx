@@ -140,6 +140,21 @@ export default function StockPage() {
         </h1>
         <div style={{ display: "flex", gap: 8 }}>
           <a
+            href="/articles"
+            style={{
+              padding: "8px 20px",
+              fontSize: 14,
+              border: "1px solid #1a56db",
+              borderRadius: 6,
+              background: "#fff",
+              color: "#1a56db",
+              textDecoration: "none",
+              display: "inline-block",
+            }}
+          >
+            文章列表
+          </a>
+          <a
             href="/stock/dmao"
             style={{
               padding: "8px 20px",
