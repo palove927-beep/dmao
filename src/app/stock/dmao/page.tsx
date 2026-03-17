@@ -101,12 +101,25 @@ export default function DmaoPage() {
       const json = await res.json();
       if (json.ok) {
         if (json.title) handleTitleChange(json.title);
-        setFormContent(json.content || "");
-        if (json.images?.length > 0) {
-          for (const src of json.images) {
-            pendingImagesRef.current.set(`pending:${src}`, src);
+        let content: string = json.content || "";
+        // Convert base64 data URI images to blob URLs for deferred upload
+        const dataUriRegex = /!\[圖片\]\((data:image\/[^)]+)\)/g;
+        let match;
+        let imgIndex = 0;
+        while ((match = dataUriRegex.exec(content)) !== null) {
+          const dataUri = match[1];
+          try {
+            const resp = await fetch(dataUri);
+            const blob = await resp.blob();
+            const ext = blob.type.split("/")[1] || "png";
+            const imgFile = new File([blob], `docx-image-${imgIndex++}.${ext}`, { type: blob.type });
+            const blobUrl = queueLocalFile(imgFile);
+            content = content.replace(dataUri, blobUrl);
+          } catch {
+            // Leave data URI as-is if conversion fails
           }
         }
+        setFormContent(content);
         showToast(`已匯入「${json.title || "無標題"}」`);
       } else {
         showToast(`匯入失敗：${json.error}`);
