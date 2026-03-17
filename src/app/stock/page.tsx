@@ -11,6 +11,7 @@ type Annotation = {
   ticker: string;
   stock_name: string;
   paragraph: string;
+  is_summary: boolean;
   article_id: string;
   dmao_articles: { id: string; title: string; created_at: string } | null;
 };
@@ -311,6 +312,9 @@ export default function StockPage() {
                                     </a>
                                   </div>
                                   <div style={{ fontSize: 14, color: "#333", lineHeight: 1.6 }}>
+                                    {ann.is_summary && (
+                                      <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "#fef3c7", color: "#92400e", marginRight: 6 }}>AI 摘要</span>
+                                    )}
                                     {ann.paragraph}
                                   </div>
                                 </div>

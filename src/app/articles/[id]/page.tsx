@@ -25,6 +25,7 @@ type Annotation = {
   ticker: string;
   stock_name: string;
   paragraph: string;
+  is_summary: boolean;
 };
 
 type EpsForecast = {

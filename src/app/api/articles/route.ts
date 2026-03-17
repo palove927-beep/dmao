@@ -45,7 +45,8 @@ export async function POST(req: NextRequest) {
           z.object({
             ticker: z.string().describe("股票代碼"),
             stock_name: z.string().describe("股票名稱"),
-            paragraph: z.string().describe("文章中提及該股票的完整段落原文"),
+            paragraph: z.string().describe("文章中提及該股票的完整段落原文，或 AI 摘要"),
+            is_summary: z.boolean().describe("此段落是否為 AI 摘要（true）或原文（false）"),
           })
         ),
         eps_forecasts: z.array(
@@ -78,8 +79,14 @@ ${stockListText}
 任務二規則：
 1. 找出文章中提及的所有台灣及海外上市股票，不限於上述清單
 2. 股票代碼格式：台股為純數字（如 4991），海外股票為英文代碼（如 NVDA）
-3. paragraph 必須是從文章中「逐字複製」的完整段落原文，絕對不可以截斷、刪減、摘要或改寫任何文字。即使段落很長也必須完整複製，不可省略任何內容
-4. 同一支股票若在多個段落被提及，每個段落都要回傳（同一支股票可以有多筆，每段一筆）。
+3. 段落回傳規則依文章分類而不同：
+   - 若 article_type 為 stock（個股分析）：
+     a. 標題中的主角股票只回傳「一筆」，paragraph 為 AI 撰寫的全文摘要（涵蓋營收、毛利率、展望等重點），is_summary = true
+     b. 其他順帶提及的股票：每個提及段落都回傳，paragraph 為逐字複製的原文，is_summary = false
+   - 若 article_type 為 weekly / macro / industry / other：
+     a. 同一支股票若在多個段落被提及，每個段落都要回傳（同一支股票可以有多筆，每段一筆）
+     b. paragraph 必須是從文章中「逐字複製」的完整段落原文，is_summary = false
+4. 非摘要的 paragraph 絕對不可以截斷、刪減、摘要或改寫任何文字。即使段落很長也必須完整複製，不可省略任何內容
 5. 股票名稱可能以簡稱、全名或代號出現，例如「環宇-KY(4991)」、「台積電」、「Lumentum」
 6. 所謂「段落」是指文章中以換行分隔的完整段落，從頭到尾完整複製，不可只取前幾句
 7. 文章標題中若包含股票名稱與代碼，也必須辨識並回傳
@@ -129,6 +136,7 @@ ${content}`,
         ticker: m.ticker,
         stock_name: m.stock_name,
         paragraph: m.paragraph,
+        is_summary: m.is_summary || false,
       }));
 
       const { error: annErr } = await getSupabase()

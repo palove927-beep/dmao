@@ -19,6 +19,7 @@ create table dmao_annotations (
   ticker text not null,
   stock_name text not null,
   paragraph text not null,
+  is_summary boolean default false,
   created_at timestamptz default now()
 );
 
