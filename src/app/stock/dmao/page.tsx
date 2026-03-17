@@ -32,6 +32,7 @@ function Toast({ message, persistent, onClose }: { message: string; persistent?:
 export default function DmaoPage() {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
+  const docxRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const today = new Date().toISOString().slice(0, 10);
   const [formTitle, setFormTitle] = useState("");
@@ -42,6 +43,7 @@ export default function DmaoPage() {
   const [toast, setToast] = useState<{ message: string; persistent?: boolean } | null>(null);
   const [gdocUrl, setGdocUrl] = useState("");
   const [gdocLoading, setGdocLoading] = useState(false);
+  const [docxLoading, setDocxLoading] = useState(false);
   // Pending images: placeholder URL -> File (local) or string (remote URL to proxy)
   const pendingImagesRef = useRef<Map<string, File | string>>(new Map());
 
@@ -83,6 +85,36 @@ export default function DmaoPage() {
       showToast(`匯入失敗：${err instanceof Error ? err.message : "未知錯誤"}`);
     } finally {
       setGdocLoading(false);
+    }
+  };
+
+  const handleDocxImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setDocxLoading(true);
+    showToast("正在匯入 Word 文件...", true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/docx", { method: "POST", body: fd });
+      const json = await res.json();
+      if (json.ok) {
+        if (json.title) handleTitleChange(json.title);
+        setFormContent(json.content || "");
+        if (json.images?.length > 0) {
+          for (const src of json.images) {
+            pendingImagesRef.current.set(`pending:${src}`, src);
+          }
+        }
+        showToast(`已匯入「${json.title || "無標題"}」`);
+      } else {
+        showToast(`匯入失敗：${json.error}`);
+      }
+    } catch (err) {
+      showToast(`匯入失敗：${err instanceof Error ? err.message : "未知錯誤"}`);
+    } finally {
+      setDocxLoading(false);
     }
   };
 
@@ -334,9 +366,9 @@ export default function DmaoPage() {
         貼上文章
       </h1>
 
-      {/* Google Doc import */}
+      {/* Document import */}
       <div style={{ border: "1px solid #c7d2fe", borderRadius: 8, padding: 16, background: "#eef2ff", marginBottom: 16 }}>
-        <label style={{ display: "block", fontWeight: "bold", marginBottom: 6, fontSize: 14 }}>從 Google 文件匯入</label>
+        <label style={{ display: "block", fontWeight: "bold", marginBottom: 6, fontSize: 14 }}>匯入文件</label>
         <div style={{ display: "flex", gap: 8 }}>
           <input
             type="text"
@@ -363,8 +395,35 @@ export default function DmaoPage() {
             {gdocLoading ? "匯入中..." : "匯入"}
           </button>
         </div>
-        <div style={{ fontSize: 12, color: "#6366f1", marginTop: 6 }}>
-          文件需設為「知道連結的人都能檢視」
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
+          <div style={{ fontSize: 12, color: "#6366f1" }}>
+            文件需設為「知道連結的人都能檢視」
+          </div>
+          <div style={{ fontSize: 12, color: "#999" }}>或</div>
+          <input
+            ref={docxRef}
+            type="file"
+            accept=".docx"
+            onChange={handleDocxImport}
+            style={{ display: "none" }}
+          />
+          <button
+            type="button"
+            onClick={() => docxRef.current?.click()}
+            disabled={docxLoading}
+            style={{
+              padding: "4px 12px",
+              fontSize: 13,
+              border: "1px solid #c7d2fe",
+              borderRadius: 4,
+              background: "#fff",
+              color: "#4f46e5",
+              cursor: docxLoading ? "not-allowed" : "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {docxLoading ? "匯入中..." : "上傳 Word 檔"}
+          </button>
         </div>
       </div>
 
