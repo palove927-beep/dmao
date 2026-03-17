@@ -8,8 +8,16 @@ type Article = {
   title: string;
   content: string;
   source: string | null;
+  article_type: string | null;
   images: string[] | null;
   created_at: string;
+};
+
+const TYPE_LABELS: Record<string, { label: string; bg: string; color: string }> = {
+  stock: { label: "個股分析", bg: "#dbeafe", color: "#1e40af" },
+  weekly: { label: "產業週報", bg: "#d1fae5", color: "#065f46" },
+  macro: { label: "總經分析", bg: "#fef3c7", color: "#92400e" },
+  industry: { label: "產業分析", bg: "#ede9fe", color: "#5b21b6" },
 };
 
 type Annotation = {
@@ -110,8 +118,21 @@ export default function ArticlePage() {
       </a>
 
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginTop: 20, marginBottom: 8, gap: 12 }}>
-        <h1 style={{ fontSize: 24, fontWeight: "bold", margin: 0 }}>
-          {article.title}
+        <h1 style={{ fontSize: 24, fontWeight: "bold", margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
+          {article.article_type && TYPE_LABELS[article.article_type] && (
+            <span style={{
+              fontSize: 13,
+              padding: "2px 10px",
+              borderRadius: 12,
+              background: TYPE_LABELS[article.article_type].bg,
+              color: TYPE_LABELS[article.article_type].color,
+              flexShrink: 0,
+              fontWeight: 500,
+            }}>
+              {TYPE_LABELS[article.article_type].label}
+            </span>
+          )}
+          <span>{article.title}</span>
         </h1>
         <button
           onClick={handleDelete}

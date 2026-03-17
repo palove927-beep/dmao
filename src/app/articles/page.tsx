@@ -7,7 +7,15 @@ type Article = {
   title: string;
   source: string | null;
   article_date: string | null;
+  article_type: string | null;
   created_at: string;
+};
+
+const TYPE_LABELS: Record<string, { label: string; bg: string; color: string }> = {
+  stock: { label: "個股", bg: "#dbeafe", color: "#1e40af" },
+  weekly: { label: "週報", bg: "#d1fae5", color: "#065f46" },
+  macro: { label: "總經", bg: "#fef3c7", color: "#92400e" },
+  industry: { label: "產業", bg: "#ede9fe", color: "#5b21b6" },
 };
 
 export default function ArticlesPage() {
@@ -68,7 +76,21 @@ export default function ArticlesPage() {
                 background: "#fafbfc",
               }}
             >
-              <div style={{ fontSize: 15, fontWeight: "bold", marginBottom: 4 }}>{a.title}</div>
+              <div style={{ fontSize: 15, fontWeight: "bold", marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
+                {a.article_type && TYPE_LABELS[a.article_type] && (
+                  <span style={{
+                    fontSize: 11,
+                    padding: "1px 8px",
+                    borderRadius: 10,
+                    background: TYPE_LABELS[a.article_type].bg,
+                    color: TYPE_LABELS[a.article_type].color,
+                    flexShrink: 0,
+                  }}>
+                    {TYPE_LABELS[a.article_type].label}
+                  </span>
+                )}
+                <span>{a.title}</span>
+              </div>
               <div style={{ fontSize: 13, color: "#888" }}>
                 {a.article_date && (
                   <span>{a.article_date}</span>

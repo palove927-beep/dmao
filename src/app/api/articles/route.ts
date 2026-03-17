@@ -15,7 +15,7 @@ const stockListText = allStocks
 export async function GET() {
   const { data, error } = await getSupabase()
     .from("dmao_articles")
-    .select("id, title, source, article_date, created_at")
+    .select("id, title, source, article_date, article_type, created_at")
     .order("article_date", { ascending: false });
 
   if (error) {
@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
     const { object: annotations } = await generateObject({
       model: "google/gemini-3.1-flash-lite-preview",
       schema: z.object({
+        article_type: z.enum(["stock", "weekly", "macro", "industry", "other"]).describe("文章分類：stock=個股分析, weekly=產業週報, macro=總經分析, industry=產業分析, other=其他"),
         mentions: z.array(
           z.object({
             ticker: z.string().describe("股票代碼"),
@@ -57,15 +58,24 @@ export async function POST(req: NextRequest) {
           })
         ),
       }),
-      prompt: `你是一位股票分析師。以下是一篇文章，請完成兩項任務：
+      prompt: `你是一位股票分析師。以下是一篇文章，請完成三項任務：
 
-任務一：找出文章中提及的所有股票，並擷取相關段落。
-任務二：找出文章中提及的「財測 EPS」預估數字。
+任務一：判斷文章分類（article_type）。
+任務二：找出文章中提及的所有股票，並擷取相關段落。
+任務三：找出文章中提及的「財測 EPS」預估數字。
+
+任務一規則：
+根據文章標題與內容，判斷文章屬於以下哪一類：
+- stock：個股分析（標題直接寫某支股票名稱，如「環宇-KY(4991)：營運簡評」「Fabrinet(FN)：財報電話會議摘要」）
+- weekly：產業週報（標題含「週報」「周報」，如「台股產業週報 2026/3/22」）
+- macro：總經分析（討論景氣、利率、匯率、地緣政治等宏觀議題，如「台灣景氣燈號與領先、同時指標」）
+- industry：產業分析（分析特定產業趨勢但非針對單一個股，如「成熟製程晶圓代工產能緊張，PMIC、MCU、Nor Flash醞釀漲價」）
+- other：以上皆非
 
 以下是特別關注的股票清單（供參考，但不限於此清單）：
 ${stockListText}
 
-任務一規則：
+任務二規則：
 1. 找出文章中提及的所有台灣及海外上市股票，不限於上述清單
 2. 股票代碼格式：台股為純數字（如 4991），海外股票為英文代碼（如 NVDA）
 3. paragraph 必須是從文章中「逐字複製」的完整段落原文，絕對不可以截斷、刪減、摘要或改寫任何文字。即使段落很長也必須完整複製，不可省略任何內容
@@ -74,7 +84,7 @@ ${stockListText}
 6. 所謂「段落」是指文章中以換行分隔的完整段落，從頭到尾完整複製，不可只取前幾句
 7. 文章標題中若包含股票名稱與代碼，也必須辨識並回傳
 
-任務二規則（eps_forecasts）：
+任務三規則（eps_forecasts）：
 1. 只抽取明確寫出「財測EPS」、「預估EPS」等字眼的數字
 2. 例如「2026年財測EPS上修至8.20元」→ forecast_year=2026, eps=8.20
 3. 例如「2026/2027年財測EPS上修至10.60/17.36元(前次預估10.00/10.28元)」→ 兩筆：forecast_year=2026, eps=10.60, prev_eps=10.00 以及 forecast_year=2027, eps=17.36, prev_eps=10.28
@@ -99,7 +109,7 @@ ${content}`,
     // 3. 存入文章
     const { data: article, error: articleErr } = await getSupabase()
       .from("dmao_articles")
-      .insert({ title, content, source: source || null, article_date: articleDate, images: images || [] })
+      .insert({ title, content, source: source || null, article_date: articleDate, images: images || [], article_type: annotations.article_type || "other" })
       .select("id")
       .single();
 

@@ -7,8 +7,11 @@ create table dmao_articles (
   source text,
   article_date date default current_date,
   images text[] default '{}',
+  article_type text default 'other',
   created_at timestamptz default now()
 );
+
+-- article_type 值：stock (個股分析), weekly (產業週報), macro (總經分析), industry (產業分析), other
 
 create table dmao_annotations (
   id uuid primary key default gen_random_uuid(),
