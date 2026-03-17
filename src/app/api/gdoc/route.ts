@@ -34,9 +34,27 @@ export async function POST(req: NextRequest) {
 
     const html = await htmlRes.text();
 
-    // Extract title from <title> tag
+    // Extract title: try <title> tag first, then fall back to first heading
     const titleMatch = html.match(/<title>(.*?)<\/title>/i);
-    const title = titleMatch ? titleMatch[1].replace(/ - Google Docs$/, "").trim() : "";
+    let title = titleMatch
+      ? titleMatch[1]
+          .replace(/ - Google (?:Docs|文件|Документы|ドキュメント)$/i, "")
+          .trim()
+      : "";
+
+    // Fallback: first <h1>–<h3> or first styled <p> with large/bold text
+    if (!title) {
+      const headingMatch = html.match(/<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/i);
+      if (headingMatch) {
+        title = headingMatch[1].replace(/<[^>]+>/g, "").trim();
+      }
+    }
+    // Fallback: use first non-empty line of content
+    if (!title) {
+      const { text: fullText } = parseGoogleDocHtml(html);
+      const firstLine = fullText.split("\n").find((l) => l.trim().length > 0);
+      if (firstLine) title = firstLine.trim().slice(0, 100);
+    }
 
     // Extract text content and image URLs from HTML
     const { text, images } = parseGoogleDocHtml(html);
