@@ -26,6 +26,22 @@ type EpsForecast = {
   dmao_articles: { id: string; title: string; article_date: string } | null;
 };
 
+function highlightKeywords(text: string, keywords: string[]) {
+  const filtered = keywords.filter(Boolean);
+  if (filtered.length === 0) return text;
+  const escaped = filtered.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  escaped.sort((a, b) => b.length - a.length);
+  const regex = new RegExp(`(${escaped.join("|")})`, "g");
+  const parts = text.split(regex);
+  return parts.map((part, i) =>
+    filtered.includes(part) ? (
+      <mark key={i} style={{ background: "#fef9c3", padding: "1px 2px", borderRadius: 2 }}>{part}</mark>
+    ) : (
+      part
+    )
+  );
+}
+
 export default function StockPage() {
   const [prices, setPrices] = useState<PriceMap>({});
   const [loading, setLoading] = useState(true);
@@ -315,7 +331,7 @@ export default function StockPage() {
                                     {ann.is_summary && (
                                       <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "#fef3c7", color: "#92400e", marginRight: 6 }}>AI 摘要</span>
                                     )}
-                                    {ann.paragraph}
+                                    {highlightKeywords(ann.paragraph, [ann.stock_name, ann.ticker])}
                                   </div>
                                 </div>
                               ))}
