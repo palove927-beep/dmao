@@ -236,23 +236,6 @@ export default function ArticlePage() {
           );
         })}
       </div>
-
-      {/* Images */}
-      {article.images && article.images.length > 0 && (
-        <div style={{ marginTop: 24 }}>
-          <div style={{ fontWeight: "bold", fontSize: 14, marginBottom: 8 }}>附圖：</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {article.images.map((url, i) => (
-              <img
-                key={i}
-                src={url}
-                alt={`article-image-${i}`}
-                style={{ maxWidth: "100%", borderRadius: 6, border: "1px solid #e5e7eb" }}
-              />
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
