@@ -40,6 +40,8 @@ export default function DmaoPage() {
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ message: string; persistent?: boolean } | null>(null);
+  const [gdocUrl, setGdocUrl] = useState("");
+  const [gdocLoading, setGdocLoading] = useState(false);
   // Pending images: placeholder URL -> File (local) or string (remote URL to proxy)
   const pendingImagesRef = useRef<Map<string, File | string>>(new Map());
 
@@ -51,6 +53,38 @@ export default function DmaoPage() {
 
   const clearToast = useCallback(() => setToast(null), []);
   const showToast = useCallback((message: string, persistent?: boolean) => setToast({ message, persistent }), []);
+
+  const handleGdocImport = async () => {
+    if (!gdocUrl.trim()) return;
+    setGdocLoading(true);
+    showToast("正在匯入 Google 文件...", true);
+    try {
+      const res = await fetch("/api/gdoc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: gdocUrl }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        if (json.title) handleTitleChange(json.title);
+        setFormContent(json.content || "");
+        // Queue Google Doc images for re-upload
+        if (json.images?.length > 0) {
+          for (const src of json.images) {
+            pendingImagesRef.current.set(`pending:${src}`, src);
+          }
+        }
+        setGdocUrl("");
+        showToast(`已匯入「${json.title || "無標題"}」`);
+      } else {
+        showToast(`匯入失敗：${json.error}`);
+      }
+    } catch (err) {
+      showToast(`匯入失敗：${err instanceof Error ? err.message : "未知錯誤"}`);
+    } finally {
+      setGdocLoading(false);
+    }
+  };
 
   const insertImageAtCursor = (url: string) => {
     const tag = `![圖片](${url})`;
@@ -299,6 +333,40 @@ export default function DmaoPage() {
       <h1 style={{ fontSize: 28, fontWeight: "bold", margin: "24px 0 20px" }}>
         貼上文章
       </h1>
+
+      {/* Google Doc import */}
+      <div style={{ border: "1px solid #c7d2fe", borderRadius: 8, padding: 16, background: "#eef2ff", marginBottom: 16 }}>
+        <label style={{ display: "block", fontWeight: "bold", marginBottom: 6, fontSize: 14 }}>從 Google 文件匯入</label>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input
+            type="text"
+            value={gdocUrl}
+            onChange={(e) => setGdocUrl(e.target.value)}
+            placeholder="貼上 Google Doc 連結..."
+            style={{ flex: 1, padding: "8px 12px", border: "1px solid #ccc", borderRadius: 4, fontSize: 14 }}
+            onKeyDown={(e) => { if (e.key === "Enter") handleGdocImport(); }}
+          />
+          <button
+            onClick={handleGdocImport}
+            disabled={gdocLoading || !gdocUrl.trim()}
+            style={{
+              padding: "8px 16px",
+              fontSize: 14,
+              border: "none",
+              borderRadius: 4,
+              background: gdocLoading ? "#93a3b8" : "#4f46e5",
+              color: "#fff",
+              cursor: gdocLoading ? "not-allowed" : "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {gdocLoading ? "匯入中..." : "匯入"}
+          </button>
+        </div>
+        <div style={{ fontSize: 12, color: "#6366f1", marginTop: 6 }}>
+          文件需設為「知道連結的人都能檢視」
+        </div>
+      </div>
 
       <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 20, background: "#fafbfc" }}>
         <div style={{ marginBottom: 12 }}>
