@@ -79,7 +79,9 @@ ${stockListText}
 1. 找出文章中提及的所有台灣及海外上市股票，不限於上述清單
 2. 股票代碼格式：台股為純數字（如 4991），海外股票為英文代碼（如 NVDA）
 3. paragraph 必須是從文章中「逐字複製」的完整段落原文，絕對不可以截斷、刪減、摘要或改寫任何文字。即使段落很長也必須完整複製，不可省略任何內容
-4. 每支股票只回傳一次，選擇最相關、資訊最豐富的那個段落
+4. 段落回傳規則依文章分類而不同：
+   - 若 article_type 為 stock（個股分析）：該主角股票的每個提及段落都要回傳（同一支股票可以有多筆，每段一筆）。其他順帶提及的股票仍只回傳一次最相關段落。
+   - 若 article_type 為 weekly / macro / industry / other：每支股票只回傳一次，選擇最相關、資訊最豐富的那個段落。
 5. 股票名稱可能以簡稱、全名或代號出現，例如「環宇-KY(4991)」、「台積電」、「Lumentum」
 6. 所謂「段落」是指文章中以換行分隔的完整段落，從頭到尾完整複製，不可只取前幾句
 7. 文章標題中若包含股票名稱與代碼，也必須辨識並回傳
@@ -120,9 +122,23 @@ ${content}`,
       );
     }
 
-    // 4. 存入標記（每支股票只保留一筆）
+    // 4. 存入標記
+    // stock 類文章：主角股票保留所有段落，其他股票去重
+    // 其他類文章：所有股票去重（每支只保留一筆）
+    const isStockArticle = annotations.article_type === "stock";
+    // 主角股票 = mentions 中出現次數最多的 ticker
+    const tickerCounts = new Map<string, number>();
+    for (const m of annotations.mentions) {
+      tickerCounts.set(m.ticker, (tickerCounts.get(m.ticker) || 0) + 1);
+    }
+    const mainTicker = isStockArticle && tickerCounts.size > 0
+      ? [...tickerCounts.entries()].sort((a, b) => b[1] - a[1])[0][0]
+      : null;
+
     const seen = new Set<string>();
     const uniqueMentions = annotations.mentions.filter((m) => {
+      // 主角股票保留所有段落
+      if (m.ticker === mainTicker) return true;
       if (seen.has(m.ticker)) return false;
       seen.add(m.ticker);
       return true;
