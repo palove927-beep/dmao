@@ -18,9 +18,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "無法解析 Google Doc 連結，請確認格式正確" }, { status: 400 });
     }
 
-    // Fetch HTML export (preserves images and basic structure)
+    // Fetch document page and HTML export in parallel
+    const pageUrl = `https://docs.google.com/document/d/${docId}/pub`;
     const htmlUrl = `https://docs.google.com/document/d/${docId}/export?format=html`;
-    const htmlRes = await fetch(htmlUrl, { redirect: "follow" });
+
+    const [pageRes, htmlRes] = await Promise.all([
+      fetch(pageUrl, { redirect: "follow" }).catch(() => null),
+      fetch(htmlUrl, { redirect: "follow" }),
+    ]);
 
     if (!htmlRes.ok) {
       if (htmlRes.status === 404) {
@@ -34,26 +39,26 @@ export async function POST(req: NextRequest) {
 
     const html = await htmlRes.text();
 
-    // Extract title: try <title> tag first, then fall back to first heading
-    const titleMatch = html.match(/<title>(.*?)<\/title>/i);
-    let title = titleMatch
-      ? titleMatch[1]
+    // Extract title from the published page (has the real document title)
+    let title = "";
+    if (pageRes?.ok) {
+      const pageHtml = await pageRes.text();
+      const pageTitleMatch = pageHtml.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+      if (pageTitleMatch) {
+        title = pageTitleMatch[1]
           .replace(/ - Google (?:Docs|文件|Документы|ドキュメント)$/i, "")
-          .trim()
-      : "";
-
-    // Fallback: first <h1>–<h3> or first styled <p> with large/bold text
-    if (!title) {
-      const headingMatch = html.match(/<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/i);
-      if (headingMatch) {
-        title = headingMatch[1].replace(/<[^>]+>/g, "").trim();
+          .trim();
       }
     }
-    // Fallback: use first non-empty line of content
+
+    // Fallback: try <title> from the export HTML
     if (!title) {
-      const { text: fullText } = parseGoogleDocHtml(html);
-      const firstLine = fullText.split("\n").find((l) => l.trim().length > 0);
-      if (firstLine) title = firstLine.trim().slice(0, 100);
+      const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+      if (titleMatch) {
+        title = titleMatch[1]
+          .replace(/ - Google (?:Docs|文件|Документы|ドキュメント)$/i, "")
+          .trim();
+      }
     }
 
     // Extract text content and image URLs from HTML
