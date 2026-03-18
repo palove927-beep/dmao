@@ -142,8 +142,10 @@ export default function EditAnnotationsPage() {
       const anns: Annotation[] = annJson.ok ? annJson.annotations : [];
       setOriginalAnnotations(anns);
 
-      // Split content into paragraphs
-      const paraTexts = splitParagraphs(article.content);
+      // Split content into paragraphs, filter out image-only paragraphs
+      const paraTexts = splitParagraphs(article.content).filter(
+        (t) => !/^!\[[^\]]*\]\([^)]+\)$/.test(t.trim())
+      );
 
       // Match each annotation to a paragraph by checking if paragraph text contains the annotation's paragraph text
       const paraData: ParagraphData[] = paraTexts.map((text) => {
