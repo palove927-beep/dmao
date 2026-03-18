@@ -291,7 +291,7 @@ export default function EditAnnotationsPage() {
           >
             <div style={{ fontSize: 11, color: "#999", marginBottom: 4 }}>段落 {i + 1}</div>
             <div style={{ fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap", color: "#333" }}>
-              {para.text.length > 500 ? para.text.slice(0, 500) + "..." : para.text}
+              {para.text}
             </div>
             <StockChips
               stocks={para.stocks}
