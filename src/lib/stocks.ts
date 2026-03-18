@@ -2,6 +2,7 @@ export type Stock = {
   code: string;
   ticker: string;
   name: string;
+  aliases?: string[];
 };
 
 export type Category = {
@@ -15,27 +16,27 @@ export const categories: Category[] = [
     id: "A",
     label: "IC設計",
     stocks: [
-      { code: "A1", ticker: "2379", name: "瑞昱" },
-      { code: "A2", ticker: "2454", name: "聯發科" },
-      { code: "A3", ticker: "5274", name: "信驊" },
+      { code: "A1", ticker: "2379", name: "瑞昱", aliases: ["Realtek"] },
+      { code: "A2", ticker: "2454", name: "聯發科", aliases: ["MediaTek"] },
+      { code: "A3", ticker: "5274", name: "信驊", aliases: ["Aspeed"] },
     ],
   },
   {
     id: "B",
     label: "晶圓代工",
     stocks: [
-      { code: "B1", ticker: "2303", name: "聯電" },
-      { code: "B2", ticker: "2330", name: "台積電" },
-      { code: "B3", ticker: "5347", name: "世界" },
+      { code: "B1", ticker: "2303", name: "聯電", aliases: ["UMC"] },
+      { code: "B2", ticker: "2330", name: "台積電", aliases: ["TSMC", "台積"] },
+      { code: "B3", ticker: "5347", name: "世界", aliases: ["VIS"] },
     ],
   },
   {
     id: "C",
     label: "半導體封測",
     stocks: [
-      { code: "C1", ticker: "3711", name: "日月光" },
-      { code: "C2", ticker: "6239", name: "力成" },
-      { code: "C3", ticker: "6257", name: "矽格" },
+      { code: "C1", ticker: "3711", name: "日月光", aliases: ["ASE", "日月光投控"] },
+      { code: "C2", ticker: "6239", name: "力成", aliases: ["PTI"] },
+      { code: "C3", ticker: "6257", name: "矽格", aliases: ["Sigurd"] },
     ],
   },
   {
@@ -47,10 +48,10 @@ export const categories: Category[] = [
     id: "E",
     label: "半導體耗材",
     stocks: [
-      { code: "E1", ticker: "1560", name: "中砂" },
-      { code: "E2", ticker: "1727", name: "中華化" },
-      { code: "E3", ticker: "3680", name: "家登" },
-      { code: "E4", ticker: "6488", name: "環球晶" },
+      { code: "E1", ticker: "1560", name: "中砂", aliases: ["KINIK"] },
+      { code: "E2", ticker: "1727", name: "中華化", aliases: ["中華化學"] },
+      { code: "E3", ticker: "3680", name: "家登", aliases: ["Gudeng"] },
+      { code: "E4", ticker: "6488", name: "環球晶", aliases: ["GlobalWafers"] },
     ],
   },
   {
@@ -91,22 +92,22 @@ export const categories: Category[] = [
     id: "I",
     label: "記憶體",
     stocks: [
-      { code: "I1", ticker: "2337", name: "旺宏" },
-      { code: "I2", ticker: "2344", name: "華邦電" },
-      { code: "I3", ticker: "2408", name: "南亞科" },
-      { code: "I4", ticker: "3260", name: "威剛" },
-      { code: "I5", ticker: "4967", name: "十銓" },
-      { code: "I6", ticker: "6531", name: "愛普" },
-      { code: "I7", ticker: "8299", name: "群聯" },
+      { code: "I1", ticker: "2337", name: "旺宏", aliases: ["Macronix", "MXIC"] },
+      { code: "I2", ticker: "2344", name: "華邦電", aliases: ["Winbond"] },
+      { code: "I3", ticker: "2408", name: "南亞科", aliases: ["Nanya", "南亞科技"] },
+      { code: "I4", ticker: "3260", name: "威剛", aliases: ["ADATA"] },
+      { code: "I5", ticker: "4967", name: "十銓", aliases: ["TeamGroup", "Team Group"] },
+      { code: "I6", ticker: "6531", name: "愛普", aliases: ["Ap Memory", "ApMemory"] },
+      { code: "I7", ticker: "8299", name: "群聯", aliases: ["Phison"] },
     ],
   },
   {
     id: "J",
     label: "品牌/ODM",
     stocks: [
-      { code: "J1", ticker: "2317", name: "鴻海" },
-      { code: "J2", ticker: "2376", name: "技嘉" },
-      { code: "J3", ticker: "2382", name: "廣達" },
+      { code: "J1", ticker: "2317", name: "鴻海", aliases: ["Foxconn", "Hon Hai"] },
+      { code: "J2", ticker: "2376", name: "技嘉", aliases: ["Gigabyte"] },
+      { code: "J3", ticker: "2382", name: "廣達", aliases: ["Quanta"] },
     ],
   },
   {
@@ -114,9 +115,9 @@ export const categories: Category[] = [
     label: "電子零組件",
     stocks: [
       { code: "K1", ticker: "2059", name: "川湖" },
-      { code: "K2", ticker: "2301", name: "光寶科" },
-      { code: "K3", ticker: "2308", name: "台達電" },
-      { code: "K4", ticker: "3017", name: "奇鋐" },
+      { code: "K2", ticker: "2301", name: "光寶科", aliases: ["Lite-On", "光寶"] },
+      { code: "K3", ticker: "2308", name: "台達電", aliases: ["Delta", "台達"] },
+      { code: "K4", ticker: "3017", name: "奇鋐", aliases: ["Asia Vital", "AVC"] },
       { code: "K5", ticker: "3324", name: "雙鴻" },
       { code: "K6", ticker: "3357", name: "臺慶科" },
       { code: "K7", ticker: "3533", name: "嘉澤" },
@@ -130,11 +131,11 @@ export const categories: Category[] = [
     id: "L",
     label: "PCB",
     stocks: [
-      { code: "L1", ticker: "2313", name: "華通" },
-      { code: "L2", ticker: "3037", name: "欣興" },
-      { code: "L3", ticker: "3715", name: "定穎投控" },
-      { code: "L4", ticker: "4958", name: "臻鼎-KY" },
-      { code: "L5", ticker: "6191", name: "精成科" },
+      { code: "L1", ticker: "2313", name: "華通", aliases: ["Compeq"] },
+      { code: "L2", ticker: "3037", name: "欣興", aliases: ["Unimicron"] },
+      { code: "L3", ticker: "3715", name: "定穎投控", aliases: ["定穎"] },
+      { code: "L4", ticker: "4958", name: "臻鼎-KY", aliases: ["臻鼎", "ZDT"] },
+      { code: "L5", ticker: "6191", name: "精成科", aliases: ["GCE"] },
     ],
   },
   {
@@ -142,14 +143,14 @@ export const categories: Category[] = [
     label: "車用零組件",
     stocks: [
       { code: "M1", ticker: "2351", name: "順德" },
-      { code: "M2", ticker: "6271", name: "同欣電" },
-      { code: "M3", ticker: "8255", name: "朋程" },
+      { code: "M2", ticker: "6271", name: "同欣電", aliases: ["Tong Hsing"] },
+      { code: "M3", ticker: "8255", name: "朋程", aliases: ["PanJit"] },
     ],
   },
   {
     id: "N",
     label: "功率元件",
-    stocks: [{ code: "N1", ticker: "5425", name: "台半" }],
+    stocks: [{ code: "N1", ticker: "5425", name: "台半", aliases: ["TSC"] }],
   },
   {
     id: "O",
@@ -165,9 +166,9 @@ export const categories: Category[] = [
     id: "P",
     label: "銅箔基板",
     stocks: [
-      { code: "P1", ticker: "2383", name: "台光電" },
-      { code: "P2", ticker: "6274", name: "台燿" },
-      { code: "P3", ticker: "8358", name: "金居" },
+      { code: "P1", ticker: "2383", name: "台光電", aliases: ["EMC", "台光"] },
+      { code: "P2", ticker: "6274", name: "台燿", aliases: ["Taiflex"] },
+      { code: "P3", ticker: "8358", name: "金居", aliases: ["Co-Tech"] },
     ],
   },
   {
@@ -209,20 +210,20 @@ export const categories: Category[] = [
     id: "U",
     label: "海外科技巨頭",
     stocks: [
-      { code: "U1", ticker: "MU", name: "Micron" },
-      { code: "U2", ticker: "INTC", name: "Intel" },
-      { code: "U3", ticker: "AMD", name: "AMD" },
-      { code: "U4", ticker: "NVDA", name: "NVIDIA" },
-      { code: "U5", ticker: "AVGO", name: "Broadcom" },
-      { code: "U6", ticker: "IFX", name: "Infineon" },
-      { code: "U7", ticker: "QCOM", name: "Qualcomm" },
-      { code: "U8", ticker: "AAPL", name: "Apple" },
-      { code: "U9", ticker: "ASML", name: "ASML" },
-      { code: "U10", ticker: "TSLA", name: "Tesla" },
-      { code: "U11", ticker: "BA", name: "Boeing" },
+      { code: "U1", ticker: "MU", name: "Micron", aliases: ["美光"] },
+      { code: "U2", ticker: "INTC", name: "Intel", aliases: ["英特爾"] },
+      { code: "U3", ticker: "AMD", name: "AMD", aliases: ["超微"] },
+      { code: "U4", ticker: "NVDA", name: "NVIDIA", aliases: ["輝達", "英偉達"] },
+      { code: "U5", ticker: "AVGO", name: "Broadcom", aliases: ["博通"] },
+      { code: "U6", ticker: "IFX", name: "Infineon", aliases: ["英飛凌"] },
+      { code: "U7", ticker: "QCOM", name: "Qualcomm", aliases: ["高通"] },
+      { code: "U8", ticker: "AAPL", name: "Apple", aliases: ["蘋果"] },
+      { code: "U9", ticker: "ASML", name: "ASML", aliases: ["艾司摩爾"] },
+      { code: "U10", ticker: "TSLA", name: "Tesla", aliases: ["特斯拉"] },
+      { code: "U11", ticker: "BA", name: "Boeing", aliases: ["波音"] },
       { code: "U12", ticker: "4062.T", name: "Ibiden" },
-      { code: "U13", ticker: "005930.KS", name: "Samsung" },
-      { code: "U14", ticker: "000660.KS", name: "SK Hynix" },
+      { code: "U13", ticker: "005930.KS", name: "Samsung", aliases: ["三星"] },
+      { code: "U14", ticker: "000660.KS", name: "SK Hynix", aliases: ["海力士"] },
     ],
   },
 ];

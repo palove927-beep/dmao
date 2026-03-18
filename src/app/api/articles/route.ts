@@ -5,11 +5,14 @@ import { generateObject } from "ai";
 import { z } from "zod";
 
 const allStocks = categories.flatMap((c) =>
-  c.stocks.map((s) => ({ ticker: s.ticker, name: s.name }))
+  c.stocks.map((s) => ({ ticker: s.ticker, name: s.name, aliases: s.aliases }))
 );
 
 const stockListText = allStocks
-  .map((s) => `${s.ticker} ${s.name}`)
+  .map((s) => {
+    const aliases = s.aliases?.length ? `（別名：${s.aliases.join("、")}）` : "";
+    return `${s.ticker} ${s.name}${aliases}`;
+  })
   .join("\n");
 
 export async function GET() {
@@ -92,7 +95,7 @@ ${stockListText}
      a. 同一支股票若在多個段落被提及，每個段落都要回傳（同一支股票可以有多筆，每段一筆）
      b. paragraph 必須是從文章中「逐字複製」的完整段落原文，is_summary = false
 4. 非摘要的 paragraph 絕對不可以截斷、刪減、摘要或改寫任何文字。即使段落很長也必須完整複製，不可省略任何內容。特別注意：段落開頭的編號（如「3)」「1.」「(2)」等）也是原文的一部分，必須保留，不可省略
-5. 股票名稱可能以簡稱、全名或代號出現，例如「環宇-KY(4991)」、「台積電」、「Lumentum」
+5. 股票名稱可能以簡稱、全名、英文名或代號出現，例如「環宇-KY(4991)」、「台積電」、「TSMC」、「Lumentum」。即使文章只寫公司簡稱而未附代碼，也必須盡力辨識並回傳正確的股票代碼。優先比對上述清單（含別名），若不在清單中但確實為上市公司，仍應回傳
 6. 所謂「段落」是指文章中以換行分隔的完整段落，從頭到尾完整複製，不可只取前幾句
 7. 文章標題中若包含股票名稱與代碼，也必須辨識並回傳
 8. 重要：若文章採用編號層級結構（例如主段落「2. ...」底下有子段落「a. ...」「b. ...」「c. ...」），則主段落與其所有子段落應視為一個整體段落。當某支股票在主段落或任一子段落中被提及時，paragraph 應包含該主段落及其所有子段落的完整原文（合併為一筆），不可只擷取單獨的主段落或子段落
