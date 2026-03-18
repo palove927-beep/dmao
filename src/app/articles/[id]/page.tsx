@@ -45,6 +45,7 @@ export default function ArticlePage() {
   const [epsForecasts, setEpsForecasts] = useState<EpsForecast[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [expandedStock, setExpandedStock] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -164,21 +165,62 @@ export default function ArticlePage() {
         <div style={{ background: "#f0f4f8", borderRadius: 8, padding: "12px 16px", marginBottom: 20 }}>
           <div style={{ fontWeight: "bold", fontSize: 14, marginBottom: 6 }}>提及的股票：</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {[...new Set(annotations.map((a) => `${a.stock_name} (${a.ticker})`))].map((label) => (
-              <span
-                key={label}
-                style={{
-                  background: "#dbeafe",
-                  color: "#1e40af",
-                  padding: "2px 10px",
-                  borderRadius: 12,
-                  fontSize: 13,
-                }}
-              >
-                {label}
-              </span>
-            ))}
+            {[...new Map(annotations.map((a) => [a.ticker, a])).values()].map((a) => {
+              const label = `${a.stock_name} (${a.ticker})`;
+              const isExpanded = expandedStock === a.ticker;
+              return (
+                <span
+                  key={a.ticker}
+                  onClick={() => setExpandedStock(isExpanded ? null : a.ticker)}
+                  style={{
+                    background: isExpanded ? "#1e40af" : "#dbeafe",
+                    color: isExpanded ? "#fff" : "#1e40af",
+                    padding: "2px 10px",
+                    borderRadius: 12,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {label}
+                </span>
+              );
+            })}
           </div>
+          {expandedStock && (() => {
+            const stockAnnotations = annotations.filter((a) => a.ticker === expandedStock);
+            if (stockAnnotations.length === 0) return null;
+            const name = stockAnnotations[0].stock_name;
+            return (
+              <div style={{ marginTop: 10, borderTop: "1px solid #d1d5db", paddingTop: 10 }}>
+                <div style={{ fontSize: 13, fontWeight: "bold", color: "#1e40af", marginBottom: 6 }}>
+                  {name} ({expandedStock}) 相關段落：
+                </div>
+                {stockAnnotations.map((ann, i) => (
+                  <div
+                    key={ann.id || i}
+                    style={{
+                      background: "#fff",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 6,
+                      padding: "10px 12px",
+                      marginBottom: 6,
+                      fontSize: 14,
+                      lineHeight: 1.7,
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
+                    {ann.is_summary && (
+                      <span style={{ fontSize: 11, color: "#6b7280", background: "#f3f4f6", padding: "1px 6px", borderRadius: 4, marginRight: 6 }}>
+                        AI 摘要
+                      </span>
+                    )}
+                    {ann.paragraph}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       )}
 
