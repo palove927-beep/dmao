@@ -33,7 +33,6 @@ create table dmao_eps_forecasts (
   stock_name text not null,
   forecast_year int not null,
   eps numeric(10,2) not null,
-  prev_eps numeric(10,2),
   created_at timestamptz default now()
 );
 

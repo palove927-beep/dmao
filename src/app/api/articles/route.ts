@@ -55,7 +55,6 @@ export async function POST(req: NextRequest) {
             stock_name: z.string().describe("股票名稱"),
             forecast_year: z.number().describe("財測年度，例如 2026"),
             eps: z.number().describe("財測 EPS 數值"),
-            prev_eps: z.number().nullable().describe("前次預估 EPS，若文章未提及則為 null"),
           })
         ),
       }),
@@ -94,10 +93,9 @@ ${stockListText}
 任務三規則（eps_forecasts）：
 1. 只抽取明確寫出「財測EPS」、「預估EPS」等字眼的數字
 2. 例如「2026年財測EPS上修至8.20元」→ forecast_year=2026, eps=8.20
-3. 例如「2026/2027年財測EPS上修至10.60/17.36元(前次預估10.00/10.28元)」→ 兩筆：forecast_year=2026, eps=10.60, prev_eps=10.00 以及 forecast_year=2027, eps=17.36, prev_eps=10.28
+3. 例如「2026/2027年財測EPS上修至10.60/17.36元」→ 兩筆：forecast_year=2026, eps=10.60 以及 forecast_year=2027, eps=17.36
 4. 每個年度的 EPS 為獨立一筆
-5. 如果文章有提及「前次預估」的 EPS，填入 prev_eps；沒提到則為 null
-6. 找出文章中所有股票的財測 EPS，不限於上述清單
+5. 找出文章中所有股票的財測 EPS，不限於上述清單
 
 文章標題：${title}
 文章內容：
@@ -160,7 +158,6 @@ ${content}`,
         stock_name: f.stock_name,
         forecast_year: f.forecast_year,
         eps: f.eps,
-        prev_eps: f.prev_eps ?? null,
       }));
 
       const { error: epsErr } = await getSupabase()

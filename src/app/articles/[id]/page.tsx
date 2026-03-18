@@ -34,7 +34,6 @@ type EpsForecast = {
   stock_name: string;
   forecast_year: number;
   eps: number;
-  prev_eps: number | null;
 };
 
 export default function ArticlePage() {
@@ -234,7 +233,6 @@ export default function ArticlePage() {
                 <th style={{ textAlign: "left", padding: "4px 8px" }}>股票</th>
                 <th style={{ textAlign: "center", padding: "4px 8px" }}>年度</th>
                 <th style={{ textAlign: "right", padding: "4px 8px" }}>財測 EPS</th>
-                <th style={{ textAlign: "right", padding: "4px 8px" }}>前次預估</th>
               </tr>
             </thead>
             <tbody>
@@ -243,9 +241,6 @@ export default function ArticlePage() {
                   <td style={{ padding: "4px 8px" }}>{f.stock_name} ({f.ticker})</td>
                   <td style={{ textAlign: "center", padding: "4px 8px" }}>{f.forecast_year}</td>
                   <td style={{ textAlign: "right", padding: "4px 8px", fontWeight: "bold", color: "#b45309" }}>{f.eps}</td>
-                  <td style={{ textAlign: "right", padding: "4px 8px", color: "#9ca3af" }}>
-                    {f.prev_eps != null ? f.prev_eps : "-"}
-                  </td>
                 </tr>
               ))}
             </tbody>
