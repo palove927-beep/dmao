@@ -142,7 +142,7 @@ export default function StockPage() {
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
       <a href="/" style={{ color: "#1a56db", textDecoration: "none", fontSize: 15 }}>
-        ← 首頁
+        ← stock頁面
       </a>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "24px 0 20px" }}>
