@@ -37,6 +37,12 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. 用 AI 抽取股票提及 + 財測 EPS
+    // 截斷過長的內容，避免超過模型 token 上限
+    const MAX_CONTENT_CHARS = 300_000;
+    const trimmedContent = content.length > MAX_CONTENT_CHARS
+      ? content.slice(0, MAX_CONTENT_CHARS) + "\n\n…（內容過長，已截斷）"
+      : content;
+
     const { object: annotations } = await generateObject({
       model: "google/gemini-3.1-flash-lite-preview",
       schema: z.object({
@@ -99,7 +105,7 @@ ${stockListText}
 
 文章標題：${title}
 文章內容：
-${content}`,
+${trimmedContent}`,
     });
 
     // 2. 文章日期：優先使用前端傳入，否則從標題解析，最後預設今天
