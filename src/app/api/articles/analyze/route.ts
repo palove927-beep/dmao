@@ -1,0 +1,110 @@
+import { NextRequest, NextResponse } from "next/server";
+import { categories } from "@/lib/stocks";
+import { generateObject } from "ai";
+import { z } from "zod";
+
+const allStocks = categories.flatMap((c) =>
+  c.stocks.map((s) => ({ ticker: s.ticker, name: s.name, aliases: s.aliases }))
+);
+
+const stockListText = allStocks
+  .map((s) => {
+    const aliases = s.aliases?.length ? `（別名：${s.aliases.join("、")}）` : "";
+    return `${s.ticker} ${s.name}${aliases}`;
+  })
+  .join("\n");
+
+export async function POST(req: NextRequest) {
+  try {
+    const { title, paragraphs } = await req.json();
+
+    if (!title || !paragraphs || !Array.isArray(paragraphs) || paragraphs.length === 0) {
+      return NextResponse.json(
+        { ok: false, error: "title 和 paragraphs 為必填" },
+        { status: 400 }
+      );
+    }
+
+    // Build numbered paragraph list for the prompt
+    const paragraphList = paragraphs
+      .map((p: string, i: number) => `[段落 ${i}]\n${p}`)
+      .join("\n\n");
+
+    const MAX_CHARS = 300_000;
+    const trimmedList = paragraphList.length > MAX_CHARS
+      ? paragraphList.slice(0, MAX_CHARS) + "\n\n…（內容過長，已截斷）"
+      : paragraphList;
+
+    const { object: result } = await generateObject({
+      model: "google/gemini-3.1-flash-lite-preview",
+      schema: z.object({
+        article_type: z.enum(["stock", "weekly", "macro", "industry", "other"])
+          .describe("文章分類：stock=個股分析, weekly=產業週報, macro=總經分析, industry=產業分析, other=其他"),
+        paragraph_stocks: z.array(
+          z.object({
+            index: z.number().describe("段落索引（從 0 開始）"),
+            stocks: z.array(
+              z.object({
+                ticker: z.string().describe("股票代碼"),
+                stock_name: z.string().describe("股票名稱"),
+              })
+            ),
+          })
+        ).describe("每個段落中提及的股票"),
+        eps_forecasts: z.array(
+          z.object({
+            ticker: z.string().describe("股票代碼"),
+            stock_name: z.string().describe("股票名稱"),
+            forecast_year: z.number().describe("財測年度"),
+            eps: z.number().describe("財測 EPS 數值"),
+          })
+        ),
+      }),
+      prompt: `你是一位股票分析師。以下文章已被拆分成多個段落，請完成三項任務：
+
+任務一：判斷文章分類（article_type）。
+任務二：針對每個段落，找出該段落中提及的所有股票/公司。
+任務三：找出文章中提及的「財測 EPS」預估數字。
+
+任務一規則：
+根據文章標題與內容，判斷文章屬於以下哪一類：
+- stock：個股分析（標題直接寫某支股票名稱，如「環宇-KY(4991)：營運簡評」）
+- weekly：產業週報（標題含「週報」「周報」）
+- macro：總經分析（討論景氣、利率、匯率、地緣政治等宏觀議題）
+- industry：產業分析（分析特定產業趨勢但非針對單一個股）
+- other：以上皆非
+
+以下是特別關注的股票清單（供參考，但不限於此清單）：
+${stockListText}
+
+任務二規則：
+1. 針對每個段落，找出其中提及的所有公司，包括台灣上市櫃股票、海外上市股票、以及海外未上市但具知名度的公司
+2. 股票代碼格式：台股為純數字（如 4991），海外股票為英文代碼（如 NVDA）。未上市或無法確認代碼的公司，ticker 填公司英文簡稱
+3. 股票名稱可能以簡稱、全名、英文名或代號出現，即使文章只寫公司簡稱而未附代碼，也必須盡力辨識
+4. 每個段落獨立判斷，只回傳在該段落中實際出現的股票
+5. 如果某段落沒有提及任何股票，不需要回傳該段落
+6. 重要：當段落開頭以股票名稱作為主角（例如「6. 威剛(3260)：2025Q4營收...」），該主角股票也必須被標記
+
+任務三規則（eps_forecasts）：
+1. 只抽取明確寫出「財測EPS」、「預估EPS」等字眼的數字
+2. 例如「2026年財測EPS上修至8.20元」→ forecast_year=2026, eps=8.20
+3. 例如「2026/2027年財測EPS上修至10.60/17.36元」→ 兩筆
+4. 若 EPS 為區間，取中間值
+5. 每個年度的 EPS 為獨立一筆
+
+文章標題：${title}
+
+${trimmedList}`,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      article_type: result.article_type,
+      paragraph_stocks: result.paragraph_stocks,
+      eps_forecasts: result.eps_forecasts,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  }
+}
