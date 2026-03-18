@@ -1,18 +1,29 @@
 /**
- * Split article content into paragraphs using a hybrid approach:
- * 1. If numbered paragraphs are detected (e.g., "1.", "2.", "(1)", "a.", "b."),
- *    split by those markers.
- * 2. Otherwise, fall back to splitting by blank lines / newlines.
+ * Split article content into paragraphs.
  *
- * Image lines (![...](url)) always act as paragraph boundaries —
- * they become their own paragraph so they can be filtered out or rendered separately.
+ * Priority order:
+ * 1. <!-- split --> markers — explicit manual splits (highest priority)
+ * 2. Numbered paragraphs (e.g., "1.", "2.", "(1)")
+ * 3. Blank lines (fallback)
+ *
+ * Image lines (![...](url)) always act as paragraph boundaries.
  */
 
 // Matches top-level numbered paragraph starts: "1. ", "2) ", "(1) ", etc.
 const NUMBERED_RE = /^(?:\d+[.)]\s|\(\d+\)\s)/;
 const IMAGE_RE = /^!\[[^\]]*\]\([^)]+\)\s*$/;
+const SPLIT_MARKER = "<!-- split -->";
 
 export function splitParagraphs(content: string): string[] {
+  // If explicit split markers exist, use them as the primary splitter
+  if (content.includes(SPLIT_MARKER)) {
+    return content
+      .split(SPLIT_MARKER)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+      .flatMap(splitAroundImages);
+  }
+
   const lines = content.split("\n");
 
   // Detect if this article uses numbered paragraphs
