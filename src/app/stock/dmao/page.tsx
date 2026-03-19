@@ -139,6 +139,8 @@ export default function DmaoPage() {
   const [epsForecasts, setEpsForecasts] = useState<EpsForecast[]>([]);
   const [finalContent, setFinalContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const handleTitleChange = (value: string) => {
     setFormTitle(value);
@@ -457,6 +459,36 @@ export default function DmaoPage() {
     );
   };
 
+  const handleDragStart = (index: number) => {
+    setDragIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    setDragOverIndex(index);
+  };
+
+  const handleDrop = (index: number) => {
+    if (dragIndex === null || dragIndex === index) {
+      setDragIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+    setParagraphs((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(dragIndex, 1);
+      next.splice(index, 0, moved);
+      return next;
+    });
+    setDragIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDragIndex(null);
+    setDragOverIndex(null);
+  };
+
   // ─── Step 2 → Save ───
   const handleSave = async () => {
     setSubmitting(true);
@@ -665,13 +697,26 @@ export default function DmaoPage() {
             {paragraphs.map((para, i) => (
               <div
                 key={i}
+                draggable
+                onDragStart={() => handleDragStart(i)}
+                onDragOver={(e) => handleDragOver(e, i)}
+                onDrop={() => handleDrop(i)}
+                onDragEnd={handleDragEnd}
                 style={{
-                  border: para.stocks.length > 0 ? "1px solid #c7d2fe" : "1px solid #e5e7eb",
+                  border: dragOverIndex === i && dragIndex !== i
+                    ? "2px solid #4f46e5"
+                    : para.stocks.length > 0 ? "1px solid #c7d2fe" : "1px solid #e5e7eb",
                   borderRadius: 8, padding: "12px 16px",
-                  background: para.stocks.length > 0 ? "#fafbff" : "#fafbfc",
+                  background: dragIndex === i ? "#e8eaff" : para.stocks.length > 0 ? "#fafbff" : "#fafbfc",
+                  opacity: dragIndex === i ? 0.5 : 1,
+                  cursor: "grab",
+                  transition: "border 0.15s, background 0.15s",
                 }}
               >
-                <div style={{ fontSize: 11, color: "#999", marginBottom: 4 }}>段落 {i + 1}</div>
+                <div style={{ fontSize: 11, color: "#999", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ cursor: "grab", color: "#aaa", fontSize: 14, userSelect: "none" }}>⠿</span>
+                  段落 {i + 1}
+                </div>
                 <div style={{ fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap", color: "#333" }}>
                   {para.text.length > 500 ? para.text.slice(0, 500) + "..." : para.text}
                 </div>
