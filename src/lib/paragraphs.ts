@@ -36,22 +36,29 @@ export function splitParagraphs(content: string): string[] {
   return raw.flatMap(splitAroundImages);
 }
 
+/** Max characters for a short title that should stay with its image */
+const SHORT_TITLE_MAX = 20;
+
 /** Split a single paragraph around image lines */
 function splitAroundImages(paragraph: string): string[] {
   const lines = paragraph.split("\n");
   const result: string[] = [];
   let current: string[] = [];
 
-  for (const line of lines) {
+  for (let idx = 0; idx < lines.length; idx++) {
+    const line = lines[idx];
     if (IMAGE_RE.test(line.trim())) {
-      // Flush text before the image
-      if (current.length > 0) {
-        const text = current.join("\n").trim();
-        if (text) result.push(text);
-        current = [];
+      const pendingText = current.join("\n").trim();
+      // If the text before the image is a short title, keep them together
+      if (pendingText && pendingText.length <= SHORT_TITLE_MAX) {
+        result.push(pendingText + "\n" + line.trim());
+      } else {
+        // Flush text before the image as its own paragraph
+        if (pendingText) result.push(pendingText);
+        // Image as its own paragraph
+        result.push(line.trim());
       }
-      // Image as its own paragraph
-      result.push(line.trim());
+      current = [];
     } else {
       current.push(line);
     }
