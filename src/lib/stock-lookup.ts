@@ -426,6 +426,7 @@ export const stockLookup: Record<string, string> = {
   "SITM": "SiTime",
   "RMBS": "Rambus",
   "COHR": "Coherent",
+  "LITE": "Lumentum",
   "AMKR": "Amkor Technology",
   "FORM": "FormFactor",
   "ONTO": "Onto Innovation",
