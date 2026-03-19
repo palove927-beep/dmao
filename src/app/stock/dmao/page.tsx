@@ -10,6 +10,23 @@ type StockTag = { ticker: string; stock_name: string };
 type ParagraphData = { text: string; stocks: StockTag[] };
 type EpsForecast = { ticker: string; stock_name: string; forecast_year: number; eps: number };
 
+// ─── Highlight helper ────────────────────────────────────
+function highlightStocksInText(text: string, stocks: StockTag[]) {
+  if (stocks.length === 0) return text;
+  const keywords = stocks.flatMap((s) => [s.stock_name, s.ticker]);
+  const escaped = keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const regex = new RegExp(`(${escaped.join("|")})`, "g");
+  const parts = text.split(regex);
+  const kw = new Set(keywords);
+  return parts.map((part, i) =>
+    kw.has(part) ? (
+      <mark key={i} style={{ background: "#fef9c3", padding: "1px 2px", borderRadius: 2 }}>{part}</mark>
+    ) : (
+      part
+    )
+  );
+}
+
 // ─── Toast ──────────────────────────────────────────────
 function Toast({ message, persistent, onClose }: { message: string; persistent?: boolean; onClose: () => void }) {
   useEffect(() => {
@@ -795,7 +812,7 @@ export default function DmaoPage() {
                 >
                   <div style={{ fontSize: 11, color: "#999", marginBottom: 4 }}>段落 {i + 1}</div>
                   <div style={{ fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap", color: "#333" }}>
-                    {para.text}
+                    {highlightStocksInText(para.text, para.stocks)}
                   </div>
                   <StockChips
                     stocks={para.stocks}
