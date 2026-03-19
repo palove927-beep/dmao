@@ -3,7 +3,7 @@ import { getSupabase } from "@/lib/supabase";
 
 export async function POST(req: NextRequest) {
   try {
-    const { article_id, ticker, stock_name, paragraph } = await req.json();
+    const { article_id, ticker, stock_name, paragraph, is_summary } = await req.json();
 
     if (!article_id || !ticker || !stock_name || !paragraph) {
       return NextResponse.json(
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
 
     const { data, error } = await getSupabase()
       .from("dmao_annotations")
-      .insert({ article_id, ticker, stock_name, paragraph, is_summary: false })
+      .insert({ article_id, ticker, stock_name, paragraph, is_summary: is_summary || false })
       .select("id, ticker, stock_name, paragraph, is_summary")
       .single();
 

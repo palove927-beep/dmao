@@ -145,6 +145,8 @@ export default function DmaoPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [paragraphs, setParagraphs] = useState<ParagraphData[]>([]);
   const [articleType, setArticleType] = useState<string>("other");
+  const [subjectStock, setSubjectStock] = useState<StockTag | null>(null);
+  const [summary, setSummary] = useState<string>("");
   const [epsForecasts, setEpsForecasts] = useState<EpsForecast[]>([]);
   const [finalContent, setFinalContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -434,6 +436,8 @@ export default function DmaoPage() {
         });
         setParagraphs(paraData);
         setArticleType(json.article_type);
+        setSubjectStock(json.subject_stock || null);
+        setSummary(json.summary || "");
         setEpsForecasts(json.eps_forecasts || []);
         setStep(2);
         showToast(`分析完成，共 ${paras.length} 個段落`);
@@ -528,8 +532,20 @@ export default function DmaoPage() {
     showToast("儲存中...", true);
 
     try {
-      // Build annotations: for each paragraph with stocks, each stock gets one annotation row
+      // Build annotations
       const annotations: { ticker: string; stock_name: string; paragraph: string; is_summary: boolean }[] = [];
+
+      // For 個股 articles: add summary annotation for the subject stock
+      if (articleType === "stock" && subjectStock && summary.trim()) {
+        annotations.push({
+          ticker: subjectStock.ticker,
+          stock_name: subjectStock.stock_name,
+          paragraph: summary,
+          is_summary: true,
+        });
+      }
+
+      // For each paragraph with stocks, each stock gets one annotation row
       for (const para of paragraphs) {
         for (const stock of para.stocks) {
           annotations.push({
@@ -725,26 +741,54 @@ export default function DmaoPage() {
             </button>
           </div>
 
+          {/* Summary panel for 個股 articles */}
+          {articleType === "stock" && subjectStock && (
+            <div style={{
+              border: "1px solid #a5b4fc", borderRadius: 8, padding: "16px",
+              background: "#eef2ff", marginBottom: 16,
+            }}>
+              <div style={{ fontSize: 13, fontWeight: "bold", color: "#4338ca", marginBottom: 8 }}>
+                AI 摘要 — {subjectStock.stock_name}({subjectStock.ticker})
+              </div>
+              <textarea
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
+                rows={5}
+                style={{
+                  width: "100%", fontSize: 14, lineHeight: 1.7, border: "1px solid #c7d2fe",
+                  borderRadius: 6, padding: "10px 12px", resize: "vertical",
+                  fontFamily: "sans-serif", color: "#333", background: "#fff",
+                  boxSizing: "border-box",
+                }}
+              />
+              <div style={{ fontSize: 11, color: "#6366f1", marginTop: 4 }}>
+                此摘要將記錄為 {subjectStock.stock_name} 的摘要標記（is_summary）
+              </div>
+            </div>
+          )}
+
           {/* Paragraphs with stock chips and separators */}
           <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
             {paragraphs.map((para, i) => (
               <div key={i}>
                 <div
                   style={{
-                    border: para.stocks.length > 0 ? "1px solid #c7d2fe" : "1px solid #e5e7eb",
+                    border: articleType !== "stock" && para.stocks.length > 0 ? "1px solid #c7d2fe" : "1px solid #e5e7eb",
                     borderRadius: 8, padding: "12px 16px",
-                    background: para.stocks.length > 0 ? "#fafbff" : "#fafbfc",
+                    background: articleType !== "stock" && para.stocks.length > 0 ? "#fafbff" : "#fafbfc",
                   }}
                 >
                   <div style={{ fontSize: 11, color: "#999", marginBottom: 4 }}>段落 {i + 1}</div>
                   <div style={{ fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap", color: "#333" }}>
                     {para.text}
                   </div>
-                  <StockChips
-                    stocks={para.stocks}
-                    onRemove={(ticker) => handleRemoveStock(i, ticker)}
-                    onAdd={(stock) => handleAddStock(i, stock)}
-                  />
+                  {articleType !== "stock" && (
+                    <StockChips
+                      stocks={para.stocks}
+                      onRemove={(ticker) => handleRemoveStock(i, ticker)}
+                      onAdd={(stock) => handleAddStock(i, stock)}
+                    />
+                  )}
                 </div>
                 {/* Separator between paragraphs */}
                 {i < paragraphs.length - 1 && (
