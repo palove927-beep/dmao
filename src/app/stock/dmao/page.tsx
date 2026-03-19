@@ -555,7 +555,7 @@ export default function DmaoPage() {
       for (const s of lower.stocks) {
         if (!seen.has(s.ticker)) { mergedStocks.push(s); seen.add(s.ticker); }
       }
-      next[i] = { text: upper.text + "\n" + lower.text, stocks: mergedStocks };
+      next[i] = { text: upper.text + "\n\n" + lower.text, stocks: mergedStocks };
       next.splice(i + 1, 1);
       return next;
     });
