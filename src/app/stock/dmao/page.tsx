@@ -434,9 +434,16 @@ export default function DmaoPage() {
           const match = json.paragraph_stocks.find((ps: { index: number }) => ps.index === i);
           return { text, stocks: match ? match.stocks : [] };
         });
+        // For 個股 articles, remove the subject stock from paragraph tags
+        const subj = json.subject_stock;
+        if (json.article_type === "stock" && subj) {
+          for (const p of paraData) {
+            p.stocks = p.stocks.filter((s) => s.ticker !== subj.ticker);
+          }
+        }
         setParagraphs(paraData);
         setArticleType(json.article_type);
-        setSubjectStock(json.subject_stock || null);
+        setSubjectStock(subj || null);
         setSummary(json.summary || "");
         setEpsForecasts(json.eps_forecasts || []);
         setStep(2);
@@ -781,22 +788,20 @@ export default function DmaoPage() {
               <div key={i}>
                 <div
                   style={{
-                    border: articleType !== "stock" && para.stocks.length > 0 ? "1px solid #c7d2fe" : "1px solid #e5e7eb",
+                    border: para.stocks.length > 0 ? "1px solid #c7d2fe" : "1px solid #e5e7eb",
                     borderRadius: 8, padding: "12px 16px",
-                    background: articleType !== "stock" && para.stocks.length > 0 ? "#fafbff" : "#fafbfc",
+                    background: para.stocks.length > 0 ? "#fafbff" : "#fafbfc",
                   }}
                 >
                   <div style={{ fontSize: 11, color: "#999", marginBottom: 4 }}>段落 {i + 1}</div>
                   <div style={{ fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap", color: "#333" }}>
                     {para.text}
                   </div>
-                  {articleType !== "stock" && (
-                    <StockChips
-                      stocks={para.stocks}
-                      onRemove={(ticker) => handleRemoveStock(i, ticker)}
-                      onAdd={(stock) => handleAddStock(i, stock)}
-                    />
-                  )}
+                  <StockChips
+                    stocks={para.stocks}
+                    onRemove={(ticker) => handleRemoveStock(i, ticker)}
+                    onAdd={(stock) => handleAddStock(i, stock)}
+                  />
                 </div>
                 {/* Separator between paragraphs */}
                 {i < paragraphs.length - 1 && (
