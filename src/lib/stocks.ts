@@ -224,6 +224,8 @@ export const categories: Category[] = [
       { code: "U12", ticker: "4062.T", name: "Ibiden" },
       { code: "U13", ticker: "005930.KS", name: "Samsung", aliases: ["三星"] },
       { code: "U14", ticker: "000660.KS", name: "SK Hynix", aliases: ["海力士"] },
+      { code: "U15", ticker: "COHR", name: "Coherent", aliases: ["貳陸"] },
+      { code: "U16", ticker: "LITE", name: "Lumentum" },
     ],
   },
 ];

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { categories } from "@/lib/stocks";
+import { categories, lookupStock } from "@/lib/stocks";
 import { generateObject } from "ai";
 import { z } from "zod";
 
@@ -108,13 +108,31 @@ ${stockListText}
 ${trimmedList}`,
     });
 
+    // Normalize tickers: AI may return company name as ticker, fix via lookupStock
+    const normalizeStock = (s: { ticker: string; stock_name: string }) => {
+      const found = lookupStock(s.ticker) || lookupStock(s.stock_name);
+      return found || s;
+    };
+
+    const subjectStock = result.subject_stock ? normalizeStock(result.subject_stock) : null;
+
+    const paragraphStocks = result.paragraph_stocks.map((ps) => ({
+      index: ps.index,
+      stocks: ps.stocks.map(normalizeStock),
+    }));
+
+    const epsForecasts = result.eps_forecasts.map((ef) => ({
+      ...ef,
+      ...normalizeStock(ef),
+    }));
+
     return NextResponse.json({
       ok: true,
       article_type: result.article_type,
-      subject_stock: result.subject_stock,
+      subject_stock: subjectStock,
       summary: result.summary,
-      paragraph_stocks: result.paragraph_stocks,
-      eps_forecasts: result.eps_forecasts,
+      paragraph_stocks: paragraphStocks,
+      eps_forecasts: epsForecasts,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
