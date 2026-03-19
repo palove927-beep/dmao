@@ -139,8 +139,6 @@ export default function DmaoPage() {
   const [epsForecasts, setEpsForecasts] = useState<EpsForecast[]>([]);
   const [finalContent, setFinalContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const handleTitleChange = (value: string) => {
     setFormTitle(value);
@@ -459,34 +457,60 @@ export default function DmaoPage() {
     );
   };
 
-  const handleDragStart = (index: number) => {
-    setDragIndex(index);
+  // Split a paragraph's text into movable sentences
+  const splitSentences = (text: string): string[] => {
+    const parts = text.match(/[^。！？!?\n]+[。！？!?\n]?/g);
+    return parts ? parts : [text];
   };
 
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    setDragOverIndex(index);
-  };
-
-  const handleDrop = (index: number) => {
-    if (dragIndex === null || dragIndex === index) {
-      setDragIndex(null);
-      setDragOverIndex(null);
-      return;
-    }
+  // Move the last sentence of paragraph[i] down to the start of paragraph[i+1]
+  const handleMoveDown = (i: number) => {
     setParagraphs((prev) => {
+      if (i >= prev.length - 1) return prev;
+      const upper = prev[i];
+      const lower = prev[i + 1];
+      const sentences = splitSentences(upper.text);
+      if (sentences.length <= 1) return prev;
+      const moved = sentences.pop()!;
       const next = [...prev];
-      const [moved] = next.splice(dragIndex, 1);
-      next.splice(index, 0, moved);
+      next[i] = { ...upper, text: sentences.join("").trimEnd() };
+      next[i + 1] = { ...lower, text: (moved.trimStart() + lower.text) };
       return next;
     });
-    setDragIndex(null);
-    setDragOverIndex(null);
   };
 
-  const handleDragEnd = () => {
-    setDragIndex(null);
-    setDragOverIndex(null);
+  // Move the first sentence of paragraph[i+1] up to the end of paragraph[i]
+  const handleMoveUp = (i: number) => {
+    setParagraphs((prev) => {
+      if (i >= prev.length - 1) return prev;
+      const upper = prev[i];
+      const lower = prev[i + 1];
+      const sentences = splitSentences(lower.text);
+      if (sentences.length <= 1) return prev;
+      const moved = sentences.shift()!;
+      const next = [...prev];
+      next[i] = { ...upper, text: (upper.text + moved.trimEnd()) };
+      next[i + 1] = { ...lower, text: sentences.join("").trimStart() };
+      return next;
+    });
+  };
+
+  // Merge paragraph[i+1] into paragraph[i]
+  const handleMerge = (i: number) => {
+    setParagraphs((prev) => {
+      if (i >= prev.length - 1) return prev;
+      const upper = prev[i];
+      const lower = prev[i + 1];
+      const next = [...prev];
+      const mergedStocks = [...upper.stocks];
+      const seen = new Set(mergedStocks.map((s) => s.ticker));
+      for (const s of lower.stocks) {
+        if (!seen.has(s.ticker)) { mergedStocks.push(s); seen.add(s.ticker); }
+      }
+      next[i] = { text: upper.text + "\n" + lower.text, stocks: mergedStocks };
+      next.splice(i + 1, 1);
+      return next;
+    });
   };
 
   // ─── Step 2 → Save ───
@@ -692,39 +716,70 @@ export default function DmaoPage() {
             </button>
           </div>
 
-          {/* Paragraphs with stock chips */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Paragraphs with stock chips and separators */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
             {paragraphs.map((para, i) => (
-              <div
-                key={i}
-                draggable
-                onDragStart={() => handleDragStart(i)}
-                onDragOver={(e) => handleDragOver(e, i)}
-                onDrop={() => handleDrop(i)}
-                onDragEnd={handleDragEnd}
-                style={{
-                  border: dragOverIndex === i && dragIndex !== i
-                    ? "2px solid #4f46e5"
-                    : para.stocks.length > 0 ? "1px solid #c7d2fe" : "1px solid #e5e7eb",
-                  borderRadius: 8, padding: "12px 16px",
-                  background: dragIndex === i ? "#e8eaff" : para.stocks.length > 0 ? "#fafbff" : "#fafbfc",
-                  opacity: dragIndex === i ? 0.5 : 1,
-                  cursor: "grab",
-                  transition: "border 0.15s, background 0.15s",
-                }}
-              >
-                <div style={{ fontSize: 11, color: "#999", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ cursor: "grab", color: "#aaa", fontSize: 14, userSelect: "none" }}>⠿</span>
-                  段落 {i + 1}
+              <div key={i}>
+                <div
+                  style={{
+                    border: para.stocks.length > 0 ? "1px solid #c7d2fe" : "1px solid #e5e7eb",
+                    borderRadius: 8, padding: "12px 16px",
+                    background: para.stocks.length > 0 ? "#fafbff" : "#fafbfc",
+                  }}
+                >
+                  <div style={{ fontSize: 11, color: "#999", marginBottom: 4 }}>段落 {i + 1}</div>
+                  <div style={{ fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap", color: "#333" }}>
+                    {para.text.length > 500 ? para.text.slice(0, 500) + "..." : para.text}
+                  </div>
+                  <StockChips
+                    stocks={para.stocks}
+                    onRemove={(ticker) => handleRemoveStock(i, ticker)}
+                    onAdd={(stock) => handleAddStock(i, stock)}
+                  />
                 </div>
-                <div style={{ fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap", color: "#333" }}>
-                  {para.text.length > 500 ? para.text.slice(0, 500) + "..." : para.text}
-                </div>
-                <StockChips
-                  stocks={para.stocks}
-                  onRemove={(ticker) => handleRemoveStock(i, ticker)}
-                  onAdd={(stock) => handleAddStock(i, stock)}
-                />
+                {/* Separator between paragraphs */}
+                {i < paragraphs.length - 1 && (
+                  <div style={{
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    gap: 8, padding: "4px 0", margin: "2px 0",
+                  }}>
+                    <div style={{ flex: 1, height: 1, background: "#d1d5db" }} />
+                    <button
+                      onClick={() => handleMoveUp(i)}
+                      title="將下段首句移到此段末"
+                      style={{
+                        border: "1px solid #d1d5db", background: "#fff", borderRadius: 4,
+                        padding: "2px 8px", fontSize: 12, cursor: "pointer", color: "#6366f1",
+                        lineHeight: 1,
+                      }}
+                    >
+                      ▲
+                    </button>
+                    <button
+                      onClick={() => handleMerge(i)}
+                      title="合併兩段"
+                      style={{
+                        border: "1px solid #d1d5db", background: "#fff", borderRadius: 4,
+                        padding: "2px 8px", fontSize: 11, cursor: "pointer", color: "#64748b",
+                        lineHeight: 1,
+                      }}
+                    >
+                      合併
+                    </button>
+                    <button
+                      onClick={() => handleMoveDown(i)}
+                      title="將此段末句移到下段首"
+                      style={{
+                        border: "1px solid #d1d5db", background: "#fff", borderRadius: 4,
+                        padding: "2px 8px", fontSize: 12, cursor: "pointer", color: "#6366f1",
+                        lineHeight: 1,
+                      }}
+                    >
+                      ▼
+                    </button>
+                    <div style={{ flex: 1, height: 1, background: "#d1d5db" }} />
+                  </div>
+                )}
               </div>
             ))}
           </div>
