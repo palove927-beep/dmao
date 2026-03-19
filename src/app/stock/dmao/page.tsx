@@ -156,6 +156,7 @@ export default function DmaoPage() {
   const [gdocLoading, setGdocLoading] = useState(false);
   const [docxLoading, setDocxLoading] = useState(false);
   const pendingImagesRef = useRef<Map<string, File | string>>(new Map());
+  const autoAnalyzeRef = useRef(false);
 
   // Step 2: Review state
   const [step, setStep] = useState<1 | 2>(1);
@@ -250,7 +251,8 @@ export default function DmaoPage() {
           } catch { /* leave as-is */ }
         }
         setFormContent(content);
-        showToast(`已匯入「${json.title || "無標題"}」`);
+        autoAnalyzeRef.current = true;
+        showToast(`已匯入「${json.title || "無標題"}」，開始分析...`);
       } else {
         showToast(`匯入失敗：${json.error}`);
       }
@@ -474,6 +476,15 @@ export default function DmaoPage() {
       setAnalyzing(false);
     }
   };
+
+  // Auto-analyze after docx import
+  useEffect(() => {
+    if (autoAnalyzeRef.current) {
+      autoAnalyzeRef.current = false;
+      handleAnalyze();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formContent]);
 
   // ─── Step 2: Edit stock tags ───
   const handleRemoveStock = (paraIndex: number, ticker: string) => {
