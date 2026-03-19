@@ -725,6 +725,14 @@ export default function DmaoPage() {
             background: "#f0f4f8", borderRadius: 8, padding: "10px 16px", marginBottom: 16,
           }}>
             <div style={{ fontSize: 14 }}>
+              <span style={{
+                display: "inline-block", padding: "1px 8px", borderRadius: 4, fontSize: 12, fontWeight: "bold",
+                marginRight: 8,
+                background: articleType === "stock" ? "#dbeafe" : articleType === "weekly" ? "#fef3c7" : articleType === "industry" ? "#d1fae5" : articleType === "macro" ? "#fce7f3" : "#f3f4f6",
+                color: articleType === "stock" ? "#1e40af" : articleType === "weekly" ? "#92400e" : articleType === "industry" ? "#065f46" : articleType === "macro" ? "#9d174d" : "#374151",
+              }}>
+                {{ stock: "個股", weekly: "週報", macro: "總經", industry: "產業", other: "其他" }[articleType] || articleType}
+              </span>
               <strong>{paragraphs.length}</strong> 個段落 ·{" "}
               <strong>{totalStocks}</strong> 支股票 ·{" "}
               <strong>{totalAnnotations}</strong> 筆標記
