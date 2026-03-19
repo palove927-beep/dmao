@@ -364,8 +364,8 @@ export default function EditAnnotationsPage() {
               }}>
                 <div style={{ flex: 1, height: 1, background: "#d1d5db" }} />
                 <button
-                  onClick={() => handleMoveUp(i)}
-                  title="將下段首句移到此段末"
+                  onClick={() => handleMoveDown(i)}
+                  title="分隔線上移：此段末句移到下段首"
                   style={{
                     border: "1px solid #d1d5db", background: "#fff", borderRadius: 4,
                     padding: "2px 8px", fontSize: 12, cursor: "pointer", color: "#6366f1",
@@ -386,8 +386,8 @@ export default function EditAnnotationsPage() {
                   合併
                 </button>
                 <button
-                  onClick={() => handleMoveDown(i)}
-                  title="將此段末句移到下段首"
+                  onClick={() => handleMoveUp(i)}
+                  title="分隔線下移：下段首句移到此段末"
                   style={{
                     border: "1px solid #d1d5db", background: "#fff", borderRadius: 4,
                     padding: "2px 8px", fontSize: 12, cursor: "pointer", color: "#6366f1",
