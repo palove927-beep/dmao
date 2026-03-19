@@ -235,3 +235,17 @@ export function getTwseStockCodes(): string[] {
     .map((s) => s.ticker)
     .filter((t) => /^\d+$/.test(t));
 }
+
+// Lookup a stock by ticker or name/alias, returns { ticker, stock_name } or null
+export function lookupStock(query: string): { ticker: string; stock_name: string } | null {
+  const q = query.trim();
+  if (!q) return null;
+  for (const cat of categories) {
+    for (const s of cat.stocks) {
+      if (s.ticker === q) return { ticker: s.ticker, stock_name: s.name };
+      if (s.name === q) return { ticker: s.ticker, stock_name: s.name };
+      if (s.aliases?.some((a) => a === q)) return { ticker: s.ticker, stock_name: s.name };
+    }
+  }
+  return null;
+}

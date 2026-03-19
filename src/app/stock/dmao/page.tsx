@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { splitParagraphs } from "@/lib/paragraphs";
+import { lookupStock } from "@/lib/stocks";
 
 // ─── Types ──────────────────────────────────────────────
 type StockTag = { ticker: string; stock_name: string };
@@ -49,7 +50,15 @@ function StockChips({
   const handleAdd = () => {
     const val = input.trim();
     if (!val) { setAdding(false); return; }
-    // Parse "ticker name" or just "name"
+    // Try auto-lookup first (e.g. "2330" → 台積電)
+    const found = lookupStock(val);
+    if (found) {
+      onAdd(found);
+      setInput("");
+      setAdding(false);
+      return;
+    }
+    // Fallback: "代碼 名稱" format or raw ticker
     const parts = val.match(/^(\S+)\s+(.+)$/);
     const stock: StockTag = parts
       ? { ticker: parts[1], stock_name: parts[2] }
