@@ -102,11 +102,17 @@ ${stockListText}
    - 只有當這些縮寫明確指涉一家公司時才可標記（例如「CPO公司」不是公司，但「Coherent」是公司）
 
 任務四規則（eps_forecasts）：
-1. 只抽取明確寫出「財測EPS」、「預估EPS」等字眼的數字
-2. 例如「2026年財測EPS上修至8.20元」→ forecast_year=2026, eps=8.20
-3. 例如「2026/2027年財測EPS上修至10.60/17.36元」→ 兩筆
-4. 若 EPS 為區間，取中間值
-5. 每個年度的 EPS 為獨立一筆
+1. 只抽取文章中由定錨（作者）明確給出的「年度財測EPS」預估數字，通常出現在文章末段的估值或投資建議區塊
+2. 必須同時包含「財測」或「預估」等字眼 + 明確的年度 + EPS 數值，三者缺一不可
+3. 例如「2026年財測EPS上修至8.20元」→ forecast_year=2026, eps=8.20
+4. 例如「2026/2027年財測EPS上修至10.60/17.36元」→ 兩筆
+5. 若 EPS 為區間，取中間值
+6. 每個年度的 EPS 為獨立一筆
+7. 重要：以下情況不算財測EPS，絕對不要抽取：
+   - 公司自己公布的當季實際EPS（如「non-GAAP EPS -0.01美元」）
+   - 公司自己給出的下季財測區間（如「EPS區間-0.09~0美元」）
+   - 這些是公司的guidance，不是定錨的年度財測EPS預估
+8. 如果文章中沒有定錨給出的年度財測EPS，回傳空陣列 []
 
 文章標題：${title}
 
@@ -157,10 +163,14 @@ ${trimmedList}`,
       })
       .filter((ps) => ps.stocks.length > 0);
 
-    const epsForecasts = result.eps_forecasts.map((ef) => ({
-      ...ef,
-      ...normalizeStock(ef),
-    }));
+    const epsForecasts = result.eps_forecasts
+      .map((ef) => ({
+        ...ef,
+        ...normalizeStock(ef),
+      }))
+      .filter((ef, i, arr) =>
+        arr.findIndex((x) => x.ticker === ef.ticker && x.forecast_year === ef.forecast_year) === i
+      );
 
     return NextResponse.json({
       ok: true,
