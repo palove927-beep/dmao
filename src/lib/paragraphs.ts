@@ -49,13 +49,25 @@ function splitAroundImages(paragraph: string): string[] {
     const line = lines[idx];
     if (IMAGE_RE.test(line.trim())) {
       const pendingText = current.join("\n").trim();
-      // If the text before the image is a short title, keep them together
       if (pendingText && pendingText.length <= SHORT_TITLE_MAX) {
+        // All pending text is a short title — keep with image
         result.push(pendingText + "\n" + line.trim());
+      } else if (current.length > 0) {
+        // Check if the last line is a short title that belongs with the image
+        const lastLine = current[current.length - 1].trim();
+        if (lastLine && lastLine.length <= SHORT_TITLE_MAX) {
+          // Flush everything except the last line
+          const body = current.slice(0, -1).join("\n").trim();
+          if (body) result.push(body);
+          // Combine last line (short title) with image
+          result.push(lastLine + "\n" + line.trim());
+        } else {
+          // No short title — flush text, image as own paragraph
+          if (pendingText) result.push(pendingText);
+          result.push(line.trim());
+        }
       } else {
-        // Flush text before the image as its own paragraph
-        if (pendingText) result.push(pendingText);
-        // Image as its own paragraph
+        // No pending text — image as its own paragraph
         result.push(line.trim());
       }
       current = [];
