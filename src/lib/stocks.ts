@@ -230,6 +230,7 @@ export const categories: Category[] = [
       { code: "U16", ticker: "LITE", name: "Lumentum" },
       { code: "U17", ticker: "CRDO", name: "Credo", aliases: ["Credo Technology"] },
       { code: "U18", ticker: "META", name: "Meta", aliases: ["Meta Platforms", "Facebook"] },
+      { code: "U19", ticker: "NXPI", name: "NXP Semiconductors", aliases: ["NXP", "恩智浦"] },
     ],
   },
 ];
