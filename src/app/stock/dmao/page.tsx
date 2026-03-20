@@ -780,7 +780,7 @@ export default function DmaoPage() {
                 background: "#fff", cursor: "pointer",
               }}
             >
-              返回編輯
+              返回
             </button>
           </div>
 
