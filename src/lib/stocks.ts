@@ -86,6 +86,8 @@ export const categories: Category[] = [
       { code: "H2", ticker: "3081", name: "聯亞" },
       { code: "H3", ticker: "3105", name: "穩懋" },
       { code: "H4", ticker: "8086", name: "宏捷科" },
+      { code: "H5", ticker: "4991", name: "環宇-KY", aliases: ["環宇"] },
+      { code: "H6", ticker: "AAOI", name: "Applied Optoelectronics", aliases: ["AAOI"] },
     ],
   },
   {
