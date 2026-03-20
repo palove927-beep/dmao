@@ -121,10 +121,21 @@ ${trimmedList}`,
 
     const subjectStock = result.subject_stock ? normalizeStock(result.subject_stock) : null;
 
-    const paragraphStocks = result.paragraph_stocks.map((ps) => ({
-      index: ps.index,
-      stocks: ps.stocks.map(normalizeStock),
-    }));
+    // Validate: only keep stocks whose name/ticker actually appears in the paragraph text
+    const stockAppearsInText = (text: string, stock: { ticker: string; stock_name: string }) => {
+      return text.includes(stock.stock_name) || text.includes(stock.ticker);
+    };
+
+    const paragraphStocks = result.paragraph_stocks
+      .map((ps) => {
+        const paraText = paragraphs[ps.index] ?? "";
+        const normalized = ps.stocks.map(normalizeStock);
+        return {
+          index: ps.index,
+          stocks: normalized.filter((s) => stockAppearsInText(paraText, s)),
+        };
+      })
+      .filter((ps) => ps.stocks.length > 0);
 
     const epsForecasts = result.eps_forecasts.map((ef) => ({
       ...ef,
