@@ -76,9 +76,14 @@ export default function ArticlePage() {
     );
   }
 
-  // Collect unique stock names and tickers for inline highlighting
-  const stockKeywords = [...new Set(annotations.flatMap((a) => [a.stock_name, a.ticker]))].filter(Boolean);
-  stockKeywords.sort((a, b) => b.length - a.length); // match longer names first
+  // Collect keywords for the currently selected stock (for inline highlighting)
+  const selectedKeywords = expandedStock
+    ? [...new Set(
+        annotations
+          .filter((a) => a.ticker === expandedStock)
+          .flatMap((a) => [a.stock_name, a.ticker])
+      )].filter(Boolean).sort((a, b) => b.length - a.length)
+    : [];
 
   const handleDelete = async () => {
     if (!confirm("確定要刪除這篇文章？（文章、標記、圖片將一併刪除）")) return;
@@ -99,12 +104,12 @@ export default function ArticlePage() {
   };
 
   const highlightStocks = (text: string) => {
-    if (stockKeywords.length === 0) return [text];
-    const escaped = stockKeywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    if (selectedKeywords.length === 0) return [text];
+    const escaped = selectedKeywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
     const regex = new RegExp(`(${escaped.join("|")})`, "g");
     const parts = text.split(regex);
     return parts.map((part, i) =>
-      stockKeywords.includes(part) ? (
+      selectedKeywords.includes(part) ? (
         <mark key={i} style={{ background: "#fef9c3", padding: "1px 2px", borderRadius: 2 }}>{part}</mark>
       ) : (
         part
