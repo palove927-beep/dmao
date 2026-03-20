@@ -75,7 +75,7 @@ function StockChips({
 
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginTop: 6 }}>
-      {stocks.map((s) => (
+      {stocks.filter((s, i, arr) => arr.findIndex((x) => x.ticker === s.ticker) === i).map((s) => (
         <span
           key={s.ticker}
           style={{

@@ -151,7 +151,8 @@ ${trimmedList}`,
           stocks: ps.stocks
             .map((orig) => ({ orig, norm: normalizeStock(orig) }))
             .filter(({ orig, norm }) => stockAppearsInText(paraText, norm, orig))
-            .map(({ norm }) => norm),
+            .map(({ norm }) => norm)
+            .filter((s, i, arr) => arr.findIndex((x) => x.ticker === s.ticker) === i),
         };
       })
       .filter((ps) => ps.stocks.length > 0);
