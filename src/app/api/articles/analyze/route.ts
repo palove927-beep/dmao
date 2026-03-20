@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       : paragraphList;
 
     const { object: result } = await generateObject({
-      model: "openai/gpt-5.4-nano",
+      model: "openai/gpt-5.4-mini",
       schema: z.object({
         article_type: z.enum(["stock", "weekly", "macro", "industry", "other"])
           .describe("文章分類：stock=個股分析, weekly=產業週報, macro=總經分析, industry=產業分析, other=其他"),
