@@ -121,18 +121,37 @@ ${trimmedList}`,
 
     const subjectStock = result.subject_stock ? normalizeStock(result.subject_stock) : null;
 
-    // Validate: only keep stocks whose name/ticker actually appears in the paragraph text
-    const stockAppearsInText = (text: string, stock: { ticker: string; stock_name: string }) => {
-      return text.includes(stock.stock_name) || text.includes(stock.ticker);
+    // Validate: only keep stocks whose name/ticker/alias actually appears in the paragraph text
+    const stockAppearsInText = (
+      text: string,
+      normalized: { ticker: string; stock_name: string },
+      original: { ticker: string; stock_name: string },
+    ) => {
+      // Check normalized name/ticker
+      if (text.includes(normalized.stock_name) || text.includes(normalized.ticker)) return true;
+      // Check original AI-returned name/ticker (before normalization)
+      if (text.includes(original.stock_name) || text.includes(original.ticker)) return true;
+      // Check aliases from stock database
+      for (const cat of categories) {
+        for (const s of cat.stocks) {
+          if (s.ticker === normalized.ticker) {
+            if (s.aliases?.some((a) => text.includes(a))) return true;
+            if (text.includes(s.name)) return true;
+          }
+        }
+      }
+      return false;
     };
 
     const paragraphStocks = result.paragraph_stocks
       .map((ps) => {
         const paraText = paragraphs[ps.index] ?? "";
-        const normalized = ps.stocks.map(normalizeStock);
         return {
           index: ps.index,
-          stocks: normalized.filter((s) => stockAppearsInText(paraText, s)),
+          stocks: ps.stocks
+            .map((orig) => ({ orig, norm: normalizeStock(orig) }))
+            .filter(({ orig, norm }) => stockAppearsInText(paraText, norm, orig))
+            .map(({ norm }) => norm),
         };
       })
       .filter((ps) => ps.stocks.length > 0);
