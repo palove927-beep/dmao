@@ -323,6 +323,7 @@ export const stockLookup: Record<string, string> = {
   "9939": "宏全",
   "9941": "裕融",
   "9945": "潤泰新",
+  "4991": "環宇-KY",
 
   // ─── 美國 ETF ──────────────────────────────────────────
   "SPY": "SPDR S&P 500 ETF",
@@ -658,6 +659,8 @@ export const stockLookup: Record<string, string> = {
   "DLR": "Digital Realty",
   "WELL": "Welltower",
   "AVB": "AvalonBay",
+  // Optical / Photonics
+  "AAOI": "Applied Optoelectronics",
 
   // ─── 韓國 KOSPI 50 主要成分股 ─────────────────────────
   "005930.KS": "Samsung Electronics",
