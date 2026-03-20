@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { categories, lookupStock } from "@/lib/stocks";
+import { stockLookup } from "@/lib/stock-lookup";
 import { generateObject } from "ai";
 import { z } from "zod";
 
@@ -13,6 +14,67 @@ const stockListText = allStocks
     return `${s.ticker} ${s.name}${aliases}`;
   })
   .join("\n");
+
+// ── Rule-based stock scanner ──
+// Complements AI detection by scanning text for known stock names/tickers.
+// This catches stocks that the AI model might miss.
+
+// Terms that look like tickers but are NOT companies
+const NON_STOCK_TERMS = new Set([
+  "GaAs", "InP", "GaN", "SiC", "III-V",
+  "CPO", "AOC", "RF", "VCSEL", "EML", "PD",
+  "800G", "1.6T", "100G", "200G", "400G",
+  "CW", "LED", "LCD", "OLED", "USB", "PCB",
+  "AI", "AR", "VR", "IoT", "5G", "6G",
+  "M3", // Apple chip, not company - M3 is also a JP stock ticker but rarely mentioned in TW articles
+  "AGC", "SMC", // Too ambiguous as abbreviations
+]);
+
+function scanParagraphForStocks(text: string): { ticker: string; stock_name: string }[] {
+  const found: Map<string, { ticker: string; stock_name: string }> = new Map();
+
+  // 1. Scan for categorized stocks (curated list with aliases) — match by name and aliases directly
+  for (const cat of categories) {
+    for (const s of cat.stocks) {
+      if (found.has(s.ticker)) continue;
+      // Match full stock name (e.g. "台積電", "環宇-KY")
+      if (s.name.length >= 2 && text.includes(s.name)) {
+        found.set(s.ticker, { ticker: s.ticker, stock_name: s.name });
+        continue;
+      }
+      // Match aliases (e.g. "TSMC", "台積", "Foxconn")
+      if (s.aliases?.some((a) => a.length >= 2 && text.includes(a))) {
+        found.set(s.ticker, { ticker: s.ticker, stock_name: s.name });
+        continue;
+      }
+      // Match ticker in parentheses: (2330) or （2330）
+      const tickerInParens = new RegExp(`[（(]${escapeRegex(s.ticker)}[)）]`);
+      if (tickerInParens.test(text)) {
+        found.set(s.ticker, { ticker: s.ticker, stock_name: s.name });
+      }
+    }
+  }
+
+  // 2. Scan stockLookup for tickers that appear in parentheses pattern
+  //    e.g. "(2330)" "（2330）" — this is how tickers commonly appear in Chinese finance articles
+  const parenTickerRegex = /[（(]([A-Za-z0-9.]+)[)）]/g;
+  let match;
+  while ((match = parenTickerRegex.exec(text)) !== null) {
+    const candidate = match[1];
+    if (found.has(candidate)) continue;
+    if (NON_STOCK_TERMS.has(candidate)) continue;
+    // Check stockLookup
+    if (stockLookup[candidate]) {
+      found.set(candidate, { ticker: candidate, stock_name: stockLookup[candidate] });
+    }
+  }
+
+  return Array.from(found.values());
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -149,19 +211,42 @@ ${trimmedList}`,
       return false;
     };
 
-    const paragraphStocks = result.paragraph_stocks
-      .map((ps) => {
-        const paraText = paragraphs[ps.index] ?? "";
-        return {
-          index: ps.index,
-          stocks: ps.stocks
-            .map((orig) => ({ orig, norm: normalizeStock(orig) }))
-            .filter(({ orig, norm }) => stockAppearsInText(paraText, norm, orig))
-            .map(({ norm }) => norm)
-            .filter((s, i, arr) => arr.findIndex((x) => x.ticker === s.ticker) === i),
-        };
-      })
-      .filter((ps) => ps.stocks.length > 0);
+    // Build AI results per paragraph (validated)
+    const aiStocksByParagraph = new Map<number, { ticker: string; stock_name: string }[]>();
+    for (const ps of result.paragraph_stocks) {
+      const paraText = paragraphs[ps.index] ?? "";
+      const validated = ps.stocks
+        .map((orig) => ({ orig, norm: normalizeStock(orig) }))
+        .filter(({ orig, norm }) => stockAppearsInText(paraText, norm, orig))
+        .map(({ norm }) => norm);
+      if (validated.length > 0) {
+        aiStocksByParagraph.set(ps.index, validated);
+      }
+    }
+
+    // Run rule-based scan on every paragraph and merge with AI results
+    const paragraphStocks: { index: number; stocks: { ticker: string; stock_name: string }[] }[] = [];
+    for (let i = 0; i < paragraphs.length; i++) {
+      const paraText = paragraphs[i] ?? "";
+      if (!paraText.trim()) continue;
+
+      const aiStocks = aiStocksByParagraph.get(i) ?? [];
+      const ruleStocks = scanParagraphForStocks(paraText);
+
+      // Merge: AI first, then rule-based additions (deduplicate by ticker)
+      const seen = new Set(aiStocks.map((s) => s.ticker));
+      const merged = [...aiStocks];
+      for (const rs of ruleStocks) {
+        if (!seen.has(rs.ticker)) {
+          seen.add(rs.ticker);
+          merged.push(rs);
+        }
+      }
+
+      if (merged.length > 0) {
+        paragraphStocks.push({ index: i, stocks: merged });
+      }
+    }
 
     const epsForecasts = result.eps_forecasts
       .map((ef) => ({
