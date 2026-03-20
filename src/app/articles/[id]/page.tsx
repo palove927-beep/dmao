@@ -76,14 +76,9 @@ export default function ArticlePage() {
     );
   }
 
-  // Collect keywords for the currently selected stock (for inline highlighting)
-  const selectedKeywords = expandedStock
-    ? [...new Set(
-        annotations
-          .filter((a) => a.ticker === expandedStock)
-          .flatMap((a) => [a.stock_name, a.ticker])
-      )].filter(Boolean).sort((a, b) => b.length - a.length)
-    : [];
+  // Collect unique stock names and tickers for inline highlighting
+  const allStockKeywords = [...new Set(annotations.flatMap((a) => [a.stock_name, a.ticker]))].filter(Boolean);
+  allStockKeywords.sort((a, b) => b.length - a.length);
 
   const handleDelete = async () => {
     if (!confirm("確定要刪除這篇文章？（文章、標記、圖片將一併刪除）")) return;
@@ -103,13 +98,14 @@ export default function ArticlePage() {
     }
   };
 
-  const highlightStocks = (text: string) => {
-    if (selectedKeywords.length === 0) return [text];
-    const escaped = selectedKeywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const highlightText = (text: string, keywords: string[]) => {
+    if (keywords.length === 0) return [text];
+    const escaped = keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
     const regex = new RegExp(`(${escaped.join("|")})`, "g");
     const parts = text.split(regex);
+    const kw = new Set(keywords);
     return parts.map((part, i) =>
-      selectedKeywords.includes(part) ? (
+      kw.has(part) ? (
         <mark key={i} style={{ background: "#fef9c3", padding: "1px 2px", borderRadius: 2 }}>{part}</mark>
       ) : (
         part
@@ -235,7 +231,7 @@ export default function ArticlePage() {
                         AI 摘要
                       </span>
                     )}
-                    {ann.paragraph}
+                    {highlightText(ann.paragraph, [name, expandedStock])}
                   </div>
                 ))}
               </div>
@@ -289,7 +285,7 @@ export default function ArticlePage() {
           }
           return (
             <p key={i} style={{ margin: "8px 0" }}>
-              {highlightStocks(trimmed)}
+              {highlightText(trimmed, allStockKeywords)}
             </p>
           );
         })}
