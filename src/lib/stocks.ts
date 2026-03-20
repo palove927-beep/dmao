@@ -228,6 +228,8 @@ export const categories: Category[] = [
       { code: "U14", ticker: "000660.KS", name: "SK Hynix", aliases: ["海力士"] },
       { code: "U15", ticker: "COHR", name: "Coherent", aliases: ["貳陸"] },
       { code: "U16", ticker: "LITE", name: "Lumentum" },
+      { code: "U17", ticker: "CRDO", name: "Credo", aliases: ["Credo Technology"] },
+      { code: "U18", ticker: "META", name: "Meta", aliases: ["Meta Platforms", "Facebook"] },
     ],
   },
 ];
