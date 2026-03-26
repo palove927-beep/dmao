@@ -80,6 +80,31 @@ export default function ArticlePage() {
   const allStockKeywords = [...new Set(annotations.flatMap((a) => [a.stock_name, a.ticker]))].filter(Boolean);
   allStockKeywords.sort((a, b) => b.length - a.length);
 
+  // Build a map: ticker -> EPS forecasts for inline display
+  const epsByTicker = new Map<string, EpsForecast[]>();
+  for (const f of epsForecasts) {
+    if (!epsByTicker.has(f.ticker)) epsByTicker.set(f.ticker, []);
+    epsByTicker.get(f.ticker)!.push(f);
+  }
+
+  // Build stock keyword to ticker mapping for paragraph matching
+  const keywordToTicker = new Map<string, string>();
+  for (const a of annotations) {
+    keywordToTicker.set(a.stock_name, a.ticker);
+    keywordToTicker.set(a.ticker, a.ticker);
+  }
+
+  // Find EPS forecasts relevant to a paragraph
+  const getParaEps = (text: string): EpsForecast[] => {
+    const matched = new Set<string>();
+    for (const [keyword, ticker] of keywordToTicker) {
+      if (text.includes(keyword) && epsByTicker.has(ticker)) {
+        matched.add(ticker);
+      }
+    }
+    return [...matched].flatMap((t) => epsByTicker.get(t) || []);
+  };
+
   const handleDelete = async () => {
     if (!confirm("確定要刪除這篇文章？（文章、標記、圖片將一併刪除）")) return;
     setDeleting(true);
@@ -283,10 +308,35 @@ export default function ArticlePage() {
               </div>
             );
           }
+          const paraEps = getParaEps(trimmed);
           return (
-            <p key={i} style={{ margin: "8px 0" }}>
-              {highlightText(trimmed, allStockKeywords)}
-            </p>
+            <div key={i}>
+              <p style={{ margin: "8px 0" }}>
+                {highlightText(trimmed, allStockKeywords)}
+              </p>
+              {paraEps.length > 0 && (
+                <div style={{
+                  background: "#fefce8",
+                  border: "1px solid #fde68a",
+                  borderRadius: 6,
+                  padding: "6px 12px",
+                  margin: "4px 0 8px 0",
+                  fontSize: 13,
+                  display: "inline-flex",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  alignItems: "center",
+                }}>
+                  <span style={{ fontWeight: "bold", color: "#92400e", marginRight: 4 }}>財測 EPS：</span>
+                  {paraEps.map((f) => (
+                    <span key={f.id} style={{ color: "#78350f" }}>
+                      {f.stock_name}({f.ticker}) {f.forecast_year}年：
+                      <span style={{ fontWeight: "bold", color: "#b45309" }}>{f.eps}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
