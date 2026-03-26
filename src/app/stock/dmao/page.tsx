@@ -625,6 +625,16 @@ export default function DmaoPage() {
   const totalStocks = new Set(paragraphs.flatMap((p) => p.stocks.map((s) => s.ticker))).size;
   const totalAnnotations = paragraphs.reduce((sum, p) => sum + p.stocks.length, 0);
 
+  // Build EPS lookup by ticker for inline display in paragraphs
+  const epsByTicker = new Map<string, EpsForecast[]>();
+  for (const f of epsForecasts) {
+    if (!epsByTicker.has(f.ticker)) epsByTicker.set(f.ticker, []);
+    epsByTicker.get(f.ticker)!.push(f);
+  }
+  const getParaEps = (stocks: StockTag[]): EpsForecast[] => {
+    return stocks.flatMap((s) => epsByTicker.get(s.ticker) || []);
+  };
+
   return (
     <div
       style={{ maxWidth: 700, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}
@@ -830,6 +840,32 @@ export default function DmaoPage() {
                     onRemove={(ticker) => handleRemoveStock(i, ticker)}
                     onAdd={(stock) => handleAddStock(i, stock)}
                   />
+                  {(() => {
+                    const paraEps = getParaEps(para.stocks);
+                    if (paraEps.length === 0) return null;
+                    return (
+                      <div style={{
+                        background: "#fefce8",
+                        border: "1px solid #fde68a",
+                        borderRadius: 6,
+                        padding: "6px 12px",
+                        marginTop: 6,
+                        fontSize: 13,
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 8,
+                        alignItems: "center",
+                      }}>
+                        <span style={{ fontWeight: "bold", color: "#92400e", marginRight: 4 }}>財測 EPS：</span>
+                        {paraEps.map((f, fi) => (
+                          <span key={fi} style={{ color: "#78350f" }}>
+                            {f.stock_name}({f.ticker}) {f.forecast_year}年：
+                            <span style={{ fontWeight: "bold", color: "#b45309" }}>{f.eps}</span>
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
                 {/* Separator between paragraphs */}
                 {i < paragraphs.length - 1 && (
