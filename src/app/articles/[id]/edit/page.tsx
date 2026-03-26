@@ -15,6 +15,13 @@ type Annotation = {
   paragraph: string;
   is_summary: boolean;
 };
+type EpsForecast = {
+  id: string;
+  ticker: string;
+  stock_name: string;
+  forecast_year: number;
+  eps: number;
+};
 
 // ─── Toast ──────────────────────────────────────────────
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
@@ -136,6 +143,7 @@ export default function EditAnnotationsPage() {
   const [articleTitle, setArticleTitle] = useState("");
   const [paragraphs, setParagraphs] = useState<ParagraphData[]>([]);
   const [originalAnnotations, setOriginalAnnotations] = useState<Annotation[]>([]);
+  const [epsForecasts, setEpsForecasts] = useState<EpsForecast[]>([]);
 
   const clearToast = useCallback(() => setToast(null), []);
 
@@ -145,12 +153,14 @@ export default function EditAnnotationsPage() {
     Promise.all([
       fetch(`/api/articles/${id}`).then((r) => r.json()),
       fetch(`/api/annotations?article_id=${id}`).then((r) => r.json()),
-    ]).then(([artJson, annJson]) => {
+      fetch(`/api/eps-forecasts?article_id=${id}`).then((r) => r.json()),
+    ]).then(([artJson, annJson, epsJson]) => {
       if (!artJson.ok) { setLoading(false); return; }
       const article = artJson.article;
       setArticleTitle(article.title);
       const anns: Annotation[] = annJson.ok ? annJson.annotations : [];
       setOriginalAnnotations(anns);
+      if (epsJson.ok) setEpsForecasts(epsJson.forecasts);
 
       // Split content into paragraphs, filter out image-only paragraphs
       const paraTexts = splitParagraphs(article.content).filter(
@@ -268,6 +278,17 @@ export default function EditAnnotationsPage() {
     });
   };
 
+  // Build EPS lookup by ticker for inline display
+  const epsByTicker = new Map<string, EpsForecast[]>();
+  for (const f of epsForecasts) {
+    if (!epsByTicker.has(f.ticker)) epsByTicker.set(f.ticker, []);
+    epsByTicker.get(f.ticker)!.push(f);
+  }
+
+  const getParaEps = (stocks: StockTag[]): EpsForecast[] => {
+    return stocks.flatMap((s) => epsByTicker.get(s.ticker) || []);
+  };
+
   const totalStocks = new Set(paragraphs.flatMap((p) => p.stocks.map((s) => s.ticker))).size;
   const totalAnnotations = paragraphs.reduce((sum, p) => sum + p.stocks.length, 0);
 
@@ -365,6 +386,32 @@ export default function EditAnnotationsPage() {
                 onRemove={(ticker) => handleRemoveStock(i, ticker)}
                 onAdd={(stock) => handleAddStock(i, stock)}
               />
+              {(() => {
+                const paraEps = getParaEps(para.stocks);
+                if (paraEps.length === 0) return null;
+                return (
+                  <div style={{
+                    background: "#fefce8",
+                    border: "1px solid #fde68a",
+                    borderRadius: 6,
+                    padding: "6px 12px",
+                    marginTop: 6,
+                    fontSize: 13,
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    alignItems: "center",
+                  }}>
+                    <span style={{ fontWeight: "bold", color: "#92400e", marginRight: 4 }}>財測 EPS：</span>
+                    {paraEps.map((f) => (
+                      <span key={f.id} style={{ color: "#78350f" }}>
+                        {f.stock_name}({f.ticker}) {f.forecast_year}年：
+                        <span style={{ fontWeight: "bold", color: "#b45309" }}>{f.eps}</span>
+                      </span>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
             {/* Separator between paragraphs */}
             {i < paragraphs.length - 1 && (
