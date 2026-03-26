@@ -439,11 +439,7 @@ export default function DmaoPage() {
       // Split into paragraphs
       const paras = splitParagraphs(uploaded);
 
-      // Identify image-only paragraph indices (exclude from analysis)
-      const IMAGE_ONLY_RE = /^!\[[^\]]*\]\([^)]+\)$/;
-      const isImageOnly = paras.map((t) => IMAGE_ONLY_RE.test(t.trim()));
-
-      // Call analyze API with all paragraphs (indices must match)
+      // Call analyze API with all paragraphs
       const res = await fetch("/api/articles/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -452,13 +448,13 @@ export default function DmaoPage() {
       const json = await res.json();
 
       if (json.ok) {
-        // Build paragraph data, skipping image-only paragraphs
-        const paraData: ParagraphData[] = [];
-        for (let i = 0; i < paras.length; i++) {
-          if (isImageOnly[i]) continue;
+        // Build paragraph data; image-only paragraphs get no stock tags
+        const IMAGE_ONLY_RE = /^!\[[^\]]*\]\([^)]+\)$/;
+        const paraData: ParagraphData[] = paras.map((text, i) => {
+          if (IMAGE_ONLY_RE.test(text.trim())) return { text, stocks: [] };
           const match = json.paragraph_stocks.find((ps: { index: number }) => ps.index === i);
-          paraData.push({ text: paras[i], stocks: match ? match.stocks : [] });
-        }
+          return { text, stocks: match ? match.stocks : [] };
+        });
         // For 個股 articles, remove the subject stock from paragraph tags
         const subj = json.subject_stock;
         if (json.article_type === "stock" && subj) {
@@ -828,7 +824,9 @@ export default function DmaoPage() {
 
           {/* Paragraphs with stock chips and separators */}
           <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-            {paragraphs.map((para, i) => (
+            {paragraphs.map((para, i) => {
+              const imgMatch = para.text.trim().match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+              return (
               <div key={i}>
                 <div
                   style={{
@@ -838,14 +836,24 @@ export default function DmaoPage() {
                   }}
                 >
                   <div style={{ fontSize: 11, color: "#999", marginBottom: 4 }}>段落 {i + 1}</div>
-                  <div style={{ fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap", color: "#333" }}>
-                    {highlightStocksInText(para.text, para.stocks)}
-                  </div>
-                  <StockChips
-                    stocks={para.stocks}
-                    onRemove={(ticker) => handleRemoveStock(i, ticker)}
-                    onAdd={(stock) => handleAddStock(i, stock)}
-                  />
+                  {imgMatch ? (
+                    <div style={{ margin: "8px 0" }}>
+                      <img
+                        src={imgMatch[2]}
+                        alt={imgMatch[1] || "image"}
+                        style={{ maxWidth: "100%", borderRadius: 6, border: "1px solid #e5e7eb" }}
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap", color: "#333" }}>
+                        {highlightStocksInText(para.text, para.stocks)}
+                      </div>
+                      <StockChips
+                        stocks={para.stocks}
+                        onRemove={(ticker) => handleRemoveStock(i, ticker)}
+                        onAdd={(stock) => handleAddStock(i, stock)}
+                      />
                   {(() => {
                     const paraEps = getParaEps(para.stocks);
                     if (paraEps.length === 0) return null;
@@ -872,6 +880,8 @@ export default function DmaoPage() {
                       </div>
                     );
                   })()}
+                    </>
+                  )}
                 </div>
                 {/* Separator between paragraphs */}
                 {i < paragraphs.length - 1 && (
@@ -917,7 +927,8 @@ export default function DmaoPage() {
                   </div>
                 )}
               </div>
-            ))}
+            );
+            })}
           </div>
 
           {/* EPS Forecasts preview */}
