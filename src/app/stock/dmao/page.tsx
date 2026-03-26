@@ -439,7 +439,11 @@ export default function DmaoPage() {
       // Split into paragraphs
       const paras = splitParagraphs(uploaded);
 
-      // Call analyze API
+      // Identify image-only paragraph indices (exclude from analysis)
+      const IMAGE_ONLY_RE = /^!\[[^\]]*\]\([^)]+\)$/;
+      const isImageOnly = paras.map((t) => IMAGE_ONLY_RE.test(t.trim()));
+
+      // Call analyze API with all paragraphs (indices must match)
       const res = await fetch("/api/articles/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -448,11 +452,13 @@ export default function DmaoPage() {
       const json = await res.json();
 
       if (json.ok) {
-        // Build paragraph data with stock tags
-        const paraData: ParagraphData[] = paras.map((text, i) => {
+        // Build paragraph data, skipping image-only paragraphs
+        const paraData: ParagraphData[] = [];
+        for (let i = 0; i < paras.length; i++) {
+          if (isImageOnly[i]) continue;
           const match = json.paragraph_stocks.find((ps: { index: number }) => ps.index === i);
-          return { text, stocks: match ? match.stocks : [] };
-        });
+          paraData.push({ text: paras[i], stocks: match ? match.stocks : [] });
+        }
         // For 個股 articles, remove the subject stock from paragraph tags
         const subj = json.subject_stock;
         if (json.article_type === "stock" && subj) {
