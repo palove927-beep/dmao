@@ -107,8 +107,7 @@ export const categories: Category[] = [
     label: "品牌/ODM",
     stocks: [
       { code: "J1", ticker: "2317", name: "鴻海", aliases: ["Foxconn", "Hon Hai"] },
-      { code: "J2", ticker: "2376", name: "技嘉", aliases: ["Gigabyte"] },
-      { code: "J3", ticker: "2382", name: "廣達", aliases: ["Quanta"] },
+      { code: "J2", ticker: "2382", name: "廣達", aliases: ["Quanta"] },
     ],
   },
   {
