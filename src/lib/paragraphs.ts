@@ -125,13 +125,35 @@ function splitAroundImages(paragraph: string): string[] {
 function splitByNumbers(lines: string[]): string[] {
   const paragraphs: string[] = [];
   let current: string[] = [];
+  let lastBlankCount = 0;
 
   for (const line of lines) {
     const trimmed = line.trimStart();
-    if (NUMBERED_RE.test(trimmed) && current.length > 0) {
+    const isBlank = trimmed === "";
+
+    if (isBlank) {
+      lastBlankCount++;
+      current.push(line);
+      continue;
+    }
+
+    const isNumbered = NUMBERED_RE.test(trimmed);
+    const isUnindented = line === trimmed; // no leading whitespace
+
+    // Start a new paragraph when:
+    // 1. A new numbered item starts, OR
+    // 2. A blank line was seen before unindented, non-numbered content
+    //    (e.g. a section header or footer block after the numbered list)
+    const shouldSplit =
+      (isNumbered && current.length > 0) ||
+      (!isNumbered && isUnindented && lastBlankCount > 0 && current.some((l) => l.trim() !== ""));
+
+    if (shouldSplit) {
       paragraphs.push(current.join("\n").trim());
       current = [];
     }
+
+    lastBlankCount = 0;
     current.push(line);
   }
 
