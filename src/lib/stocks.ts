@@ -58,8 +58,9 @@ export const categories: Category[] = [
     id: "F",
     label: "半導體廠務",
     stocks: [
-      { code: "F1", ticker: "6196", name: "帆宣" },
-      { code: "F2", ticker: "6826", name: "和淞" },
+      { code: "F1", ticker: "2404", name: "漢唐" },
+      { code: "F2", ticker: "6196", name: "帆宣" },
+      { code: "F3", ticker: "6826", name: "和淞" },
     ],
   },
   {
@@ -73,9 +74,10 @@ export const categories: Category[] = [
       { code: "G5", ticker: "6438", name: "迅得" },
       { code: "G6", ticker: "6664", name: "群翊" },
       { code: "G7", ticker: "6937", name: "天虹" },
-      { code: "G8", ticker: "7822", name: "倍利科" },
-      { code: "G9", ticker: "7853", name: "政美應用" },
-      { code: "G10", ticker: "8027", name: "鈦昇" },
+      { code: "G8", ticker: "6953", name: "家碩" },
+      { code: "G9", ticker: "7822", name: "倍利科" },
+      { code: "G10", ticker: "7853", name: "政美應用" },
+      { code: "G11", ticker: "8027", name: "鈦昇" },
     ],
   },
   {
