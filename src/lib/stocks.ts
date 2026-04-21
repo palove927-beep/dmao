@@ -258,10 +258,10 @@ export function lookupStock(query: string): { ticker: string; stock_name: string
     }
   }
   // 2. Check broad lookup table by ticker
-  if (stockLookup[q]) return { ticker: q, stock_name: stockLookup[q] };
-  // 3. Check broad lookup table by name (reverse lookup)
-  for (const [ticker, name] of Object.entries(stockLookup)) {
-    if (name === q) return { ticker, stock_name: name };
+  if (stockLookup[q]) return { ticker: q, stock_name: stockLookup[q].name };
+  // 3. Check broad lookup table by name or alias (reverse lookup)
+  for (const [ticker, entry] of Object.entries(stockLookup)) {
+    if (entry.name === q || entry.aliases?.includes(q)) return { ticker, stock_name: entry.name };
   }
   return null;
 }

@@ -17,18 +17,23 @@ const NON_STOCK_TERMS = new Set([
 function scanParagraphForStocks(text: string): { ticker: string; stock_name: string }[] {
   const found: Map<string, { ticker: string; stock_name: string }> = new Map();
 
-  for (const [ticker, name] of Object.entries(stockLookup)) {
+  for (const [ticker, entry] of Object.entries(stockLookup)) {
     if (found.has(ticker)) continue;
     if (NON_STOCK_TERMS.has(ticker)) continue;
     // Match company name directly in text
-    if (name.length >= 2 && text.includes(name)) {
-      found.set(ticker, { ticker, stock_name: name });
+    if (entry.name.length >= 2 && text.includes(entry.name)) {
+      found.set(ticker, { ticker, stock_name: entry.name });
+      continue;
+    }
+    // Match aliases in text
+    if (entry.aliases?.some((a) => a.length >= 2 && text.includes(a))) {
+      found.set(ticker, { ticker, stock_name: entry.name });
       continue;
     }
     // Match ticker in parentheses: (2330) or （2330）
     const tickerInParens = new RegExp(`[（(]${escapeRegex(ticker)}[)）]`);
     if (tickerInParens.test(text)) {
-      found.set(ticker, { ticker, stock_name: name });
+      found.set(ticker, { ticker, stock_name: entry.name });
     }
   }
 
@@ -144,9 +149,10 @@ ${trimmedList}`,
 
     // Normalize tickers: AI may return company name as ticker, fix via stockLookup
     const normalizeStock = (s: { ticker: string; stock_name: string }) => {
-      if (stockLookup[s.ticker]) return { ticker: s.ticker, stock_name: stockLookup[s.ticker] };
-      for (const [ticker, name] of Object.entries(stockLookup)) {
-        if (name === s.stock_name || name === s.ticker) return { ticker, stock_name: name };
+      if (stockLookup[s.ticker]) return { ticker: s.ticker, stock_name: stockLookup[s.ticker].name };
+      for (const [ticker, entry] of Object.entries(stockLookup)) {
+        if (entry.name === s.stock_name || entry.name === s.ticker || entry.aliases?.includes(s.stock_name))
+          return { ticker, stock_name: entry.name };
       }
       return s;
     };
