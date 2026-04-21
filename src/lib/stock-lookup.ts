@@ -779,5 +779,5 @@ export const stockLookup: Record<string, { name: string; aliases?: string[] }> =
   "8316.T": { name: "SMFG" },
   "6481.T": { name: "THK" },
   "6976.T": { name: "Taiyo Yuden", aliases: ["太陽誘電"] },
-  "285A.T": { name: "KIOXIA", aliases: ["鎧俠"] },
+  "285A.T": { name: "KIOXIA", aliases: ["鎧俠", "Kioxia"] },
 };

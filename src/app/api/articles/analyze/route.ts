@@ -150,9 +150,14 @@ ${trimmedList}`,
     // Normalize tickers: AI may return company name as ticker, fix via stockLookup
     const normalizeStock = (s: { ticker: string; stock_name: string }) => {
       if (stockLookup[s.ticker]) return { ticker: s.ticker, stock_name: stockLookup[s.ticker].name };
+      const nameLower = s.stock_name.toLowerCase();
+      const tickerLower = s.ticker.toLowerCase();
       for (const [ticker, entry] of Object.entries(stockLookup)) {
-        if (entry.name === s.stock_name || entry.name === s.ticker || entry.aliases?.includes(s.stock_name))
-          return { ticker, stock_name: entry.name };
+        if (
+          entry.name.toLowerCase() === nameLower ||
+          entry.name.toLowerCase() === tickerLower ||
+          entry.aliases?.some((a) => a.toLowerCase() === nameLower)
+        ) return { ticker, stock_name: entry.name };
       }
       return s;
     };
