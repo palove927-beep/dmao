@@ -1,23 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { categories, lookupStock } from "@/lib/stocks";
 import { stockLookup } from "@/lib/stock-lookup";
 import { generateObject } from "ai";
 import { z } from "zod";
-
-const allStocks = categories.flatMap((c) =>
-  c.stocks.map((s) => ({ ticker: s.ticker, name: s.name, aliases: s.aliases }))
-);
-
-const stockListText = allStocks
-  .map((s) => {
-    const aliases = s.aliases?.length ? `（別名：${s.aliases.join("、")}）` : "";
-    return `${s.ticker} ${s.name}${aliases}`;
-  })
-  .join("\n");
-
-// ── Rule-based stock scanner ──
-// Complements AI detection by scanning text for known stock names/tickers.
-// This catches stocks that the AI model might miss.
 
 // Terms that look like tickers but are NOT companies
 const NON_STOCK_TERMS = new Set([
@@ -26,46 +10,25 @@ const NON_STOCK_TERMS = new Set([
   "800G", "1.6T", "100G", "200G", "400G",
   "CW", "LED", "LCD", "OLED", "USB", "PCB",
   "AI", "AR", "VR", "IoT", "5G", "6G",
-  "M3", // Apple chip, not company - M3 is also a JP stock ticker but rarely mentioned in TW articles
-  "AGC", "SMC", // Too ambiguous as abbreviations
+  "M3", // Apple chip, not company
+  "AGC", "SMC",
 ]);
 
 function scanParagraphForStocks(text: string): { ticker: string; stock_name: string }[] {
   const found: Map<string, { ticker: string; stock_name: string }> = new Map();
 
-  // 1. Scan for categorized stocks (curated list with aliases) — match by name and aliases directly
-  for (const cat of categories) {
-    for (const s of cat.stocks) {
-      if (found.has(s.ticker)) continue;
-      // Match full stock name (e.g. "台積電", "環宇-KY")
-      if (s.name.length >= 2 && text.includes(s.name)) {
-        found.set(s.ticker, { ticker: s.ticker, stock_name: s.name });
-        continue;
-      }
-      // Match aliases (e.g. "TSMC", "台積", "Foxconn")
-      if (s.aliases?.some((a) => a.length >= 2 && text.includes(a))) {
-        found.set(s.ticker, { ticker: s.ticker, stock_name: s.name });
-        continue;
-      }
-      // Match ticker in parentheses: (2330) or （2330）
-      const tickerInParens = new RegExp(`[（(]${escapeRegex(s.ticker)}[)）]`);
-      if (tickerInParens.test(text)) {
-        found.set(s.ticker, { ticker: s.ticker, stock_name: s.name });
-      }
+  for (const [ticker, name] of Object.entries(stockLookup)) {
+    if (found.has(ticker)) continue;
+    if (NON_STOCK_TERMS.has(ticker)) continue;
+    // Match company name directly in text
+    if (name.length >= 2 && text.includes(name)) {
+      found.set(ticker, { ticker, stock_name: name });
+      continue;
     }
-  }
-
-  // 2. Scan stockLookup for tickers that appear in parentheses pattern
-  //    e.g. "(2330)" "（2330）" — this is how tickers commonly appear in Chinese finance articles
-  const parenTickerRegex = /[（(]([A-Za-z0-9.]+)[)）]/g;
-  let match;
-  while ((match = parenTickerRegex.exec(text)) !== null) {
-    const candidate = match[1];
-    if (found.has(candidate)) continue;
-    if (NON_STOCK_TERMS.has(candidate)) continue;
-    // Check stockLookup
-    if (stockLookup[candidate]) {
-      found.set(candidate, { ticker: candidate, stock_name: stockLookup[candidate] });
+    // Match ticker in parentheses: (2330) or （2330）
+    const tickerInParens = new RegExp(`[（(]${escapeRegex(ticker)}[)）]`);
+    if (tickerInParens.test(text)) {
+      found.set(ticker, { ticker, stock_name: name });
     }
   }
 
@@ -147,9 +110,6 @@ export async function POST(req: NextRequest) {
 2. summary：針對該主角股票，用 3~5 句繁體中文摘要文章重點，包括：營運近況、財務數據亮點、未來展望或風險。語氣專業簡潔。
 3. 若 article_type 不是 stock，subject_stock 和 summary 都填 null
 
-以下是特別關注的股票清單（供參考，但不限於此清單）：
-${stockListText}
-
 任務三規則：
 1. 針對每個段落，找出其中提及的所有公司，包括台灣上市櫃股票、海外上市股票、以及海外未上市但具知名度的公司
 2. 股票代碼格式：台股為純數字（如 4991），海外股票為英文代碼（如 NVDA）。未上市或無法確認代碼的公司，ticker 填公司英文簡稱
@@ -182,33 +142,25 @@ ${stockListText}
 ${trimmedList}`,
     });
 
-    // Normalize tickers: AI may return company name as ticker, fix via lookupStock
+    // Normalize tickers: AI may return company name as ticker, fix via stockLookup
     const normalizeStock = (s: { ticker: string; stock_name: string }) => {
-      const found = lookupStock(s.ticker) || lookupStock(s.stock_name);
-      return found || s;
+      if (stockLookup[s.ticker]) return { ticker: s.ticker, stock_name: stockLookup[s.ticker] };
+      for (const [ticker, name] of Object.entries(stockLookup)) {
+        if (name === s.stock_name || name === s.ticker) return { ticker, stock_name: name };
+      }
+      return s;
     };
 
     const subjectStock = result.subject_stock ? normalizeStock(result.subject_stock) : null;
 
-    // Validate: only keep stocks whose name/ticker/alias actually appears in the paragraph text
+    // Validate: only keep stocks whose name/ticker actually appears in the paragraph text
     const stockAppearsInText = (
       text: string,
       normalized: { ticker: string; stock_name: string },
       original: { ticker: string; stock_name: string },
     ) => {
-      // Check normalized name/ticker
       if (text.includes(normalized.stock_name) || text.includes(normalized.ticker)) return true;
-      // Check original AI-returned name/ticker (before normalization)
       if (text.includes(original.stock_name) || text.includes(original.ticker)) return true;
-      // Check aliases from stock database
-      for (const cat of categories) {
-        for (const s of cat.stocks) {
-          if (s.ticker === normalized.ticker) {
-            if (s.aliases?.some((a) => text.includes(a))) return true;
-            if (text.includes(s.name)) return true;
-          }
-        }
-      }
       return false;
     };
 
