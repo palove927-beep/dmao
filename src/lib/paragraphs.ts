@@ -11,6 +11,8 @@
 
 // Matches top-level numbered paragraph starts: "1. ", "2) ", "(1) ", etc.
 const NUMBERED_RE = /^(?:\d+[.)]\s|\(\d+\)\s)/;
+// Matches letter sub-items: "a. ", "b) ", etc. — keep these with their parent paragraph
+const SUB_ITEM_RE = /^[a-zA-Z][.)]\s/;
 const IMAGE_RE = /^!\[[^\]]*\]\([^)]+\)\s*$/;
 const SPLIT_MARKER = "<!-- split -->";
 
@@ -138,15 +140,17 @@ function splitByNumbers(lines: string[]): string[] {
     }
 
     const isNumbered = NUMBERED_RE.test(trimmed);
+    const isSubItem = SUB_ITEM_RE.test(trimmed);
     const isUnindented = line === trimmed; // no leading whitespace
 
     // Start a new paragraph when:
     // 1. A new numbered item starts, OR
     // 2. A blank line was seen before unindented, non-numbered content
     //    (e.g. a section header or footer block after the numbered list)
+    // Sub-items (a. b. c.) are kept with their parent paragraph and never trigger a split.
     const shouldSplit =
       (isNumbered && current.length > 0) ||
-      (!isNumbered && isUnindented && lastBlankCount > 0 && current.some((l) => l.trim() !== ""));
+      (!isNumbered && !isSubItem && isUnindented && lastBlankCount > 0 && current.some((l) => l.trim() !== ""));
 
     if (shouldSplit) {
       paragraphs.push(current.join("\n").trim());
