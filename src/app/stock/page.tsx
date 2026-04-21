@@ -325,7 +325,7 @@ export default function StockPage() {
                                       查看全文 →
                                     </a>
                                   </div>
-                                  <div style={{ fontSize: 14, color: "#333", lineHeight: 1.6 }}>
+                                  <div style={{ fontSize: 14, color: "#333", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
                                     {ann.is_summary && (
                                       <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "#fef3c7", color: "#92400e", marginRight: 6 }}>AI 摘要</span>
                                     )}
