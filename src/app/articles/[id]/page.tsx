@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { stockLookup } from "@/lib/stock-lookup";
 
 type Article = {
   id: string;
@@ -76,8 +77,11 @@ export default function ArticlePage() {
     );
   }
 
-  // Collect unique stock names and tickers for inline highlighting
-  const allStockKeywords = [...new Set(annotations.flatMap((a) => [a.stock_name, a.ticker]))].filter(Boolean);
+  // Collect unique stock names, tickers, and aliases for inline highlighting
+  const allStockKeywords = [...new Set(annotations.flatMap((a) => {
+    const entry = stockLookup[a.ticker];
+    return [a.stock_name, a.ticker, ...(entry?.aliases ?? [])];
+  }))].filter(Boolean);
   allStockKeywords.sort((a, b) => b.length - a.length);
 
   // Build a map: ticker -> EPS forecasts for inline display
@@ -92,6 +96,8 @@ export default function ArticlePage() {
   for (const a of annotations) {
     keywordToTicker.set(a.stock_name, a.ticker);
     keywordToTicker.set(a.ticker, a.ticker);
+    const entry = stockLookup[a.ticker];
+    entry?.aliases?.forEach((alias) => keywordToTicker.set(alias, a.ticker));
   }
 
   // Find EPS forecasts relevant to a paragraph
