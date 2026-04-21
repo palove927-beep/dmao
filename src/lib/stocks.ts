@@ -76,8 +76,6 @@ export const categories: Category[] = [
       { code: "G8", ticker: "7822", name: "倍利科" },
       { code: "G9", ticker: "7853", name: "政美應用" },
       { code: "G10", ticker: "8027", name: "鈦昇" },
-      { code: "G11", ticker: "1597", name: "直得", aliases: ["直得科技", "Chelic"] },
-      { code: "G12", ticker: "4576", name: "大銀微系統", aliases: ["大銀微"] },
     ],
   },
   {
@@ -126,7 +124,6 @@ export const categories: Category[] = [
       { code: "K7", ticker: "3533", name: "嘉澤" },
       { code: "K8", ticker: "6449", name: "鈺邦" },
       { code: "K9", ticker: "6584", name: "南俊國際" },
-      { code: "K12", ticker: "6862", name: "三集瑞-KY", aliases: ["三集瑞"] },
       { code: "K10", ticker: "6805", name: "富世達" },
       { code: "K11", ticker: "8210", name: "勤誠" },
     ],
@@ -233,8 +230,6 @@ export const categories: Category[] = [
       { code: "U17", ticker: "CRDO", name: "Credo", aliases: ["Credo Technology"] },
       { code: "U18", ticker: "META", name: "Meta", aliases: ["Meta Platforms", "Facebook"] },
       { code: "U19", ticker: "NXPI", name: "NXP Semiconductors", aliases: ["NXP", "恩智浦"] },
-      { code: "U20", ticker: "6481.T", name: "THK" },
-      { code: "U21", ticker: "6976.T", name: "Taiyo Yuden", aliases: ["太陽誘電"] },
     ],
   },
 ];
