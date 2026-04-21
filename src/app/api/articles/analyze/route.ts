@@ -161,6 +161,7 @@ ${stockListText}
    - 化學材料與化合物：GaAs（砷化鎵）、InP（磷化銦）、GaN（氮化鎵）、SiC（碳化矽）、III-V族化合物半導體等
    - 技術與產品術語：CW Laser、PD（光偵測器）、EML、CPO（共封裝光學）、AOC、RF、VCSEL等
    - 產業規格：800G、1.6T、100G、200G等
+   - 晶片/GPU架構代號：Vera Rubin（Intel GPU架構）、Blackwell、Hopper、Granite Rapids 等產品代號不是公司
    - 只有當這些縮寫明確指涉一家公司時才可標記（例如「CPO公司」不是公司，但「Coherent」是公司）
 
 任務四規則（eps_forecasts）：
