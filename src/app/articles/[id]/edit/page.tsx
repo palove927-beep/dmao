@@ -400,8 +400,8 @@ export default function EditAnnotationsPage() {
               <div style={{ fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap", color: "#333" }}>
                 {highlightText(para.text, [...new Set(para.stocks.flatMap((s) => {
                   const entry = stockLookup[s.ticker];
-                  return [s.stock_name, s.ticker, ...(entry?.aliases ?? [])];
-                }))])}
+                  return [s.stock_name, s.ticker, ...(entry?.aliases ?? []), entry?.name ?? ""];
+                }))].filter((k) => k.length >= 2).sort((a, b) => b.length - a.length))}
               </div>
               <StockChips
                 stocks={para.stocks}

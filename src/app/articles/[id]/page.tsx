@@ -80,9 +80,8 @@ export default function ArticlePage() {
   // Collect unique stock names, tickers, and aliases for inline highlighting
   const allStockKeywords = [...new Set(annotations.flatMap((a) => {
     const entry = stockLookup[a.ticker];
-    return [a.stock_name, a.ticker, ...(entry?.aliases ?? [])];
-  }))].filter(Boolean);
-  allStockKeywords.sort((a, b) => b.length - a.length);
+    return [a.stock_name, a.ticker, ...(entry?.aliases ?? []), entry?.name ?? ""];
+  }))].filter((k) => k.length >= 2).sort((a, b) => b.length - a.length);
 
   // Build a map: ticker -> EPS forecasts for inline display
   const epsByTicker = new Map<string, EpsForecast[]>();
