@@ -127,6 +127,9 @@ export async function POST(req: NextRequest) {
    - 技術與產品術語：CW Laser、PD（光偵測器）、EML、CPO（共封裝光學）、AOC、RF、VCSEL等
    - 產業規格：800G、1.6T、100G、200G等
    - 晶片/GPU架構代號：Vera Rubin（Intel GPU架構）、Blackwell、Hopper、Granite Rapids 等產品代號不是公司
+   - 半導體製程節點：N5、N3、N2、N2P、A16、EUV、FinFET 等製程代號不是公司
+   - 晶圓廠廠號與地點：Fab18、Fab21、P9、P2、JASM Fab2、台南Fab18 P9、亞利桑那州Fab21 P2 等廠房代號不是公司
+   - 產品類別：Smart Phone、Server CPU、GPU、AI ASIC、HPC 等產品或應用類別不是公司
    - 只有當這些縮寫明確指涉一家公司時才可標記（例如「CPO公司」不是公司，但「Coherent」是公司）
 
 任務四規則（eps_forecasts）：
@@ -175,13 +178,22 @@ ${trimmedList}`,
       return false;
     };
 
+    // Reject tickers that are clearly not real stock codes:
+    // normalized ticker not in stockLookup AND contains spaces or Chinese characters
+    const isValidTicker = (norm: { ticker: string; stock_name: string }) => {
+      if (stockLookup[norm.ticker]) return true;
+      if (/\s/.test(norm.ticker)) return false;
+      if (/[一-鿿]/.test(norm.ticker)) return false;
+      return true;
+    };
+
     // Build AI results per paragraph (validated)
     const aiStocksByParagraph = new Map<number, { ticker: string; stock_name: string }[]>();
     for (const ps of result.paragraph_stocks) {
       const paraText = paragraphs[ps.index] ?? "";
       const validated = ps.stocks
         .map((orig) => ({ orig, norm: normalizeStock(orig) }))
-        .filter(({ orig, norm }) => stockAppearsInText(paraText, norm, orig))
+        .filter(({ orig, norm }) => isValidTicker(norm) && stockAppearsInText(paraText, norm, orig))
         .map(({ norm }) => norm);
       if (validated.length > 0) {
         aiStocksByParagraph.set(ps.index, validated);
