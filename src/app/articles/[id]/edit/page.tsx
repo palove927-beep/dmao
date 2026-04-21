@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { splitParagraphs } from "@/lib/paragraphs";
 import { lookupStock } from "@/lib/stocks";
+import { stockLookup } from "@/lib/stock-lookup";
 
 // ─── Types ──────────────────────────────────────────────
 type StockTag = { ticker: string; stock_name: string };
@@ -38,6 +39,24 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
     }}>
       {message}
     </div>
+  );
+}
+
+// ─── Text highlight helper ───────────────────────────────────
+function highlightText(text: string, keywords: string[]) {
+  if (keywords.length === 0) return <>{text}</>;
+  const escaped = keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const regex = new RegExp(`(${escaped.join("|")})`, "g");
+  const parts = text.split(regex);
+  const kw = new Set(keywords);
+  return (
+    <>
+      {parts.map((part, i) =>
+        kw.has(part)
+          ? <mark key={i} style={{ background: "#fef9c3", padding: "1px 2px", borderRadius: 2 }}>{part}</mark>
+          : <span key={i}>{part}</span>
+      )}
+    </>
   );
 }
 
@@ -379,7 +398,10 @@ export default function EditAnnotationsPage() {
             >
               <div style={{ fontSize: 11, color: "#999", marginBottom: 4 }}>段落 {i + 1}</div>
               <div style={{ fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap", color: "#333" }}>
-                {para.text}
+                {highlightText(para.text, [...new Set(para.stocks.flatMap((s) => {
+                  const entry = stockLookup[s.ticker];
+                  return [s.stock_name, s.ticker, ...(entry?.aliases ?? [])];
+                }))])}
               </div>
               <StockChips
                 stocks={para.stocks}
