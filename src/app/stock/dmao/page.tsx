@@ -13,7 +13,8 @@ type EpsForecast = { ticker: string; stock_name: string; forecast_year: number; 
 // ─── Highlight helper ────────────────────────────────────
 function highlightStocksInText(text: string, stocks: StockTag[]) {
   if (stocks.length === 0) return text;
-  const keywords = stocks.flatMap((s) => [s.stock_name, s.ticker]);
+  const keywords = stocks.flatMap((s) => [s.stock_name, s.ticker]).filter((k) => k.length >= 2);
+  if (keywords.length === 0) return text;
   const escaped = keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   const regex = new RegExp(`(${escaped.join("|")})`, "g");
   const parts = text.split(regex);
