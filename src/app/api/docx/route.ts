@@ -66,50 +66,54 @@ const XML_ENTITY: Record<string, string> = {
 const decodeXmlEntities = (s: string) => s.replace(/&(?:amp|lt|gt|quot|apos);/g, (e) => XML_ENTITY[e] ?? e);
 
 // Extract highlighted text spans from document.xml.
-// Detects: w:highlight, colored w:shd inline, and character style references from styles.xml.
-function extractHighlightedSpans(docXml: string, coloredStyleIds: string[]): string[] {
-  const spans: string[] = [];
+// Returns spans with their triggering fill color for diagnostics.
+function extractHighlightedSpans(docXml: string, coloredStyleIds: string[]): { text: string; fill: string }[] {
+  const spans: { text: string; fill: string }[] = [];
   const runRe = /<w:r[ >][\s\S]*?<\/w:r>/g;
   let current = "";
+  let currentFill = "";
   let m: RegExpExecArray | null;
 
   while ((m = runRe.exec(docXml)) !== null) {
     const run = m[0];
 
-    const directHighlight =
-      /<w:highlight\b/.test(run) ||
-      // Inline shd with any non-white, non-auto fill
-      /<w:shd\b[^>]*w:fill="(?!(?:ffffff|FFFFFF|auto))[0-9a-fA-F]{6}"/.test(run);
+    const highlightVal = run.match(/<w:highlight\b[^>]*w:val="([^"]+)"/)?.[1];
+    const shdFill = run.match(/<w:shd\b[^>]*w:fill="([^"]+)"/)?.[1]?.toLowerCase();
 
-    // Character style reference → highlighted unless overridden by white shd
+    const directHighlight =
+      !!highlightVal ||
+      (!!shdFill && shdFill !== "ffffff" && shdFill !== "auto" && shdFill !== "none");
+
     const styleHighlight =
       coloredStyleIds.length > 0 &&
       coloredStyleIds.some((id) => new RegExp(`w:val="${id}"`).test(run)) &&
       !/<w:shd\b[^>]*w:fill="(?:ffffff|FFFFFF)"/.test(run);
 
     const isHighlighted = directHighlight || styleHighlight;
+    const triggerFill = highlightVal ?? shdFill ?? "";
 
     const tm = /<w:t(?:[^>]*)>([\s\S]*?)<\/w:t>/.exec(run);
     const text = tm ? decodeXmlEntities(tm[1]) : "";
 
     if (isHighlighted && text) {
       current += text;
+      if (!currentFill) currentFill = triggerFill;
     } else {
-      if (current.trim()) { spans.push(current); current = ""; }
+      if (current.trim()) { spans.push({ text: current, fill: currentFill }); current = ""; currentFill = ""; }
     }
   }
-  if (current.trim()) spans.push(current);
+  if (current.trim()) spans.push({ text: current, fill: currentFill });
 
-  return spans.filter((s) => s.length >= 2);
+  return spans.filter((s) => s.text.length >= 2);
 }
 
 // Wrap each highlighted span with ==...== in the markdown (idempotent)
-function injectHighlightMarkers(markdown: string, spans: string[]): string {
+function injectHighlightMarkers(markdown: string, spans: { text: string; fill: string }[]): string {
   let result = markdown;
-  for (const span of spans) {
-    const escaped = span.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  for (const { text } of spans) {
+    const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     if (new RegExp(`==${escaped}==`).test(result)) continue;
-    result = result.replace(new RegExp(escaped, "g"), `==${span}==`);
+    result = result.replace(new RegExp(escaped, "g"), `==${text}==`);
   }
   return result;
 }
@@ -157,7 +161,9 @@ export async function POST(req: NextRequest) {
 
     const title = file.name.replace(/\.docx$/i, "");
 
-    return NextResponse.json({ ok: true, title, content });
+    return NextResponse.json({ ok: true, title, content, _debug: {
+      spans: highlightedSpans.map((s) => ({ fill: s.fill, preview: s.text.slice(0, 30) })),
+    } });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "未知錯誤" },
