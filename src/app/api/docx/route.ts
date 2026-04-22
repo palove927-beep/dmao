@@ -50,7 +50,11 @@ export async function POST(req: NextRequest) {
     const content = htmlToMarkdown(htmlResult.value);
     const title = file.name.replace(/\.docx$/i, "");
 
-    return NextResponse.json({ ok: true, title, content });
+    // Debug: check if highlights are detected (remove after confirming)
+    const hasHighlight = htmlResult.value.includes("<mark>");
+    const markCount = (htmlResult.value.match(/<mark>/g) || []).length;
+
+    return NextResponse.json({ ok: true, title, content, _debug: { hasHighlight, markCount, messages: htmlResult.messages } });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "未知錯誤" },
