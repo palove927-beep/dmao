@@ -11,20 +11,50 @@ type ParagraphData = { text: string; stocks: StockTag[] };
 type EpsForecast = { ticker: string; stock_name: string; forecast_year: number; eps: number };
 
 // ─── Highlight helper ────────────────────────────────────
-function highlightStocksInText(text: string, stocks: StockTag[]) {
-  if (stocks.length === 0) return text;
-  const keywords = stocks.flatMap((s) => [s.stock_name, s.ticker]).filter((k) => k.length >= 2);
-  if (keywords.length === 0) return text;
-  const escaped = keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+function applyStockKeywords(text: string, keywords: string[]) {
+  const filtered = keywords.filter((k) => k.length >= 2);
+  if (filtered.length === 0) return <>{text}</>;
+  filtered.sort((a, b) => b.length - a.length);
+  const escaped = filtered.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   const regex = new RegExp(`(${escaped.join("|")})`, "g");
   const parts = text.split(regex);
-  const kw = new Set(keywords);
-  return parts.map((part, i) =>
-    kw.has(part) ? (
-      <mark key={i} style={{ background: "#fef9c3", padding: "1px 2px", borderRadius: 2 }}>{part}</mark>
-    ) : (
-      part
-    )
+  const kw = new Set(filtered);
+  return (
+    <>
+      {parts.map((part, i) =>
+        kw.has(part) ? (
+          <mark key={i} style={{ background: "#fef9c3", padding: "1px 2px", borderRadius: 2 }}>{part}</mark>
+        ) : part
+      )}
+    </>
+  );
+}
+
+function highlightStocksInText(text: string, stocks: StockTag[]) {
+  const keywords = stocks.flatMap((s) => [s.stock_name, s.ticker]).filter((k) => k.length >= 2);
+  const markRe = /==(.*?)==/g;
+  const segments: { text: string; isWordMark: boolean }[] = [];
+  let last = 0, m;
+  while ((m = markRe.exec(text)) !== null) {
+    if (m.index > last) segments.push({ text: text.slice(last, m.index), isWordMark: false });
+    segments.push({ text: m[1], isWordMark: true });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) segments.push({ text: text.slice(last), isWordMark: false });
+
+  if (segments.length === 1 && !segments[0].isWordMark) {
+    return applyStockKeywords(text, keywords);
+  }
+  return (
+    <>
+      {segments.map((seg, i) =>
+        seg.isWordMark ? (
+          <mark key={i} style={{ background: "#fde047", padding: "1px 2px", borderRadius: 2 }}>{seg.text}</mark>
+        ) : (
+          <span key={i}>{applyStockKeywords(seg.text, keywords)}</span>
+        )
+      )}
+    </>
   );
 }
 

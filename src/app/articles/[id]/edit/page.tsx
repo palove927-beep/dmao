@@ -43,18 +43,47 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 }
 
 // ─── Text highlight helper ───────────────────────────────────
-function highlightText(text: string, keywords: string[]) {
-  if (keywords.length === 0) return <>{text}</>;
-  const escaped = keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+function applyStockKeywords(text: string, keywords: string[]) {
+  const filtered = keywords.filter((k) => k.length >= 2);
+  if (filtered.length === 0) return <>{text}</>;
+  filtered.sort((a, b) => b.length - a.length);
+  const escaped = filtered.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   const regex = new RegExp(`(${escaped.join("|")})`, "g");
   const parts = text.split(regex);
-  const kw = new Set(keywords);
+  const kw = new Set(filtered);
   return (
     <>
       {parts.map((part, i) =>
         kw.has(part)
           ? <mark key={i} style={{ background: "#fef9c3", padding: "1px 2px", borderRadius: 2 }}>{part}</mark>
           : <span key={i}>{part}</span>
+      )}
+    </>
+  );
+}
+
+function highlightText(text: string, keywords: string[]) {
+  const markRe = /==(.*?)==/g;
+  const segments: { text: string; isWordMark: boolean }[] = [];
+  let last = 0, m;
+  while ((m = markRe.exec(text)) !== null) {
+    if (m.index > last) segments.push({ text: text.slice(last, m.index), isWordMark: false });
+    segments.push({ text: m[1], isWordMark: true });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) segments.push({ text: text.slice(last), isWordMark: false });
+
+  if (segments.length === 1 && !segments[0].isWordMark) {
+    return applyStockKeywords(text, keywords);
+  }
+  return (
+    <>
+      {segments.map((seg, i) =>
+        seg.isWordMark ? (
+          <mark key={i} style={{ background: "#fde047", padding: "1px 2px", borderRadius: 2 }}>{seg.text}</mark>
+        ) : (
+          <span key={i}>{applyStockKeywords(seg.text, keywords)}</span>
+        )
       )}
     </>
   );

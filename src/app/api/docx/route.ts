@@ -8,6 +8,9 @@ function htmlToMarkdown(html: string): string {
   // Convert images: <img src="..."> → ![圖片](...)
   result = result.replace(/<img[^>]+src="([^"]+)"[^>]*>/gi, "\n![圖片]($1)\n");
 
+  // Preserve Word highlights as ==...== before stripping tags
+  result = result.replace(/<mark>(.*?)<\/mark>/gi, "==$1==");
+
   // Remove other tags, converting block elements to newlines
   result = result.replace(/<\/?(p|div|br|h[1-6]|li|tr|blockquote|section|article)[^>]*>/gi, "\n");
   result = result.replace(/<[^>]+>/g, "");
@@ -40,7 +43,11 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const htmlResult = await mammoth.convertToHtml({ buffer });
+    const htmlResult = await mammoth.convertToHtml({
+      buffer,
+      styleMap: ["r[highlight] => mark"],
+      includeDefaultStyleMap: true,
+    });
     const content = htmlToMarkdown(htmlResult.value);
     const title = file.name.replace(/\.docx$/i, "");
 
