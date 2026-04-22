@@ -1,10 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
+import zlib from "zlib";
+
+// Minimal ZIP reader: extract a named file from a ZIP buffer (no extra deps)
+function extractZipEntry(buffer: Buffer, targetName: string): string | null {
+  let offset = 0;
+  while (offset < buffer.length - 30) {
+    const sig = buffer.readUInt32LE(offset);
+    if (sig !== 0x04034b50) break; // not a local file header
+    const compression = buffer.readUInt16LE(offset + 8);
+    const compressedSize = buffer.readUInt32LE(offset + 18);
+    const uncompressedSize = buffer.readUInt32LE(offset + 22);
+    const filenameLen = buffer.readUInt16LE(offset + 26);
+    const extraLen = buffer.readUInt16LE(offset + 28);
+    const name = buffer.subarray(offset + 30, offset + 30 + filenameLen).toString("utf8");
+    const dataStart = offset + 30 + filenameLen + extraLen;
+    if (name === targetName) {
+      const compressed = buffer.subarray(dataStart, dataStart + compressedSize);
+      if (compression === 0) return compressed.toString("utf8");
+      if (compression === 8) return zlib.inflateRawSync(compressed).slice(0, uncompressedSize).toString("utf8");
+    }
+    offset = dataStart + compressedSize;
+  }
+  return null;
+}
 
 // Recursively walk the mammoth document tree and mark highlighted runs
 // with a custom styleName so the style map can match them.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _highlightCount = 0;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const _runSamples: object[] = [];
+const _elementTypes = new Set<string>();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function markHighlightedRuns(element: any): any {
   if (Array.isArray(element)) return element.map(markHighlightedRuns);
@@ -12,7 +39,20 @@ function markHighlightedRuns(element: any): any {
   const children = element.children
     ? { children: markHighlightedRuns(element.children) }
     : {};
-  if (element.highlight) {
+  // Track all unique element types
+  if (element.type) _elementTypes.add(String(element.type));
+  // Sample first 3 run-type elements to understand the schema
+  if (element.type === "run" && _runSamples.length < 3) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { children: _c, ...rest } = element;
+    _runSamples.push(rest);
+  }
+  // Check multiple possible property names mammoth may use for highlight
+  const hasHighlight = element.highlight ||
+    element.isHighlighted ||
+    element.backgroundColor ||
+    element.highlightColor;
+  if (hasHighlight) {
     _highlightCount++;
     return { ...element, ...children, styleName: "DmaoHighlight" };
   }
@@ -62,6 +102,15 @@ export async function POST(req: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
     _highlightCount = 0;
+    _runSamples.length = 0;
+    _elementTypes.clear();
+
+    // Inspect raw XML to confirm highlight tags exist in the docx
+    const docXml = extractZipEntry(buffer, "word/document.xml");
+    const xmlHighlightCount = docXml ? (docXml.match(/<w:highlight\b/g) || []).length : -1;
+    const xmlHighlightSample = docXml
+      ? docXml.match(/<w:highlight[^/]*\/>/g)?.slice(0, 5) ?? []
+      : [];
     const htmlResult = await mammoth.convertToHtml(
       { buffer },
       {
@@ -81,6 +130,10 @@ export async function POST(req: NextRequest) {
       hasMarkInContent,
       htmlSample: htmlResult.value.slice(0, 500),
       messages: htmlResult.messages,
+      runSamples: _runSamples,
+      elementTypes: [..._elementTypes],
+      xmlHighlightCount,
+      xmlHighlightSample,
     } });
   } catch (err) {
     return NextResponse.json(
