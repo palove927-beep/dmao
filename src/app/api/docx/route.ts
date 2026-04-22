@@ -133,11 +133,10 @@ export async function POST(req: NextRequest) {
     const xmlFound = docXml !== null;
     const xmlHighlightTags = docXml ? (docXml.match(/<w:highlight\b/g) || []).length : 0;
     const xmlShdTags = docXml ? (docXml.match(/<w:shd\b/g) || []).length : 0;
-    // Dump XML around the first <w:rPr> that has unusual properties (not bold/italic/size)
-    const firstRprIdx = docXml ? docXml.search(/<w:rPr>[\s\S]{0,300}?<\/w:rPr>/) : -1;
-    const xmlRprSample = docXml && firstRprIdx >= 0
-      ? docXml.slice(firstRprIdx, firstRprIdx + 400)
-      : "";
+    // Capture first 5 <w:shd .../> tags to see actual fill colors used
+    const xmlShdSamples = docXml
+      ? (docXml.match(/<w:shd\b[^/]*/g) || []).slice(0, 5).map((s) => s + "/>")
+      : [];
     const highlightedSpans = docXml ? extractHighlightedSpans(docXml) : [];
 
     const htmlResult = await mammoth.convertToHtml({ buffer }, { includeDefaultStyleMap: true });
@@ -155,7 +154,7 @@ export async function POST(req: NextRequest) {
       xmlShdTags,
       highlightedSpans,
       hasMarkInContent: content.includes("=="),
-      xmlRprSample,
+      xmlShdSamples,
     } });
   } catch (err) {
     return NextResponse.json(
