@@ -4,6 +4,8 @@ import mammoth from "mammoth";
 // Recursively walk the mammoth document tree and mark highlighted runs
 // with a custom styleName so the style map can match them.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _highlightCount = 0;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function markHighlightedRuns(element: any): any {
   if (Array.isArray(element)) return element.map(markHighlightedRuns);
   if (!element || typeof element !== "object") return element;
@@ -11,6 +13,7 @@ function markHighlightedRuns(element: any): any {
     ? { children: markHighlightedRuns(element.children) }
     : {};
   if (element.highlight) {
+    _highlightCount++;
     return { ...element, ...children, styleName: "DmaoHighlight" };
   }
   return { ...element, ...children };
@@ -58,6 +61,7 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
+    _highlightCount = 0;
     const htmlResult = await mammoth.convertToHtml(
       { buffer },
       {
@@ -68,8 +72,16 @@ export async function POST(req: NextRequest) {
     );
     const content = htmlToMarkdown(htmlResult.value);
     const title = file.name.replace(/\.docx$/i, "");
+    const hasMarkInHtml = htmlResult.value.includes("<mark>");
+    const hasMarkInContent = content.includes("==");
 
-    return NextResponse.json({ ok: true, title, content });
+    return NextResponse.json({ ok: true, title, content, _debug: {
+      highlightRunsFound: _highlightCount,
+      hasMarkInHtml,
+      hasMarkInContent,
+      htmlSample: htmlResult.value.slice(0, 500),
+      messages: htmlResult.messages,
+    } });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "未知錯誤" },
