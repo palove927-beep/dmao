@@ -237,10 +237,10 @@ export default function DmaoPage() {
         if (json.title) handleTitleChange(json.title);
         let content: string = json.content || "";
         const dataUriRegex = /!\[圖片\]\((data:image\/[^)]+)\)/g;
-        let match;
+        const dataUriMatches = [...content.matchAll(dataUriRegex)];
         let imgIndex = 0;
-        while ((match = dataUriRegex.exec(content)) !== null) {
-          const dataUri = match[1];
+        for (const m of dataUriMatches) {
+          const dataUri = m[1];
           try {
             const resp = await fetch(dataUri);
             const blob = await resp.blob();
@@ -385,6 +385,18 @@ export default function DmaoPage() {
         if (source instanceof File) {
           const fd = new FormData();
           fd.append("file", source);
+          fd.append("article_date", formDate);
+          const res = await fetch("/api/upload", { method: "POST", body: fd });
+          const json = await res.json();
+          url = json.ok ? json.url : null;
+        } else if (typeof source === "string" && source.startsWith("data:")) {
+          // Convert base64 data URI to File client-side, then upload via /api/upload
+          const resp = await fetch(source);
+          const blob = await resp.blob();
+          const ext = blob.type.split("/")[1] || "png";
+          const file = new File([blob], `pasted-image.${ext}`, { type: blob.type });
+          const fd = new FormData();
+          fd.append("file", file);
           fd.append("article_date", formDate);
           const res = await fetch("/api/upload", { method: "POST", body: fd });
           const json = await res.json();
