@@ -55,7 +55,7 @@ function applyStockKeywords(text: string, keywords: string[]) {
     <>
       {parts.map((part, i) =>
         kw.has(part)
-          ? <mark key={i} style={{ background: "#fef9c3", padding: "1px 2px", borderRadius: 2 }}>{part}</mark>
+          ? <mark key={i} style={{ background: "transparent", color: "#ef4444", padding: "1px 2px", borderRadius: 2 }}>{part}</mark>
           : <span key={i}>{part}</span>
       )}
     </>
@@ -80,7 +80,7 @@ function highlightText(text: string, keywords: string[]) {
     <>
       {segments.map((seg, i) =>
         seg.isWordMark ? (
-          <mark key={i} style={{ background: "#fde047", padding: "1px 2px", borderRadius: 2 }}>{seg.text}</mark>
+          <mark key={i} style={{ background: "#fef9c3", padding: "1px 2px", borderRadius: 2 }}>{seg.text}</mark>
         ) : (
           <span key={i}>{applyStockKeywords(seg.text, keywords)}</span>
         )
