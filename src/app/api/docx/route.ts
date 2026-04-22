@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
 
+// Recursively walk the mammoth document tree and mark highlighted runs
+// with a custom styleName so the style map can match them.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function markHighlightedRuns(element: any): any {
+  if (Array.isArray(element)) return element.map(markHighlightedRuns);
+  if (!element || typeof element !== "object") return element;
+  const children = element.children
+    ? { children: markHighlightedRuns(element.children) }
+    : {};
+  if (element.highlight) {
+    return { ...element, ...children, styleName: "DmaoHighlight" };
+  }
+  return { ...element, ...children };
+}
+
 function htmlToMarkdown(html: string): string {
   // Simple HTML-to-markdown conversion preserving images
   let result = html;
@@ -45,16 +60,16 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
     const htmlResult = await mammoth.convertToHtml(
       { buffer },
-      { styleMap: ["r[highlight] => mark"], includeDefaultStyleMap: true },
+      {
+        transformDocument: markHighlightedRuns,
+        styleMap: ["r[style-name='DmaoHighlight'] => mark"],
+        includeDefaultStyleMap: true,
+      },
     );
     const content = htmlToMarkdown(htmlResult.value);
     const title = file.name.replace(/\.docx$/i, "");
 
-    // Debug: check if highlights are detected (remove after confirming)
-    const hasHighlight = htmlResult.value.includes("<mark>");
-    const markCount = (htmlResult.value.match(/<mark>/g) || []).length;
-
-    return NextResponse.json({ ok: true, title, content, _debug: { hasHighlight, markCount, messages: htmlResult.messages } });
+    return NextResponse.json({ ok: true, title, content });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "未知錯誤" },
