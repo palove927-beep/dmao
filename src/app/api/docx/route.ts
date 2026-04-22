@@ -157,11 +157,7 @@ export async function POST(req: NextRequest) {
 
     const title = file.name.replace(/\.docx$/i, "");
 
-    return NextResponse.json({ ok: true, title, content, _debug: {
-      coloredStyles,          // character styles with non-white fills from styles.xml
-      highlightedSpans,
-      hasMarkInContent: content.includes("=="),
-    } });
+    return NextResponse.json({ ok: true, title, content });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "未知錯誤" },
