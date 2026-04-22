@@ -43,11 +43,10 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const htmlResult = await mammoth.convertToHtml({
-      buffer,
-      styleMap: ["r[highlight] => mark"],
-      includeDefaultStyleMap: true,
-    });
+    const htmlResult = await mammoth.convertToHtml(
+      { buffer },
+      { styleMap: ["r[highlight] => mark"], includeDefaultStyleMap: true },
+    );
     const content = htmlToMarkdown(htmlResult.value);
     const title = file.name.replace(/\.docx$/i, "");
 
