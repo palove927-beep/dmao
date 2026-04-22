@@ -181,35 +181,72 @@ export default function EditAnnotationsPage() {
       setOriginalAnnotations(anns);
       if (epsJson.ok) setEpsForecasts(epsJson.forecasts);
 
-      // Split content into paragraphs, filter out image-only paragraphs
-      const paraTexts = splitParagraphs(article.content).filter(
-        (t) => !/^!\[[^\]]*\]\([^)]+\)$/.test(t.trim())
-      );
+      const content: string = article.content;
+      const IMAGE_RE = /^!\[[^\]]*\]\([^)]+\)$/;
 
-      // Match each annotation to a paragraph by checking if paragraph text contains the annotation's paragraph text
-      const paraData: ParagraphData[] = paraTexts.map((text) => {
-        const matchedStocks: StockTag[] = [];
-        const seen = new Set<string>();
-        for (const ann of anns) {
-          if (seen.has(ann.ticker)) continue;
-          // Match if the paragraph text contains the annotation paragraph, or vice versa
-          if (text.includes(ann.paragraph) || ann.paragraph.includes(text) || ann.paragraph === "（手動新增標記）") {
-            // For manual annotations, attach to the first paragraph only
-            if (ann.paragraph === "（手動新增標記）") continue;
-            matchedStocks.push({ ticker: ann.ticker, stock_name: ann.stock_name });
-            seen.add(ann.ticker);
-          }
+      // Step 1: Group non-summary annotations by their paragraph text (adjusted ground truth)
+      const annotatedParaMap = new Map<string, StockTag[]>();
+      for (const ann of anns) {
+        if (ann.is_summary || ann.paragraph === "（手動新增標記）") continue;
+        if (!annotatedParaMap.has(ann.paragraph)) {
+          annotatedParaMap.set(ann.paragraph, []);
         }
-        return { text, stocks: matchedStocks };
+        const stocks = annotatedParaMap.get(ann.paragraph)!;
+        if (!stocks.some((s) => s.ticker === ann.ticker)) {
+          stocks.push({ ticker: ann.ticker, stock_name: ann.stock_name });
+        }
+      }
+
+      // Helper: find position of paragraph in content (exact, or by first 60 chars)
+      const findPos = (text: string): number => {
+        const exact = content.indexOf(text);
+        if (exact >= 0) return exact;
+        const prefix = text.slice(0, 60);
+        return prefix.length >= 5 ? content.indexOf(prefix) : -1;
+      };
+
+      // Step 2: Re-split content for non-annotated paragraphs
+      const reSplitTexts = splitParagraphs(content).filter((t) => !IMAGE_RE.test(t.trim()));
+
+      // Step 3: Mark re-split paragraphs overlapping with annotation paragraphs
+      const isAnnotatedParagraph = (text: string): boolean => {
+        for (const [annPara] of annotatedParaMap) {
+          if (text.includes(annPara) || annPara.includes(text)) return true;
+        }
+        return false;
+      };
+
+      // Step 4: Build combined list with sort positions
+      type ParaWithPos = { text: string; stocks: StockTag[]; pos: number };
+      const allParas: ParaWithPos[] = [];
+
+      for (const [text, stocks] of annotatedParaMap) {
+        allParas.push({ text, stocks, pos: findPos(text) });
+      }
+      for (const text of reSplitTexts) {
+        if (!isAnnotatedParagraph(text)) {
+          allParas.push({ text, stocks: [], pos: findPos(text) });
+        }
+      }
+
+      // Step 5: Sort by position in content; unknown positions go to end
+      allParas.sort((a, b) => {
+        if (a.pos < 0 && b.pos < 0) return 0;
+        if (a.pos < 0) return 1;
+        if (b.pos < 0) return -1;
+        return a.pos - b.pos;
       });
 
-      // Annotations not matched to any paragraph (e.g., manual ones) → attach as "unmatched"
-      // We'll show them separately or attach to the first paragraph
+      const paraData: ParagraphData[] = allParas.map(({ text, stocks }) => ({ text, stocks }));
+
+      // Step 6: Attach manual annotations to first paragraph
       const matchedTickers = new Set(paraData.flatMap((p) => p.stocks.map((s) => s.ticker)));
-      const unmatchedAnns = anns.filter((a) => !matchedTickers.has(a.ticker));
-      if (unmatchedAnns.length > 0 && paraData.length > 0) {
+      const manualAnns = anns.filter(
+        (a) => !a.is_summary && a.paragraph === "（手動新增標記）" && !matchedTickers.has(a.ticker)
+      );
+      if (manualAnns.length > 0 && paraData.length > 0) {
         const seen = new Set(paraData[0].stocks.map((s) => s.ticker));
-        for (const ann of unmatchedAnns) {
+        for (const ann of manualAnns) {
           if (!seen.has(ann.ticker)) {
             paraData[0].stocks.push({ ticker: ann.ticker, stock_name: ann.stock_name });
             seen.add(ann.ticker);
