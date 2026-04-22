@@ -60,8 +60,8 @@ function extractHighlightedSpans(xml: string): string[] {
     const run = m[0];
     const isHighlighted =
       /<w:highlight\b/.test(run) ||
-      // Yellow shading: fill="FFFF00" or similar bright yellow shades
-      /<w:shading[^>]+w:fill="(?:FFFF00|FFD700|FFFF4D|FFFE00|FFF000|F9E400)"/.test(run);
+      // Yellow shading via <w:shd> (OOXML tag, not <w:shading>)
+      /<w:shd\b[^>]+w:fill="(?:FFFF00|FFD700|FFFF4D|FFFE00|FFF000|F9E400|FFFC00)"/.test(run);
 
     const tm = /<w:t(?:[^>]*)>([\s\S]*?)<\/w:t>/.exec(run);
     const text = tm
@@ -131,8 +131,13 @@ export async function POST(req: NextRequest) {
 
     const docXml = extractZipEntry(buffer, "word/document.xml");
     const xmlFound = docXml !== null;
-    const xmlHighlightTags = xmlFound ? (docXml!.match(/<w:highlight\b/g) || []).length : 0;
-    const xmlShadingTags = xmlFound ? (docXml!.match(/<w:shading\b/g) || []).length : 0;
+    const xmlHighlightTags = docXml ? (docXml.match(/<w:highlight\b/g) || []).length : 0;
+    const xmlShdTags = docXml ? (docXml.match(/<w:shd\b/g) || []).length : 0;
+    // Dump XML around the first <w:rPr> that has unusual properties (not bold/italic/size)
+    const firstRprIdx = docXml ? docXml.search(/<w:rPr>[\s\S]{0,300}?<\/w:rPr>/) : -1;
+    const xmlRprSample = docXml && firstRprIdx >= 0
+      ? docXml.slice(firstRprIdx, firstRprIdx + 400)
+      : "";
     const highlightedSpans = docXml ? extractHighlightedSpans(docXml) : [];
 
     const htmlResult = await mammoth.convertToHtml({ buffer }, { includeDefaultStyleMap: true });
@@ -147,9 +152,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, title, content, _debug: {
       xmlFound,
       xmlHighlightTags,
-      xmlShadingTags,
+      xmlShdTags,
       highlightedSpans,
       hasMarkInContent: content.includes("=="),
+      xmlRprSample,
     } });
   } catch (err) {
     return NextResponse.json(
