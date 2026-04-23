@@ -5,6 +5,9 @@ function htmlToMarkdown(html: string): string {
   // Simple HTML-to-markdown conversion preserving images
   let result = html;
 
+  // Convert highlights: <mark>text</mark> → ==text==
+  result = result.replace(/<mark>([\s\S]*?)<\/mark>/gi, "==$1==");
+
   // Convert images: <img src="..."> → ![圖片](...)
   result = result.replace(/<img[^>]+src="([^"]+)"[^>]*>/gi, "\n![圖片]($1)\n");
 

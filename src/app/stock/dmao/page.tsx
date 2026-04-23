@@ -11,20 +11,33 @@ type ParagraphData = { text: string; stocks: StockTag[] };
 type EpsForecast = { ticker: string; stock_name: string; forecast_year: number; eps: number };
 
 // ─── Highlight helper ────────────────────────────────────
-function highlightStocksInText(text: string, stocks: StockTag[]) {
-  if (stocks.length === 0) return text;
-  const keywords = stocks.flatMap((s) => [s.stock_name, s.ticker]);
-  const escaped = keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+function applyStockHighlight(text: string, kw: Set<string>, baseKey: string) {
+  const escaped = Array.from(kw).map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  if (escaped.length === 0) return [text];
   const regex = new RegExp(`(${escaped.join("|")})`, "g");
-  const parts = text.split(regex);
-  const kw = new Set(keywords);
-  return parts.map((part, i) =>
+  return text.split(regex).map((part, i) =>
     kw.has(part) ? (
-      <span key={i} style={{ color: "#dc2626", fontWeight: 600 }}>{part}</span>
-    ) : (
-      part
-    )
+      <span key={`${baseKey}-s${i}`} style={{ color: "#dc2626", fontWeight: 600 }}>{part}</span>
+    ) : part
   );
+}
+
+function highlightStocksInText(text: string, stocks: StockTag[]) {
+  const keywords = stocks.flatMap((s) => [s.stock_name, s.ticker]);
+  const kw = new Set(keywords);
+  const segments = text.split(/(==.+?==)/g);
+  if (segments.length === 1) return applyStockHighlight(text, kw, "0");
+  return segments.map((seg, i) => {
+    if (seg.startsWith("==") && seg.endsWith("==") && seg.length > 4) {
+      const inner = seg.slice(2, -2);
+      return (
+        <mark key={i} style={{ background: "#fef08a", padding: "1px 3px", borderRadius: 3 }}>
+          {applyStockHighlight(inner, kw, String(i))}
+        </mark>
+      );
+    }
+    return <span key={i}>{applyStockHighlight(seg, kw, String(i))}</span>;
+  });
 }
 
 // ─── Toast ──────────────────────────────────────────────
