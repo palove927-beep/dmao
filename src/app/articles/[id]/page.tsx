@@ -139,7 +139,7 @@ export default function ArticlePage() {
   };
 
   const renderParagraph = (text: string) => {
-    const parts = text.split(/(==.+?==)/gs);
+    const parts = text.split(/(==.+?==)/g);
     if (parts.length === 1) return highlightText(text, allStockKeywords);
     return parts.map((part, i) => {
       if (part.startsWith("==") && part.endsWith("==") && part.length > 4) {
