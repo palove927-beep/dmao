@@ -138,6 +138,22 @@ export default function ArticlePage() {
     );
   };
 
+  const renderParagraph = (text: string) => {
+    const parts = text.split(/(==.+?==)/gs);
+    if (parts.length === 1) return highlightText(text, allStockKeywords);
+    return parts.map((part, i) => {
+      if (part.startsWith("==") && part.endsWith("==") && part.length > 4) {
+        const inner = part.slice(2, -2);
+        return (
+          <mark key={i} style={{ background: "#fef08a", padding: "1px 3px", borderRadius: 3 }}>
+            {highlightText(inner, allStockKeywords)}
+          </mark>
+        );
+      }
+      return <span key={i}>{highlightText(part, allStockKeywords)}</span>;
+    });
+  };
+
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
       <a href="/stock" style={{ color: "#1a56db", textDecoration: "none", fontSize: 15 }}>
@@ -312,7 +328,7 @@ export default function ArticlePage() {
           return (
             <div key={i}>
               <p style={{ margin: "8px 0" }}>
-                {highlightText(trimmed, allStockKeywords)}
+                {renderParagraph(trimmed)}
               </p>
               {paraEps.length > 0 && (
                 <div style={{
