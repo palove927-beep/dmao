@@ -664,7 +664,7 @@ export const stockLookup: Record<string, string> = {
   "AAOI": "Applied Optoelectronics",
 
   // ─── 韓國 KOSPI 50 主要成分股 ─────────────────────────
-  "005930.KS": "Samsung Electronics",
+  "005930.KS": "Samsung",
   "000660.KS": "SK Hynix",
   "005935.KS": "Samsung Electronics Pref",
   "005380.KS": "Hyundai Motor",
