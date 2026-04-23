@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(await res.arrayBuffer());
 
     const dateStr = (article_date || new Date().toISOString().slice(0, 10)).replace(/-/g, "");
-    const rand = crypto.randomBytes(3).toString("hex");
+    const rand = crypto.randomBytes(2).toString("hex");
     const ext = contentType.split("/")[1]?.split(";")[0] || "png";
     const key = `articles/${dateStr}-${rand}.${ext}`;
 

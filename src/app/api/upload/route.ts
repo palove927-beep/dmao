@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
 
     const articleDate = (formData.get("article_date") as string) || new Date().toISOString().slice(0, 10);
     const dateStr = articleDate.replace(/-/g, "");
-    const rand = crypto.randomBytes(3).toString("hex"); // 6 chars
+    const rand = crypto.randomBytes(2).toString("hex"); // 4 chars
     const ext = file.name.split(".").pop() || "png";
     const key = `articles/${dateStr}-${rand}.${ext}`;
 
