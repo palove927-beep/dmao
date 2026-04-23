@@ -20,7 +20,7 @@ function highlightStocksInText(text: string, stocks: StockTag[]) {
   const kw = new Set(keywords);
   return parts.map((part, i) =>
     kw.has(part) ? (
-      <mark key={i} style={{ background: "#fef9c3", padding: "1px 2px", borderRadius: 2 }}>{part}</mark>
+      <span key={i} style={{ color: "#dc2626", fontWeight: 600 }}>{part}</span>
     ) : (
       part
     )
