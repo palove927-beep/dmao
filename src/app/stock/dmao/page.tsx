@@ -374,10 +374,9 @@ export default function DmaoPage() {
     }
   };
 
-  const uploadPendingImages = async (content: string): Promise<string> => {
+  const uploadPendingImages = async (contents: string[]): Promise<string[]> => {
     const pending = pendingImagesRef.current;
-    if (pending.size === 0) return content;
-    let result = content;
+    if (pending.size === 0) return contents;
     const entries = Array.from(pending.entries());
     const uploads = entries.map(async ([placeholder, source]) => {
       try {
@@ -405,20 +404,24 @@ export default function DmaoPage() {
       }
     });
     const results = await Promise.all(uploads);
-    for (const { placeholder, url } of results) {
-      if (url) {
-        result = result.split(placeholder).join(url);
-      } else {
-        result = result.replace(new RegExp(`!\\[.*?\\]\\(${placeholder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\)\\n?`, "g"), "");
+    const updated = contents.map((content) => {
+      let result = content;
+      for (const { placeholder, url } of results) {
+        if (url) {
+          result = result.split(placeholder).join(url);
+        } else {
+          result = result.replace(new RegExp(`!\\[.*?\\]\\(${placeholder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\)\\n?`, "g"), "");
+        }
       }
-    }
+      return result;
+    });
     for (const [placeholder, source] of entries) {
       if (source instanceof File && placeholder.startsWith("blob:")) {
         URL.revokeObjectURL(placeholder);
       }
     }
     pending.clear();
-    return result;
+    return updated;
   };
 
   // ─── Step 1 → Step 2: Analyze ───
@@ -427,23 +430,19 @@ export default function DmaoPage() {
     setAnalyzing(true);
 
     try {
-      // Upload pending images first
-      if (pendingImagesRef.current.size > 0) {
-        showToast("上傳圖片中...", true);
-      }
-      const uploaded = await uploadPendingImages(formContent);
-      setFinalContent(uploaded);
-
+      setFinalContent(formContent);
       showToast("AI 分析段落中...", true);
 
-      // Split into paragraphs
-      const paras = splitParagraphs(uploaded);
+      const paras = splitParagraphs(formContent);
+      // Strip image markdown before sending to AI (images aren't meaningful for text analysis)
+      const IMAGE_RE = /!\[[^\]]*\]\([^)]+\)\n?/g;
+      const parasForAI = paras.map((p) => p.replace(IMAGE_RE, "").trim());
 
       // Call analyze API with all paragraphs
       const res = await fetch("/api/articles/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: formTitle, paragraphs: paras }),
+        body: JSON.stringify({ title: formTitle, paragraphs: parasForAI }),
       });
       const json = await res.json();
 
@@ -566,9 +565,22 @@ export default function DmaoPage() {
   // ─── Step 2 → Save ───
   const handleSave = async () => {
     setSubmitting(true);
-    showToast("儲存中...", true);
 
     try {
+      // Upload images deferred from analyze step
+      let contentToSave = finalContent;
+      let parasToAnnotate = paragraphs;
+      if (pendingImagesRef.current.size > 0) {
+        showToast("上傳圖片中...", true);
+        const paraTexts = paragraphs.map((p) => p.text);
+        const updated = await uploadPendingImages([finalContent, ...paraTexts]);
+        contentToSave = updated[0];
+        parasToAnnotate = paragraphs.map((p, i) => ({ ...p, text: updated[i + 1] }));
+        setFinalContent(contentToSave);
+      }
+
+      showToast("儲存中...", true);
+
       // Build annotations
       const annotations: { ticker: string; stock_name: string; paragraph: string; is_summary: boolean }[] = [];
 
@@ -583,7 +595,7 @@ export default function DmaoPage() {
       }
 
       // For each paragraph with stocks, each stock gets one annotation row
-      for (const para of paragraphs) {
+      for (const para of parasToAnnotate) {
         for (const stock of para.stocks) {
           annotations.push({
             ticker: stock.ticker,
@@ -594,14 +606,14 @@ export default function DmaoPage() {
         }
       }
 
-      const imageUrls = Array.from(finalContent.matchAll(/!\[.*?\]\((.*?)\)/g)).map((m) => m[1]);
+      const imageUrls = Array.from(contentToSave.matchAll(/!\[.*?\]\((.*?)\)/g)).map((m) => m[1]);
 
       const res = await fetch("/api/articles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: formTitle,
-          content: finalContent,
+          content: contentToSave,
           article_date: formDate,
           images: imageUrls,
           article_type: articleType,
