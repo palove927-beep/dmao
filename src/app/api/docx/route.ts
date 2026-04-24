@@ -94,9 +94,19 @@ export async function POST(req: NextRequest) {
 
     // Detect paragraph shading from raw XML (mammoth ignores w:shd)
     let shadedTexts = new Set<string>();
+    let debugXmlExtracted = false;
+    let debugShdCount = 0;
+    let debugXmlSample = "";
     try {
       const xml = extractDocumentXml(buffer);
-      if (xml) shadedTexts = getShadedParaTexts(xml);
+      if (xml) {
+        debugXmlExtracted = true;
+        debugShdCount = (xml.match(/<w:shd/g) || []).length;
+        // Sample first 500 chars around first <w:shd> if found
+        const shdIdx = xml.indexOf("<w:shd");
+        if (shdIdx !== -1) debugXmlSample = xml.slice(Math.max(0, shdIdx - 200), shdIdx + 300);
+        shadedTexts = getShadedParaTexts(xml);
+      }
     } catch { /* fall through if XML parsing fails */ }
 
     const htmlResult = await mammoth.convertToHtml({ buffer });
@@ -106,7 +116,13 @@ export async function POST(req: NextRequest) {
     const title = file.name.replace(/\.docx$/i, "");
     return NextResponse.json({
       ok: true, title, content,
-      _debug: { shadedCount: shadedTexts.size, shadedTexts: Array.from(shadedTexts) },
+      _debug: {
+        xmlExtracted: debugXmlExtracted,
+        shdTagCount: debugShdCount,
+        shadedCount: shadedTexts.size,
+        shadedTexts: Array.from(shadedTexts),
+        xmlSample: debugXmlSample,
+      },
     });
   } catch (err) {
     return NextResponse.json(
