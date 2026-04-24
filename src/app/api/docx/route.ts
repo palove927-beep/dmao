@@ -2,28 +2,48 @@ import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
 import { inflateRawSync } from "zlib";
 
-// Extract word/document.xml from the docx ZIP buffer (docx is a ZIP file)
+// Extract word/document.xml from the docx ZIP buffer using the Central Directory.
+// The Central Directory (at the end of the ZIP) always has the correct compSize,
+// even when local file headers use the data-descriptor flag (bit 3, compSize=0).
 function extractDocumentXml(buffer: Buffer): string | null {
   try {
-    let pos = 0;
-    while (pos < buffer.length - 30) {
+    // 1. Find End of Central Directory (EOCD) by scanning backwards
+    let eocd = -1;
+    for (let i = buffer.length - 22; i >= 0; i--) {
       if (
-        buffer[pos] !== 0x50 || buffer[pos + 1] !== 0x4b ||
-        buffer[pos + 2] !== 0x03 || buffer[pos + 3] !== 0x04
-      ) { pos++; continue; }
-      const method = buffer.readUInt16LE(pos + 8);
-      const compSize = buffer.readUInt32LE(pos + 18);
-      const fnLen = buffer.readUInt16LE(pos + 26);
-      const extraLen = buffer.readUInt16LE(pos + 28);
-      const fn = buffer.subarray(pos + 30, pos + 30 + fnLen).toString("utf8");
-      const dataPos = pos + 30 + fnLen + extraLen;
+        buffer[i] === 0x50 && buffer[i + 1] === 0x4b &&
+        buffer[i + 2] === 0x05 && buffer[i + 3] === 0x06
+      ) { eocd = i; break; }
+    }
+    if (eocd === -1) return null;
+
+    const cdOffset = buffer.readUInt32LE(eocd + 16);
+    const cdSize   = buffer.readUInt32LE(eocd + 12);
+
+    // 2. Walk the Central Directory entries
+    let pos = cdOffset;
+    while (pos < cdOffset + cdSize && pos + 46 <= buffer.length) {
+      if (buffer.readUInt32LE(pos) !== 0x02014b50) break; // Central dir signature
+      const method      = buffer.readUInt16LE(pos + 10);
+      const compSize    = buffer.readUInt32LE(pos + 20);
+      const fnLen       = buffer.readUInt16LE(pos + 28);
+      const extraLen    = buffer.readUInt16LE(pos + 30);
+      const commentLen  = buffer.readUInt16LE(pos + 32);
+      const localOffset = buffer.readUInt32LE(pos + 42);
+      const fn = buffer.subarray(pos + 46, pos + 46 + fnLen).toString("utf8");
+
       if (fn === "word/document.xml") {
-        const data = buffer.subarray(dataPos, dataPos + compSize);
+        // 3. Read the local file header for its own extra-field length
+        const localFnLen    = buffer.readUInt16LE(localOffset + 26);
+        const localExtraLen = buffer.readUInt16LE(localOffset + 28);
+        const dataStart = localOffset + 30 + localFnLen + localExtraLen;
+        const data = buffer.subarray(dataStart, dataStart + compSize);
         if (method === 0) return data.toString("utf8");
         if (method === 8) return inflateRawSync(data).toString("utf8");
         return null;
       }
-      pos = compSize > 0 ? dataPos + compSize : pos + 1;
+
+      pos += 46 + fnLen + extraLen + commentLen;
     }
   } catch { /* ignore */ }
   return null;
