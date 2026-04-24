@@ -115,15 +115,20 @@ function htmlToMarkdown(html: string): string {
   return result;
 }
 
-// Wrap content lines that match shaded texts with ==...==
+// Wrap content lines that contain shaded texts with ==...==
 function applyHighlights(content: string, shaded: Set<string>): string {
   if (shaded.size === 0) return content;
   const norm = (s: string) => s.replace(/\s+/g, " ").trim();
-  const normalizedSet = new Set(Array.from(shaded).map(norm));
+  // Only use spans long enough to avoid false positives
+  const shadedNorms = Array.from(shaded).map(norm).filter(s => s.length > 10);
+  if (shadedNorms.length === 0) return content;
   return content.split("\n").map(line => {
     const trimmed = line.trim();
     if (!trimmed || (trimmed.startsWith("==") && trimmed.endsWith("=="))) return line;
-    if (normalizedSet.has(norm(trimmed))) return `==${trimmed}==`;
+    const normalizedLine = norm(trimmed);
+    for (const s of shadedNorms) {
+      if (normalizedLine === s || normalizedLine.includes(s)) return `==${trimmed}==`;
+    }
     return line;
   }).join("\n");
 }
@@ -148,30 +153,8 @@ export async function POST(req: NextRequest) {
     let content = htmlToMarkdown(htmlResult.value);
     content = applyHighlights(content, shadedTexts);
 
-    // Debug: sample of XML around first w:shd in w:rPr
-    let debugRprShdSample = "";
-    try {
-      const xml = extractDocumentXml(buffer);
-      if (xml) {
-        // Find first <w:shd inside a <w:rPr block
-        const rPrIdx = xml.indexOf("<w:rPr");
-        if (rPrIdx !== -1) {
-          const chunk = xml.slice(rPrIdx, rPrIdx + 600);
-          debugRprShdSample = chunk;
-        }
-      }
-    } catch { /* ignore */ }
-
     const title = file.name.replace(/\.docx$/i, "");
-    return NextResponse.json({
-      ok: true, title, content,
-      _debug: {
-        shadedCount: shadedTexts.size,
-        shadedTexts: Array.from(shadedTexts).slice(0, 3),
-        markInHtml: htmlResult.value.toLowerCase().includes("<mark"),
-        rprShdSample: debugRprShdSample,
-      },
-    });
+    return NextResponse.json({ ok: true, title, content });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "未知錯誤" },
