@@ -58,7 +58,13 @@ function getShadedParaTexts(xml: string): Set<string> {
     if (endIdx === -1) continue;
     const paraXml = parts[i].slice(0, endIdx);
     const pPrMatch = paraXml.match(/<w:pPr\b[^>]*>([\s\S]*?)<\/w:pPr>/);
-    if (!pPrMatch || !pPrMatch[1].includes("<w:shd")) continue;
+    if (!pPrMatch) continue;
+    const shdMatch = pPrMatch[1].match(/<w:shd\b([^/]*)\//);
+    if (!shdMatch) continue;
+    const fillMatch = shdMatch[1].match(/w:fill="([^"]+)"/i);
+    const fill = (fillMatch?.[1] ?? "").toLowerCase().replace(/^#/, "");
+    // Skip white / auto / no-fill (these are default style resets, not actual highlights)
+    if (!fill || fill === "auto" || fill === "ffffff" || fill === "f2f2f2") continue;
     const texts: string[] = [];
     const textRe = /<w:t\b[^>]*>([^<]*)<\/w:t>/g;
     let m: RegExpExecArray | null;
