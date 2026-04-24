@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
 import { inflateRawSync } from "zlib";
 
-// Extract word/document.xml from the docx ZIP buffer using the Central Directory.
-// The Central Directory (at the end of the ZIP) always has the correct compSize,
-// even when local file headers use the data-descriptor flag (bit 3, compSize=0).
+// Extract word/document.xml from the docx ZIP using the Central Directory.
+// The Central Directory always has the correct compSize, even when local
+// file headers use the data-descriptor flag (bit 3, compSize=0).
 function extractDocumentXml(buffer: Buffer): string | null {
   try {
-    // 1. Find End of Central Directory (EOCD) by scanning backwards
     let eocd = -1;
     for (let i = buffer.length - 22; i >= 0; i--) {
       if (
@@ -19,11 +18,10 @@ function extractDocumentXml(buffer: Buffer): string | null {
 
     const cdOffset = buffer.readUInt32LE(eocd + 16);
     const cdSize   = buffer.readUInt32LE(eocd + 12);
-
-    // 2. Walk the Central Directory entries
     let pos = cdOffset;
+
     while (pos < cdOffset + cdSize && pos + 46 <= buffer.length) {
-      if (buffer.readUInt32LE(pos) !== 0x02014b50) break; // Central dir signature
+      if (buffer.readUInt32LE(pos) !== 0x02014b50) break;
       const method      = buffer.readUInt16LE(pos + 10);
       const compSize    = buffer.readUInt32LE(pos + 20);
       const fnLen       = buffer.readUInt16LE(pos + 28);
@@ -33,7 +31,6 @@ function extractDocumentXml(buffer: Buffer): string | null {
       const fn = buffer.subarray(pos + 46, pos + 46 + fnLen).toString("utf8");
 
       if (fn === "word/document.xml") {
-        // 3. Read the local file header for its own extra-field length
         const localFnLen    = buffer.readUInt16LE(localOffset + 26);
         const localExtraLen = buffer.readUInt16LE(localOffset + 28);
         const dataStart = localOffset + 30 + localFnLen + localExtraLen;
@@ -42,53 +39,75 @@ function extractDocumentXml(buffer: Buffer): string | null {
         if (method === 8) return inflateRawSync(data).toString("utf8");
         return null;
       }
-
       pos += 46 + fnLen + extraLen + commentLen;
     }
   } catch { /* ignore */ }
   return null;
 }
 
-// Find paragraph texts that have shading (w:shd) in their paragraph properties (w:pPr)
-function getShadedParaTexts(xml: string): Set<string> {
+function isColoredFill(rPrXml: string): boolean {
+  const m = rPrXml.match(/<w:shd\b[^>]*\/>/);
+  if (!m) return false;
+  const fill = (m[0].match(/w:fill="([^"]+)"/i)?.[1] ?? "").toLowerCase();
+  return !!fill && fill !== "auto" && fill !== "ffffff" && fill !== "f2f2f2";
+}
+
+function decodeXmlEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'");
+}
+
+// Collect text spans from runs that have non-white character shading (w:shd in w:rPr).
+// Adjacent highlighted runs within the same paragraph are merged into one span.
+function getShadedRunTexts(xml: string): Set<string> {
   const result = new Set<string>();
-  const parts = xml.split(/<w:p\b/);
-  for (let i = 1; i < parts.length; i++) {
-    const endIdx = parts[i].indexOf("</w:p>");
-    if (endIdx === -1) continue;
-    const paraXml = parts[i].slice(0, endIdx);
-    const pPrMatch = paraXml.match(/<w:pPr\b[^>]*>([\s\S]*?)<\/w:pPr>/);
-    if (!pPrMatch) continue;
-    const shdMatch = pPrMatch[1].match(/<w:shd\b([^/]*)\//);
-    if (!shdMatch) continue;
-    const fillMatch = shdMatch[1].match(/w:fill="([^"]+)"/i);
-    const fill = (fillMatch?.[1] ?? "").toLowerCase().replace(/^#/, "");
-    // Skip white / auto / no-fill (these are default style resets, not actual highlights)
-    if (!fill || fill === "auto" || fill === "ffffff" || fill === "f2f2f2") continue;
-    const texts: string[] = [];
-    const textRe = /<w:t\b[^>]*>([^<]*)<\/w:t>/g;
-    let m: RegExpExecArray | null;
-    while ((m = textRe.exec(paraXml)) !== null) texts.push(m[1]);
-    const text = texts.join("")
-      .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"').replace(/&apos;/g, "'").trim();
-    if (text) result.add(text);
+  const paraParts = xml.split(/<w:p\b/);
+
+  for (let i = 1; i < paraParts.length; i++) {
+    const pEnd = paraParts[i].indexOf("</w:p>");
+    if (pEnd === -1) continue;
+    const paraXml = paraParts[i].slice(0, pEnd);
+
+    let buf: string[] = [];
+    const runParts = paraXml.split(/<w:r\b/);
+
+    for (let j = 1; j < runParts.length; j++) {
+      const rEnd = runParts[j].indexOf("</w:r>");
+      if (rEnd === -1) continue;
+      const runXml = runParts[j].slice(0, rEnd);
+      const rPrMatch = runXml.match(/<w:rPr\b[^>]*>([\s\S]*?)<\/w:rPr>/);
+      const highlighted = rPrMatch ? isColoredFill(rPrMatch[1]) : false;
+
+      if (highlighted) {
+        const texts: string[] = [];
+        const re = /<w:t\b[^>]*>([^<]*)<\/w:t>/g;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(runXml)) !== null) texts.push(m[1]);
+        buf.push(...texts);
+      } else if (buf.length > 0) {
+        const text = decodeXmlEntities(buf.join("")).trim();
+        if (text) result.add(text);
+        buf = [];
+      }
+    }
+    if (buf.length > 0) {
+      const text = decodeXmlEntities(buf.join("")).trim();
+      if (text) result.add(text);
+    }
   }
   return result;
 }
 
 function htmlToMarkdown(html: string): string {
   let result = html;
-  // Merge adjacent <mark> elements (mammoth creates one per run)
+  // Merge adjacent <mark> elements (mammoth creates one per run for w:highlight)
   result = result.replace(/<\/mark>\s*<mark[^>]*>/gi, "");
-  // Convert highlights to ==text==
+  // Convert text highlights (w:highlight → mammoth → <mark>) to ==text==
   result = result.replace(/<mark[^>]*>([\s\S]*?)<\/mark>/gi, "==$1==");
-  // Convert images
   result = result.replace(/<img[^>]+src="([^"]+)"[^>]*>/gi, "\n![圖片]($1)\n");
-  // Block elements → newlines, strip remaining tags
   result = result.replace(/<\/?(p|div|br|h[1-6]|li|tr|blockquote|section|article)[^>]*>/gi, "\n");
   result = result.replace(/<[^>]+>/g, "");
-  // Decode HTML entities
   result = result
     .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ");
@@ -96,8 +115,8 @@ function htmlToMarkdown(html: string): string {
   return result;
 }
 
-// Wrap lines matching shaded paragraph texts with ==...==
-function applyParaHighlights(content: string, shaded: Set<string>): string {
+// Wrap content lines that match shaded texts with ==...==
+function applyHighlights(content: string, shaded: Set<string>): string {
   if (shaded.size === 0) return content;
   const norm = (s: string) => s.replace(/\s+/g, " ").trim();
   const normalizedSet = new Set(Array.from(shaded).map(norm));
@@ -118,46 +137,19 @@ export async function POST(req: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Detect paragraph shading from raw XML (mammoth ignores w:shd)
+    // Detect run-level character shading (w:shd in w:rPr) which mammoth ignores
     let shadedTexts = new Set<string>();
-    let debugXmlExtracted = false;
-    let debugShdCount = 0;
-    let debugXmlSample = "";
     try {
       const xml = extractDocumentXml(buffer);
-      if (xml) {
-        debugXmlExtracted = true;
-        debugShdCount = (xml.match(/<w:shd/g) || []).length;
-        // Sample first 500 chars around first <w:shd> if found
-        const shdIdx = xml.indexOf("<w:shd");
-        if (shdIdx !== -1) debugXmlSample = xml.slice(Math.max(0, shdIdx - 200), shdIdx + 300);
-        shadedTexts = getShadedParaTexts(xml);
-      }
-    } catch { /* fall through if XML parsing fails */ }
+      if (xml) shadedTexts = getShadedRunTexts(xml);
+    } catch { /* fall through */ }
 
     const htmlResult = await mammoth.convertToHtml({ buffer });
-    // Debug: find first occurrence of <mark or highlight in the HTML
-    const htmlVal = htmlResult.value;
-    const markIdx = htmlVal.toLowerCase().indexOf("<mark");
-    const debugHtmlSample = markIdx !== -1
-      ? htmlVal.slice(Math.max(0, markIdx - 50), markIdx + 200)
-      : htmlVal.slice(0, 300);
-    let content = htmlToMarkdown(htmlVal);
-    content = applyParaHighlights(content, shadedTexts);
+    let content = htmlToMarkdown(htmlResult.value);
+    content = applyHighlights(content, shadedTexts);
 
     const title = file.name.replace(/\.docx$/i, "");
-    return NextResponse.json({
-      ok: true, title, content,
-      _debug: {
-        xmlExtracted: debugXmlExtracted,
-        shdTagCount: debugShdCount,
-        shadedCount: shadedTexts.size,
-        shadedTexts: Array.from(shadedTexts),
-        xmlSample: debugXmlSample,
-        markInHtml: htmlVal.toLowerCase().includes("<mark"),
-        htmlSample: debugHtmlSample,
-      },
-    });
+    return NextResponse.json({ ok: true, title, content });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "未知錯誤" },
