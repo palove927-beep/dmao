@@ -148,8 +148,30 @@ export async function POST(req: NextRequest) {
     let content = htmlToMarkdown(htmlResult.value);
     content = applyHighlights(content, shadedTexts);
 
+    // Debug: sample of XML around first w:shd in w:rPr
+    let debugRprShdSample = "";
+    try {
+      const xml = extractDocumentXml(buffer);
+      if (xml) {
+        // Find first <w:shd inside a <w:rPr block
+        const rPrIdx = xml.indexOf("<w:rPr");
+        if (rPrIdx !== -1) {
+          const chunk = xml.slice(rPrIdx, rPrIdx + 600);
+          debugRprShdSample = chunk;
+        }
+      }
+    } catch { /* ignore */ }
+
     const title = file.name.replace(/\.docx$/i, "");
-    return NextResponse.json({ ok: true, title, content });
+    return NextResponse.json({
+      ok: true, title, content,
+      _debug: {
+        shadedCount: shadedTexts.size,
+        shadedTexts: Array.from(shadedTexts).slice(0, 3),
+        markInHtml: htmlResult.value.toLowerCase().includes("<mark"),
+        rprShdSample: debugRprShdSample,
+      },
+    });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "未知錯誤" },
