@@ -104,7 +104,10 @@ export async function POST(req: NextRequest) {
     content = applyParaHighlights(content, shadedTexts);
 
     const title = file.name.replace(/\.docx$/i, "");
-    return NextResponse.json({ ok: true, title, content });
+    return NextResponse.json({
+      ok: true, title, content,
+      _debug: { shadedCount: shadedTexts.size, shadedTexts: Array.from(shadedTexts) },
+    });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "未知錯誤" },
