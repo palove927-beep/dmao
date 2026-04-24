@@ -136,7 +136,13 @@ export async function POST(req: NextRequest) {
     } catch { /* fall through if XML parsing fails */ }
 
     const htmlResult = await mammoth.convertToHtml({ buffer });
-    let content = htmlToMarkdown(htmlResult.value);
+    // Debug: find first occurrence of <mark or highlight in the HTML
+    const htmlVal = htmlResult.value;
+    const markIdx = htmlVal.toLowerCase().indexOf("<mark");
+    const debugHtmlSample = markIdx !== -1
+      ? htmlVal.slice(Math.max(0, markIdx - 50), markIdx + 200)
+      : htmlVal.slice(0, 300);
+    let content = htmlToMarkdown(htmlVal);
     content = applyParaHighlights(content, shadedTexts);
 
     const title = file.name.replace(/\.docx$/i, "");
@@ -148,6 +154,8 @@ export async function POST(req: NextRequest) {
         shadedCount: shadedTexts.size,
         shadedTexts: Array.from(shadedTexts),
         xmlSample: debugXmlSample,
+        markInHtml: htmlVal.toLowerCase().includes("<mark"),
+        htmlSample: debugHtmlSample,
       },
     });
   } catch (err) {
