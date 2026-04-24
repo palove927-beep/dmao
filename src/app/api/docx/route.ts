@@ -115,21 +115,21 @@ function htmlToMarkdown(html: string): string {
   return result;
 }
 
-// Wrap content lines that contain shaded texts with ==...==
+// Inline-wrap detected shaded spans with ==...== within each content line
 function applyHighlights(content: string, shaded: Set<string>): string {
   if (shaded.size === 0) return content;
   const norm = (s: string) => s.replace(/\s+/g, " ").trim();
-  // Only use spans long enough to avoid false positives
   const shadedNorms = Array.from(shaded).map(norm).filter(s => s.length > 10);
   if (shadedNorms.length === 0) return content;
   return content.split("\n").map(line => {
-    const trimmed = line.trim();
-    if (!trimmed || (trimmed.startsWith("==") && trimmed.endsWith("=="))) return line;
-    const normalizedLine = norm(trimmed);
+    let result = line;
     for (const s of shadedNorms) {
-      if (normalizedLine === s || normalizedLine.includes(s)) return `==${trimmed}==`;
+      const literalIdx = result.indexOf(s);
+      if (literalIdx !== -1) {
+        result = result.slice(0, literalIdx) + `==${s}==` + result.slice(literalIdx + s.length);
+      }
     }
-    return line;
+    return result;
   }).join("\n");
 }
 
