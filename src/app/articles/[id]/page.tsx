@@ -129,11 +129,12 @@ export default function ArticlePage() {
   };
 
   const highlightText = (text: string, keywords: string[]) => {
-    if (keywords.length === 0) return [text];
-    const escaped = keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    const filtered = keywords.filter(Boolean);
+    if (filtered.length === 0) return [text];
+    const escaped = filtered.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
     const regex = new RegExp(`(${escaped.join("|")})`, "g");
     const parts = text.split(regex);
-    const kw = new Set(keywords);
+    const kw = new Set(filtered);
     return parts.map((part, i) =>
       kw.has(part) ? (
         <span key={i} style={{ color: "#dc2626", fontWeight: 600 }}>{part}</span>
