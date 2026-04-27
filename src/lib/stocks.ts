@@ -234,6 +234,12 @@ const stockLookupAliases: Record<string, string> = {
   "stmicro": "STM",
 };
 
+// Display aliases by ticker — used for article highlighting
+export const stockDisplayAliases: Record<string, string[]> = {
+  "GOOG": ["Google"],
+  "STM": ["STMicro"],
+};
+
 export function lookupStock(query: string): { ticker: string; stock_name: string } | null {
   const q = query.trim();
   if (!q) return null;

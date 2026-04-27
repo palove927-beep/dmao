@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { stockDisplayAliases } from "@/lib/stocks";
 
 type Article = {
   id: string;
@@ -77,7 +78,11 @@ export default function ArticlePage() {
   }
 
   // Collect unique stock names and tickers for inline highlighting
-  const allStockKeywords = [...new Set(annotations.flatMap((a) => [a.stock_name, a.ticker]))].filter(Boolean);
+  const allStockKeywords = [...new Set(annotations.flatMap((a) => [
+    a.stock_name,
+    a.ticker,
+    ...(stockDisplayAliases[a.ticker] ?? []),
+  ]))].filter(Boolean);
   allStockKeywords.sort((a, b) => b.length - a.length);
 
   // Build a map: ticker -> EPS forecasts for inline display
