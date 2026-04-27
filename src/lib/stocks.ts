@@ -231,6 +231,7 @@ import { stockLookup } from "./stock-lookup";
 // Extra aliases for stocks in stockLookup (lowercase alias → ticker)
 const stockLookupAliases: Record<string, string> = {
   "google": "GOOG",
+  "stmicro": "STM",
 };
 
 export function lookupStock(query: string): { ticker: string; stock_name: string } | null {
