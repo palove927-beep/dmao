@@ -356,7 +356,7 @@ export const stockLookup: Record<string, string> = {
   "MSFT": "Microsoft",
   "AMZN": "Amazon",
   "NVDA": "NVIDIA",
-  "GOOGL": "Google",
+  "GOOG": "Alphabet",
   "META": "Meta",
   "BRK.B": "Berkshire Hathaway",
   "TSLA": "Tesla",

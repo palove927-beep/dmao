@@ -228,6 +228,11 @@ export function getTwseStockCodes(): string[] {
 // Checks categorized stocks first (with aliases), then the broader lookup table
 import { stockLookup } from "./stock-lookup";
 
+// Extra aliases for stocks in stockLookup (lowercase alias → ticker)
+const stockLookupAliases: Record<string, string> = {
+  "google": "GOOG",
+};
+
 export function lookupStock(query: string): { ticker: string; stock_name: string } | null {
   const q = query.trim();
   if (!q) return null;
@@ -246,6 +251,11 @@ export function lookupStock(query: string): { ticker: string; stock_name: string
   // 3. Check broad lookup table by name (reverse lookup)
   for (const [ticker, name] of Object.entries(stockLookup)) {
     if (name.toLowerCase() === ql) return { ticker, stock_name: name };
+  }
+  // 4. Check extra aliases
+  const aliasTicker = stockLookupAliases[ql];
+  if (aliasTicker && stockLookup[aliasTicker]) {
+    return { ticker: aliasTicker, stock_name: stockLookup[aliasTicker] };
   }
   return null;
 }
