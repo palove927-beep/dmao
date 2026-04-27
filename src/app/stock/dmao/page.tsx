@@ -250,10 +250,13 @@ export default function DmaoPage() {
         if (json.title) handleTitleChange(json.title);
         let content: string = json.content || "";
         const dataUriRegex = /!\[圖片\]\((data:image\/[^)]+)\)/g;
+        const dataUris: string[] = [];
         let match;
-        let imgIndex = 0;
         while ((match = dataUriRegex.exec(content)) !== null) {
-          const dataUri = match[1];
+          dataUris.push(match[1]);
+        }
+        let imgIndex = 0;
+        for (const dataUri of dataUris) {
           try {
             const resp = await fetch(dataUri);
             const blob = await resp.blob();
