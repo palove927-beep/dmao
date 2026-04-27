@@ -232,12 +232,14 @@ import { stockLookup } from "./stock-lookup";
 const stockLookupAliases: Record<string, string> = {
   "google": "GOOG",
   "stmicro": "STM",
+  "聚賢研發": "7631",
 };
 
 // Display aliases by ticker — used for article highlighting
 export const stockDisplayAliases: Record<string, string[]> = {
   "GOOG": ["Google"],
   "STM": ["STMicro"],
+  "7631": ["聚賢研發"],
 };
 
 export function lookupStock(query: string): { ticker: string; stock_name: string } | null {
