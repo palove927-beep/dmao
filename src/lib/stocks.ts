@@ -231,19 +231,21 @@ import { stockLookup } from "./stock-lookup";
 export function lookupStock(query: string): { ticker: string; stock_name: string } | null {
   const q = query.trim();
   if (!q) return null;
+  const ql = q.toLowerCase();
   // 1. Check categorized stocks (has aliases)
   for (const cat of categories) {
     for (const s of cat.stocks) {
-      if (s.ticker === q) return { ticker: s.ticker, stock_name: s.name };
-      if (s.name === q) return { ticker: s.ticker, stock_name: s.name };
-      if (s.aliases?.some((a) => a === q)) return { ticker: s.ticker, stock_name: s.name };
+      if (s.ticker.toLowerCase() === ql) return { ticker: s.ticker, stock_name: s.name };
+      if (s.name.toLowerCase() === ql) return { ticker: s.ticker, stock_name: s.name };
+      if (s.aliases?.some((a) => a.toLowerCase() === ql)) return { ticker: s.ticker, stock_name: s.name };
     }
   }
   // 2. Check broad lookup table by ticker
-  if (stockLookup[q]) return { ticker: q, stock_name: stockLookup[q] };
+  const tickerMatch = Object.keys(stockLookup).find((t) => t.toLowerCase() === ql);
+  if (tickerMatch) return { ticker: tickerMatch, stock_name: stockLookup[tickerMatch] };
   // 3. Check broad lookup table by name (reverse lookup)
   for (const [ticker, name] of Object.entries(stockLookup)) {
-    if (name === q) return { ticker, stock_name: name };
+    if (name.toLowerCase() === ql) return { ticker, stock_name: name };
   }
   return null;
 }
