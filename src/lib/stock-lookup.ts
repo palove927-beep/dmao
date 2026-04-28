@@ -777,7 +777,7 @@ export const stockLookup: Record<string, string> = {
   "4307.T": "Nomura Research Institute",
   "6273.T": "SMC",
   "7735.T": "Screen Holdings",
-  "3407.T": "Asahi Kasei",
+  "3407.T": "Asahi Kasei 旭化成",
   "3110.T": "Nittobo",
   "1899.T": "Fukuda 福田",
   "5706.T": "Mitsui Kinzoku",
