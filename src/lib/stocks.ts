@@ -240,6 +240,15 @@ export const stockDisplayAliases: Record<string, string[]> = {
   "GOOG": ["Google"],
   "STM": ["STMicro"],
   "7631": ["聚賢研發"],
+  "3407.T": ["旭化成", "Asahi Kasei", "Asahi"],
+  "3110.T": ["日東紡", "Nittobo"],
+  "1899.T": ["福田", "Fukuda"],
+  "5706.T": ["三井金屬", "Mitsui Kinzoku"],
+  "5801.T": ["古河電工", "Furukawa"],
+  "4004.T": ["昭和電工", "Resonac"],
+  "4182.T": ["三菱瓦斯化學", "MGC"],
+  "000157.KS": ["斗山", "Doosan"],
+  "2010.SR": ["沙特基礎工業", "SABIC"],
 };
 
 export function lookupStock(query: string): { ticker: string; stock_name: string } | null {
