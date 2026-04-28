@@ -789,4 +789,7 @@ export const stockLookup: Record<string, string> = {
   "8766.T": "Tokio Marine",
   "8411.T": "Mizuho Financial",
   "8316.T": "SMFG",
+
+  // ─── 沙烏地 ──────────────────────────────────────────────
+  "2010.SR": "沙特基礎工業(SABIC)",
 };
