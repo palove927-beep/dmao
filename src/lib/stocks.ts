@@ -258,8 +258,10 @@ export function lookupStock(query: string): { ticker: string; stock_name: string
   const tickerMatch = Object.keys(stockLookup).find((t) => t.toLowerCase() === ql);
   if (tickerMatch) return { ticker: tickerMatch, stock_name: stockLookup[tickerMatch] };
   // 3. Check broad lookup table by name (reverse lookup)
+  // Also handles compound names like "Furukawa 古河電工" — matches any space-separated part
   for (const [ticker, name] of Object.entries(stockLookup)) {
     if (name.toLowerCase() === ql) return { ticker, stock_name: name };
+    if (name.split(" ").some((p) => p.toLowerCase() === ql)) return { ticker, stock_name: name };
   }
   // 4. Check extra aliases
   const aliasTicker = stockLookupAliases[ql];
