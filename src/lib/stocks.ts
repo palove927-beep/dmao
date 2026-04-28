@@ -248,7 +248,7 @@ export const stockDisplayAliases: Record<string, string[]> = {
   "4004.T": ["昭和電工", "Resonac"],
   "4182.T": ["三菱瓦斯化學", "MGC"],
   "000157.KS": ["斗山", "Doosan"],
-  "2010.SR": ["沙特基礎工業", "SABIC"],
+  "2010.SR": ["沙特基礎工業", "SABIC", "Sabic"],
 };
 
 export function lookupStock(query: string): { ticker: string; stock_name: string } | null {
