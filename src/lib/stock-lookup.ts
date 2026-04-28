@@ -784,6 +784,7 @@ export const stockLookup: Record<string, string> = {
   "5801.T": "古河電工(Furukawa)",
   "4004.T": "昭和電工(Resonac)",
   "4182.T": "三菱瓦斯化學(MGC)",
+  "285A.T": "鎧俠(Kioxia)",
   "5201.T": "AGC",
   "7733.T": "Olympus",
   "8766.T": "Tokio Marine",
