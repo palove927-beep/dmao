@@ -325,6 +325,11 @@ export const stockLookup: Record<string, string> = {
   "9941": "裕融",
   "9945": "潤泰新",
   "4991": "環宇-KY",
+  "1815": "富喬",
+  "4722": "國精化",
+  "4764": "雙鍵",
+  "5340": "建榮",
+  "5475": "德宏",
 
   // ─── 美國 ETF ──────────────────────────────────────────
   "SPY": "SPDR S&P 500 ETF",
@@ -708,6 +713,11 @@ export const stockLookup: Record<string, string> = {
   "402340.KS": "SK Square",
   "003490.KS": "Korean Air",
   "000810.KS": "Samsung Fire & Marine",
+  "000157.KS": "Doosan",
+
+  // ─── 中國 A 股 ──────────────────────────────────────────
+  "688183.SS": "生益電子",
+  "300395.SZ": "菲利華",
 
   // ─── 日本 Nikkei 225 主要成分股 ────────────────────────
   "7203.T": "Toyota Motor",
@@ -768,6 +778,10 @@ export const stockLookup: Record<string, string> = {
   "6273.T": "SMC",
   "7735.T": "Screen Holdings",
   "3407.T": "Asahi Kasei",
+  "3110.T": "Nittobo",
+  "1899.T": "Fukuda",
+  "5706.T": "Mitsui Kinzoku",
+  "5801.T": "Furukawa",
   "5201.T": "AGC",
   "7733.T": "Olympus",
   "8766.T": "Tokio Marine",
