@@ -248,6 +248,14 @@ export default function DmaoPage() {
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetch("/api/docx", { method: "POST", body: fd });
+      if (res.status === 413) {
+        showToast("匯入失敗：檔案太大，請壓縮後再試");
+        return;
+      }
+      if (!res.headers.get("content-type")?.includes("application/json")) {
+        showToast(`匯入失敗：伺服器錯誤 (${res.status})`);
+        return;
+      }
       const json = await res.json();
       if (json.ok) {
         if (json.title) handleTitleChange(json.title);
