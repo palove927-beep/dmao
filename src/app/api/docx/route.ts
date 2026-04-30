@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
 import { inflateRawSync } from "zlib";
 
+export const maxDuration = 30;
+
 // Extract word/document.xml from the docx ZIP using the Central Directory.
 // The Central Directory always has the correct compSize, even when local
 // file headers use the data-descriptor flag (bit 3, compSize=0).
