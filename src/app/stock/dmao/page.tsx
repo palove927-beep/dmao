@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { splitParagraphs } from "@/lib/paragraphs";
-import { lookupStock } from "@/lib/stock-scan";
+import { lookupStock, scanStocks } from "@/lib/stock-scan";
 
 // ─── Types ──────────────────────────────────────────────
 type StockTag = { ticker: string; stock_name: string };
@@ -23,7 +23,10 @@ function applyStockHighlight(text: string, kw: Set<string>, baseKey: string) {
 }
 
 function highlightStocksInText(text: string, stocks: StockTag[]) {
-  const keywords = stocks.flatMap((s) => [s.stock_name, s.ticker]).filter(Boolean);
+  const keywords = stocks.flatMap((s) => {
+    const scan = scanStocks.find((x) => x.ticker === s.ticker);
+    return [s.stock_name, s.ticker, ...(scan?.aliases ?? [])];
+  }).filter(Boolean);
   const kw = new Set(keywords);
   const segments = text.split(/(==.+?==)/g);
   if (segments.length === 1) return applyStockHighlight(text, kw, "0");
