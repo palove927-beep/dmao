@@ -214,6 +214,15 @@ export const categories: Category[] = [
       { code: "U3", ticker: "9938", name: "百和" },
     ],
   },
+  {
+    id: "V",
+    label: "雲端/CSP",
+    stocks: [
+      { code: "V1", ticker: "AMZN", name: "Amazon", aliases: ["AWS"] },
+      { code: "V2", ticker: "MSFT", name: "Microsoft", aliases: ["Azure"] },
+      { code: "V3", ticker: "GOOG", name: "Alphabet", aliases: ["Google", "GCP"] },
+    ],
+  },
 ];
 
 // Get all Taiwan stock tickers (numeric only, for TWSE API)
@@ -238,7 +247,8 @@ const stockLookupAliases: Record<string, string> = {
 
 // Display aliases by ticker — used for article highlighting
 export const stockDisplayAliases: Record<string, string[]> = {
-  "GOOG": ["Google"],
+  "GOOG": ["Google", "GCP", "Alphabet"],
+  "MSFT": ["Azure", "Microsoft"],
   "AMZN": ["AWS"],
   "STM": ["STMicro"],
   "7631": ["聚賢研發"],
