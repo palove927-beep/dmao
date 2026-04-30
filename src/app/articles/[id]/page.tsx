@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { stockDisplayAliases } from "@/lib/stocks";
+import { scanStocks } from "@/lib/stock-scan";
 
 type Article = {
   id: string;
@@ -81,7 +81,7 @@ export default function ArticlePage() {
   const allStockKeywords = [...new Set(annotations.flatMap((a) => [
     a.stock_name,
     a.ticker,
-    ...(stockDisplayAliases[a.ticker] ?? []),
+    ...(scanStocks.find((s) => s.ticker === a.ticker)?.aliases ?? []),
   ]))].filter(Boolean);
   allStockKeywords.sort((a, b) => b.length - a.length);
 

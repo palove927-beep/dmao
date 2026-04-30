@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { categories } from "@/lib/stocks";
+import { categories } from "@/lib/stock-list";
 import type { StockPrice } from "@/app/api/stock/route";
 
 type PriceMap = Record<string, StockPrice>;
@@ -216,7 +216,7 @@ export default function StockPage() {
           </tr>
         </thead>
         <tbody>
-          {categories.filter((cat) => !cat.hidden).map((cat) => (
+          {categories.map((cat) => (
             <>
               <tr key={`cat-${cat.id}`} style={{ background: "#f0f4f8" }}>
                 <td

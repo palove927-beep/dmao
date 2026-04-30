@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { categories, lookupStock } from "@/lib/stocks";
+import { scanStocks, lookupStock } from "@/lib/stock-scan";
 import { stockLookup } from "@/lib/stock-lookup";
 import { generateObject } from "ai";
 import { z } from "zod";
 
-const allStocks = categories.flatMap((c) =>
-  c.stocks.map((s) => ({ ticker: s.ticker, name: s.name, aliases: s.aliases }))
-);
+const allStocks = scanStocks;
 
 const stockListText = allStocks
   .map((s) => {
@@ -33,25 +31,20 @@ const NON_STOCK_TERMS = new Set([
 function scanParagraphForStocks(text: string): { ticker: string; stock_name: string }[] {
   const found: Map<string, { ticker: string; stock_name: string }> = new Map();
 
-  // 1. Scan for categorized stocks (curated list with aliases) — match by name and aliases directly
-  for (const cat of categories) {
-    for (const s of cat.stocks) {
-      if (found.has(s.ticker)) continue;
-      // Match full stock name (e.g. "台積電", "環宇-KY")
-      if (s.name.length >= 2 && text.includes(s.name)) {
-        found.set(s.ticker, { ticker: s.ticker, stock_name: s.name });
-        continue;
-      }
-      // Match aliases (e.g. "TSMC", "台積", "Foxconn")
-      if (s.aliases?.some((a) => a.length >= 2 && text.includes(a))) {
-        found.set(s.ticker, { ticker: s.ticker, stock_name: s.name });
-        continue;
-      }
-      // Match ticker in parentheses: (2330) or （2330）
-      const tickerInParens = new RegExp(`[（(]${escapeRegex(s.ticker)}[)）]`);
-      if (tickerInParens.test(text)) {
-        found.set(s.ticker, { ticker: s.ticker, stock_name: s.name });
-      }
+  // 1. Scan all known stocks — match by name, aliases, or ticker in parentheses
+  for (const s of scanStocks) {
+    if (found.has(s.ticker)) continue;
+    if (s.name.length >= 2 && text.includes(s.name)) {
+      found.set(s.ticker, { ticker: s.ticker, stock_name: s.name });
+      continue;
+    }
+    if (s.aliases?.some((a) => a.length >= 2 && text.includes(a))) {
+      found.set(s.ticker, { ticker: s.ticker, stock_name: s.name });
+      continue;
+    }
+    const tickerInParens = new RegExp(`[（(]${escapeRegex(s.ticker)}[)）]`);
+    if (tickerInParens.test(text)) {
+      found.set(s.ticker, { ticker: s.ticker, stock_name: s.name });
     }
   }
 
@@ -200,13 +193,10 @@ ${trimmedList}`,
       // Check original AI-returned name/ticker (before normalization)
       if (text.includes(original.stock_name) || text.includes(original.ticker)) return true;
       // Check aliases from stock database
-      for (const cat of categories) {
-        for (const s of cat.stocks) {
-          if (s.ticker === normalized.ticker) {
-            if (s.aliases?.some((a) => text.includes(a))) return true;
-            if (text.includes(s.name)) return true;
-          }
-        }
+      const scanMatch = scanStocks.find((s) => s.ticker === normalized.ticker);
+      if (scanMatch) {
+        if (scanMatch.aliases?.some((a) => text.includes(a))) return true;
+        if (text.includes(scanMatch.name)) return true;
       }
       return false;
     };
