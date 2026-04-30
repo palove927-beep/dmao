@@ -233,11 +233,13 @@ const stockLookupAliases: Record<string, string> = {
   "google": "GOOG",
   "stmicro": "STM",
   "聚賢研發": "7631",
+  "aws": "AMZN",
 };
 
 // Display aliases by ticker — used for article highlighting
 export const stockDisplayAliases: Record<string, string[]> = {
   "GOOG": ["Google"],
+  "AMZN": ["AWS"],
   "STM": ["STMicro"],
   "7631": ["聚賢研發"],
   "3407.T": ["旭化成", "Asahi Kasei", "Asahi"],
