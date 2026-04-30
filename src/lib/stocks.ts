@@ -9,6 +9,7 @@ export type Category = {
   id: string;
   label: string;
   stocks: Stock[];
+  hidden?: boolean;
 };
 
 export const categories: Category[] = [
@@ -217,6 +218,7 @@ export const categories: Category[] = [
   {
     id: "V",
     label: "雲端/CSP",
+    hidden: true,
     stocks: [
       { code: "V1", ticker: "AMZN", name: "Amazon", aliases: ["AWS"] },
       { code: "V2", ticker: "MSFT", name: "Microsoft", aliases: ["Azure"] },

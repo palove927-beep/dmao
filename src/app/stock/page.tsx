@@ -216,7 +216,7 @@ export default function StockPage() {
           </tr>
         </thead>
         <tbody>
-          {categories.map((cat) => (
+          {categories.filter((cat) => !cat.hidden).map((cat) => (
             <>
               <tr key={`cat-${cat.id}`} style={{ background: "#f0f4f8" }}>
                 <td
