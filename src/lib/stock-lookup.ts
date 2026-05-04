@@ -867,6 +867,7 @@ export const stockAliases: Record<string, string[]> = {
   "GOOG": ["Google", "GCP"],
   // ─── 其他美股 ────────────────────────────────────────────
   "STM": ["STMicro"],
+  "7631": ["聚賢研發"],
   // ─── 日股 ────────────────────────────────────────────────
   "3407.T": ["旭化成", "Asahi Kasei", "Asahi"],
   "3110.T": ["日東紡", "Nittobo"],
@@ -882,15 +883,9 @@ export const stockAliases: Record<string, string[]> = {
   "2010.SR": ["沙特基礎工業", "SABIC", "Sabic"],
 };
 
-// Extra stocks for detection only — not shown on /stock page.
-const extraStockTickers = new Set([
-  "AMZN", "MSFT", "GOOG", "STM", "7631",
-  "3407.T", "3110.T", "1899.T", "5706.T", "5801.T", "4004.T", "4182.T", "285A.T",
-  "000157.KS", "2010.SR",
-]);
-
 // All stocks for article auto-detection and text highlighting.
-// = category stocks (A~U) with aliases + extra non-category stocks
+// Part 1: every category stock (A~U) with aliases → detected by name, alias, or ticker
+// Part 2: stockAliases entries outside categories → extra stocks detected by alias only
 export const scanStocks: ScanStock[] = [
   ...categories.flatMap((c) =>
     c.stocks.map((s) => ({
@@ -902,7 +897,6 @@ export const scanStocks: ScanStock[] = [
   ...Object.entries(stockAliases)
     .filter(([ticker]) => !categories.some((c) => c.stocks.some((s) => s.ticker === ticker)))
     .map(([ticker, aliases]) => ({ ticker, name: stockLookup[ticker] ?? ticker, aliases })),
-  { ticker: "7631", name: "聚賢研發-創", aliases: ["聚賢研發"] },
 ];
 
 export function lookupStock(query: string): { ticker: string; stock_name: string } | null {
