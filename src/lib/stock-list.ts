@@ -27,7 +27,7 @@ export const categories: Category[] = [
     stocks: [
       { code: "B1", ticker: "2303", name: "聯電", aliases: ["UMC"] },
       { code: "B2", ticker: "2330", name: "台積電", aliases: ["TSMC", "台積"] },
-      { code: "B3", ticker: "5347", name: "世界", aliases: ["VIS"] },
+      { code: "B3", ticker: "5347", name: "世界", aliases: ["VIS", "世界先進"] },
     ],
   },
   {
