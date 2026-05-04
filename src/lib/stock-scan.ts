@@ -7,9 +7,60 @@ export type ScanStock = {
   aliases?: string[];
 };
 
+// Aliases for stocks in stock-list categories.
+// Kept here so stock-list.ts stays as pure display config.
+const categoryAliases: Record<string, string[]> = {
+  // ─── IC設計 ──────────────────────────────────────────────
+  "2379": ["Realtek"],
+  "2454": ["MediaTek"],
+  "5274": ["Aspeed"],
+  // ─── 晶圓代工 ────────────────────────────────────────────
+  "2303": ["UMC"],
+  "2330": ["TSMC", "台積"],
+  "5347": ["VIS", "世界先進"],
+  // ─── 半導體封測 ──────────────────────────────────────────
+  "3711": ["ASE", "日月光投控"],
+  "6239": ["PTI"],
+  "6257": ["Sigurd"],
+  // ─── 半導體耗材 ──────────────────────────────────────────
+  "1560": ["KINIK"],
+  "1727": ["中華化學"],
+  "3680": ["Gudeng"],
+  "6488": ["GlobalWafers"],
+  // ─── III-V族 ─────────────────────────────────────────────
+  "4991": ["環宇"],
+  // ─── 記憶體 ──────────────────────────────────────────────
+  "2337": ["Macronix", "MXIC"],
+  "2344": ["Winbond"],
+  "2408": ["Nanya", "南亞科技"],
+  "3260": ["ADATA"],
+  "6531": ["Ap Memory", "ApMemory"],
+  "8299": ["Phison"],
+  // ─── 品牌/ODM ────────────────────────────────────────────
+  "2317": ["Foxconn", "Hon Hai"],
+  "2382": ["Quanta"],
+  // ─── 電子零組件 ──────────────────────────────────────────
+  "2301": ["Lite-On", "光寶"],
+  "2308": ["Delta", "台達"],
+  "3017": ["Asia Vital", "AVC"],
+  // ─── PCB ─────────────────────────────────────────────────
+  "2313": ["Compeq"],
+  "3037": ["Unimicron"],
+  "3715": ["定穎"],
+  "4958": ["臻鼎", "ZDT"],
+  "6191": ["GCE"],
+  // ─── 車用零組件 ──────────────────────────────────────────
+  "6271": ["Tong Hsing"],
+  "8255": ["PanJit"],
+  // ─── 功率元件 ────────────────────────────────────────────
+  "5425": ["TSC"],
+  // ─── 銅箔基板 ────────────────────────────────────────────
+  "2383": ["EMC", "台光"],
+  "6274": ["Taiflex"],
+  "8358": ["Co-Tech"],
+};
+
 // Stocks for detection and highlighting only — not shown on /stock page.
-// Aliases defined here are the single source of truth for both auto-detection
-// and article text highlighting.
 const extraStocks: ScanStock[] = [
   // ─── 雲端/CSP ───────────────────────────────────────────
   { ticker: "AMZN", name: "Amazon", aliases: ["AWS"] },
@@ -33,10 +84,16 @@ const extraStocks: ScanStock[] = [
   { ticker: "2010.SR", name: "沙特基礎工業(SABIC)", aliases: ["沙特基礎工業", "SABIC", "Sabic"] },
 ];
 
-// All stocks used for article auto-detection and text highlighting.
-// = categories A~U (display list) + extraStocks (detection-only)
+// All stocks for article auto-detection and text highlighting.
+// = categories A~U (with aliases from categoryAliases) + extraStocks
 export const scanStocks: ScanStock[] = [
-  ...categories.flatMap((c) => c.stocks.map((s) => ({ ticker: s.ticker, name: s.name, aliases: s.aliases }))),
+  ...categories.flatMap((c) =>
+    c.stocks.map((s) => ({
+      ticker: s.ticker,
+      name: s.name,
+      aliases: categoryAliases[s.ticker],
+    }))
+  ),
   ...extraStocks,
 ];
 
