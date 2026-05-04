@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { categories } from "@/lib/stocks";
+import { categories } from "@/lib/stock-list";
 import type { StockPrice } from "@/app/api/stock/route";
 
 type PriceMap = Record<string, StockPrice>;
@@ -11,27 +11,76 @@ type Annotation = {
   ticker: string;
   stock_name: string;
   paragraph: string;
+  is_summary: boolean;
   article_id: string;
-  articles: { id: string; title: string; created_at: string } | null;
+  dmao_articles: { id: string; title: string; created_at: string } | null;
 };
+
+type EpsForecast = {
+  id: string;
+  ticker: string;
+  stock_name: string;
+  forecast_year: number;
+  eps: number;
+  dmao_articles: { id: string; title: string; article_date: string } | null;
+};
+
+function highlightKeywords(text: string, keywords: string[]) {
+  const filtered = keywords.filter(Boolean);
+  if (filtered.length === 0) return text;
+  const escaped = filtered.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  escaped.sort((a, b) => b.length - a.length);
+  const regex = new RegExp(`(${escaped.join("|")})`, "g");
+  const parts = text.split(regex);
+  return parts.map((part, i) =>
+    filtered.includes(part) ? (
+      <mark key={i} style={{ background: "#fef9c3", padding: "1px 2px", borderRadius: 2 }}>{part}</mark>
+    ) : (
+      part
+    )
+  );
+}
 
 export default function StockPage() {
   const [prices, setPrices] = useState<PriceMap>({});
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<string>("");
 
-  // Annotations
+  // Annotations & EPS
   const [annotations, setAnnotations] = useState<Record<string, Annotation[]>>({});
+  const [epsForecasts, setEpsForecasts] = useState<Record<string, EpsForecast[]>>({});
+  const [annotationCounts, setAnnotationCounts] = useState<Record<string, number>>({});
+  const [latestEps, setLatestEps] = useState<Record<string, number>>({});
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
   const [loadingAnnotations, setLoadingAnnotations] = useState<string | null>(null);
 
-  // Article form
-  const [showForm, setShowForm] = useState(false);
-  const [formTitle, setFormTitle] = useState("");
-  const [formContent, setFormContent] = useState("");
-  const [formSource, setFormSource] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [submitResult, setSubmitResult] = useState<string | null>(null);
+  const fetchAnnotationCounts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/annotations?mode=counts");
+      const json = await res.json();
+      if (json.ok) {
+        setAnnotationCounts(json.counts);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const fetchLatestEps = useCallback(async () => {
+    try {
+      const res = await fetch("/api/eps-forecasts?forecast_year=2026&latest=1");
+      const json = await res.json();
+      if (json.ok) {
+        const map: Record<string, number> = {};
+        for (const f of json.forecasts) {
+          map[f.ticker] = f.eps;
+        }
+        setLatestEps(map);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const fetchPrices = useCallback(async () => {
     try {
@@ -50,9 +99,11 @@ export default function StockPage() {
 
   useEffect(() => {
     fetchPrices();
+    fetchAnnotationCounts();
+    fetchLatestEps();
     const interval = setInterval(fetchPrices, 30000);
     return () => clearInterval(interval);
-  }, [fetchPrices]);
+  }, [fetchPrices, fetchAnnotationCounts, fetchLatestEps]);
 
   const fetchAnnotations = async (ticker: string) => {
     if (expandedTicker === ticker) {
@@ -64,47 +115,20 @@ export default function StockPage() {
 
     setLoadingAnnotations(ticker);
     try {
-      const res = await fetch(`/api/annotations?ticker=${ticker}`);
-      const json = await res.json();
-      if (json.ok) {
-        setAnnotations((prev) => ({ ...prev, [ticker]: json.annotations }));
+      const [annRes, epsRes] = await Promise.all([
+        fetch(`/api/annotations?ticker=${ticker}`).then((r) => r.json()),
+        fetch(`/api/eps-forecasts?ticker=${ticker}`).then((r) => r.json()),
+      ]);
+      if (annRes.ok) {
+        setAnnotations((prev) => ({ ...prev, [ticker]: annRes.annotations }));
+      }
+      if (epsRes.ok) {
+        setEpsForecasts((prev) => ({ ...prev, [ticker]: epsRes.forecasts }));
       }
     } catch {
       // ignore
     } finally {
       setLoadingAnnotations(null);
-    }
-  };
-
-  const handleSubmitArticle = async () => {
-    if (!formTitle.trim() || !formContent.trim()) return;
-    setSubmitting(true);
-    setSubmitResult(null);
-    try {
-      const res = await fetch("/api/articles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: formTitle,
-          content: formContent,
-          source: formSource || undefined,
-        }),
-      });
-      const json = await res.json();
-      if (json.ok) {
-        setSubmitResult(`已儲存，標記了 ${json.annotationCount} 個股票提及`);
-        setFormTitle("");
-        setFormContent("");
-        setFormSource("");
-        // Clear annotation cache so next expand refetches
-        setAnnotations({});
-      } else {
-        setSubmitResult(`錯誤：${json.error}`);
-      }
-    } catch (err) {
-      setSubmitResult(`提交失敗：${err instanceof Error ? err.message : "未知錯誤"}`);
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -118,7 +142,7 @@ export default function StockPage() {
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
       <a href="/" style={{ color: "#1a56db", textDecoration: "none", fontSize: 15 }}>
-        ← 首頁
+        ← stock頁面
       </a>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "24px 0 20px" }}>
@@ -131,20 +155,36 @@ export default function StockPage() {
           )}
         </h1>
         <div style={{ display: "flex", gap: 8 }}>
-          <button
-            onClick={() => setShowForm(!showForm)}
+          <a
+            href="/articles"
             style={{
               padding: "8px 20px",
               fontSize: 14,
               border: "1px solid #1a56db",
               borderRadius: 6,
-              background: showForm ? "#1a56db" : "#fff",
-              color: showForm ? "#fff" : "#1a56db",
-              cursor: "pointer",
+              background: "#fff",
+              color: "#1a56db",
+              textDecoration: "none",
+              display: "inline-block",
             }}
           >
-            {showForm ? "收起" : "貼上文章"}
-          </button>
+            文章列表
+          </a>
+          <a
+            href="/stock/dmao"
+            style={{
+              padding: "8px 20px",
+              fontSize: 14,
+              border: "1px solid #1a56db",
+              borderRadius: 6,
+              background: "#fff",
+              color: "#1a56db",
+              textDecoration: "none",
+              display: "inline-block",
+            }}
+          >
+            貼上文章
+          </a>
           <button
             onClick={() => { setLoading(true); fetchPrices(); }}
             disabled={loading}
@@ -163,65 +203,6 @@ export default function StockPage() {
         </div>
       </div>
 
-      {/* Article submission form */}
-      {showForm && (
-        <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 20, marginBottom: 20, background: "#fafbfc" }}>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ display: "block", fontWeight: "bold", marginBottom: 4, fontSize: 14 }}>標題 *</label>
-            <input
-              type="text"
-              value={formTitle}
-              onChange={(e) => setFormTitle(e.target.value)}
-              placeholder="文章標題"
-              style={{ width: "100%", padding: "8px 12px", border: "1px solid #ccc", borderRadius: 4, fontSize: 14, boxSizing: "border-box" }}
-            />
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ display: "block", fontWeight: "bold", marginBottom: 4, fontSize: 14 }}>來源</label>
-            <input
-              type="text"
-              value={formSource}
-              onChange={(e) => setFormSource(e.target.value)}
-              placeholder="例：工商時報、MoneyDJ（選填）"
-              style={{ width: "100%", padding: "8px 12px", border: "1px solid #ccc", borderRadius: 4, fontSize: 14, boxSizing: "border-box" }}
-            />
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ display: "block", fontWeight: "bold", marginBottom: 4, fontSize: 14 }}>文章內容 *</label>
-            <textarea
-              value={formContent}
-              onChange={(e) => setFormContent(e.target.value)}
-              placeholder="貼上文章全文..."
-              rows={10}
-              style={{ width: "100%", padding: "8px 12px", border: "1px solid #ccc", borderRadius: 4, fontSize: 14, resize: "vertical", boxSizing: "border-box" }}
-            />
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button
-              onClick={handleSubmitArticle}
-              disabled={submitting || !formTitle.trim() || !formContent.trim()}
-              style={{
-                padding: "8px 24px",
-                fontSize: 14,
-                border: "none",
-                borderRadius: 6,
-                background: "#1a56db",
-                color: "#fff",
-                cursor: submitting ? "not-allowed" : "pointer",
-                opacity: submitting ? 0.6 : 1,
-              }}
-            >
-              {submitting ? "分析中..." : "送出分析"}
-            </button>
-            {submitResult && (
-              <span style={{ fontSize: 13, color: submitResult.startsWith("錯誤") || submitResult.startsWith("提交失敗") ? "#dc2626" : "#16a34a" }}>
-                {submitResult}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15 }}>
         <thead>
           <tr style={{ background: "#1e3a5f", color: "#fff" }}>
@@ -230,6 +211,7 @@ export default function StockPage() {
             <th style={thStyle}>股票</th>
             <th style={thStyle}>代號</th>
             <th style={{ ...thStyle, textAlign: "right" }}>現價</th>
+            <th style={{ ...thStyle, textAlign: "right" }}>2026 EPS</th>
             <th style={{ ...thStyle, textAlign: "center", width: 60 }}>標記</th>
           </tr>
         </thead>
@@ -238,7 +220,7 @@ export default function StockPage() {
             <>
               <tr key={`cat-${cat.id}`} style={{ background: "#f0f4f8" }}>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   style={{ padding: "10px 14px", fontWeight: "bold", fontSize: 15, color: "#1e3a5f" }}
                 >
                   {cat.label}
@@ -249,6 +231,7 @@ export default function StockPage() {
                 const hasTwData = isTwStock(stock.ticker) && p;
                 const isExpanded = expandedTicker === stock.ticker;
                 const stockAnnotations = annotations[stock.ticker] || [];
+                const stockEps = epsForecasts[stock.ticker] || [];
                 const isLoadingThis = loadingAnnotations === stock.ticker;
 
                 return (
@@ -271,38 +254,68 @@ export default function StockPage() {
                       }}>
                         {hasTwData ? formatPrice(p.price) : "-"}
                       </td>
+                      <td style={{ ...tdStyle, textAlign: "right", color: "#b45309", fontWeight: latestEps[stock.ticker] ? "bold" : "normal" }}>
+                        {latestEps[stock.ticker] != null ? latestEps[stock.ticker] : "-"}
+                      </td>
                       <td style={{ ...tdStyle, textAlign: "center" }}>
-                        <button
-                          onClick={() => fetchAnnotations(stock.ticker)}
-                          style={{
-                            padding: "2px 10px",
-                            fontSize: 12,
-                            border: "1px solid #ccc",
-                            borderRadius: 4,
-                            background: isExpanded ? "#e0e7ff" : "#fff",
-                            cursor: "pointer",
-                          }}
-                        >
-                          {isExpanded ? "▲" : "▼"}
-                        </button>
+                        {(() => {
+                          const count = annotationCounts[stock.ticker] || 0;
+                          return count > 0 ? (
+                            <button
+                              onClick={() => fetchAnnotations(stock.ticker)}
+                              style={{
+                                padding: "2px 10px",
+                                fontSize: 13,
+                                fontWeight: "bold",
+                                border: "none",
+                                borderRadius: 10,
+                                background: isExpanded ? "#1a56db" : "#e0e7ff",
+                                color: isExpanded ? "#fff" : "#1a56db",
+                                cursor: "pointer",
+                                minWidth: 28,
+                              }}
+                            >
+                              {count}
+                            </button>
+                          ) : (
+                            <span style={{ color: "#ccc", fontSize: 13 }}>0</span>
+                          );
+                        })()}
                       </td>
                     </tr>
                     {isExpanded && (
                       <tr key={`ann-${stock.ticker}`}>
-                        <td colSpan={6} style={{ padding: 0 }}>
+                        <td colSpan={7} style={{ padding: 0 }}>
                           <div style={{ background: "#f8fafc", borderLeft: "3px solid #1a56db", margin: "0 14px 8px", padding: "12px 16px" }}>
                             {isLoadingThis ? (
                               <div style={{ color: "#999", fontSize: 13 }}>載入中...</div>
-                            ) : stockAnnotations.length === 0 ? (
+                            ) : stockAnnotations.length === 0 && stockEps.length === 0 ? (
                               <div style={{ color: "#999", fontSize: 13 }}>尚無標記段落</div>
-                            ) : (
-                              stockAnnotations.map((ann) => (
+                            ) : (<>
+                              {stockEps.length > 0 && (
+                                <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid #e5e7eb" }}>
+                                  <div style={{ fontSize: 13, fontWeight: "bold", color: "#b45309", marginBottom: 6 }}>財測 EPS</div>
+                                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                    {stockEps.map((f) => (
+                                      <span key={f.id} style={{ background: "#fef9c3", padding: "3px 10px", borderRadius: 6, fontSize: 13 }}>
+                                        {f.forecast_year}年：<strong>{f.eps}</strong>元
+                                        {f.dmao_articles?.article_date && (
+                                          <span style={{ color: "#9ca3af", marginLeft: 6, fontSize: 12 }}>
+                                            {new Date(f.dmao_articles.article_date).toLocaleDateString("zh-TW")}
+                                          </span>
+                                        )}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {stockAnnotations.map((ann) => (
                                 <div key={ann.id} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid #e5e7eb" }}>
                                   <div style={{ fontSize: 13, color: "#666", marginBottom: 4 }}>
-                                    <strong>{ann.articles?.title || "無標題"}</strong>
-                                    {ann.articles?.created_at && (
+                                    <strong>{ann.dmao_articles?.title || "無標題"}</strong>
+                                    {ann.dmao_articles?.created_at && (
                                       <span style={{ marginLeft: 8 }}>
-                                        {new Date(ann.articles.created_at).toLocaleDateString("zh-TW")}
+                                        {new Date(ann.dmao_articles.created_at).toLocaleDateString("zh-TW")}
                                       </span>
                                     )}
                                     <a
@@ -313,11 +326,14 @@ export default function StockPage() {
                                     </a>
                                   </div>
                                   <div style={{ fontSize: 14, color: "#333", lineHeight: 1.6 }}>
-                                    {ann.paragraph}
+                                    {ann.is_summary && (
+                                      <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "#fef3c7", color: "#92400e", marginRight: 6 }}>AI 摘要</span>
+                                    )}
+                                    {highlightKeywords(ann.paragraph, [ann.stock_name, ann.ticker])}
                                   </div>
                                 </div>
-                              ))
-                            )}
+                              ))}
+                            </>)}
                           </div>
                         </td>
                       </tr>
