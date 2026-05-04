@@ -137,6 +137,7 @@ export const stockLookup: Record<string, string> = {
   "2392": "正崴",
   "2404": "漢唐",
   "2408": "南亞科",
+  "2441": "超豐",
   "2449": "京元電子",
   "2451": "創見",
   "2455": "全新",
@@ -215,6 +216,7 @@ export const stockLookup: Record<string, string> = {
   "4746": "台耀",
   "4906": "正文",
   "4919": "新唐",
+  "4971": "IET-KY",
   "4927": "泰鼎-KY",
   "4958": "臻鼎-KY",
   "4961": "天鈺",
@@ -455,6 +457,9 @@ export const stockLookup: Record<string, string> = {
   "ASX": "ASE Technology (ADR)",
   "STM": "STMicroelectronics",
   "IFX": "Infineon",
+  "SNDK": "Sandisk",
+  "STX": "Seagate",
+  "AXTI": "AXT",
   // Tech / Software / Cloud (QQQ)
   "DELL": "Dell",
   "HPE": "HP Enterprise",
@@ -867,7 +872,13 @@ export const stockAliases: Record<string, string[]> = {
   "GOOG": ["Google", "GCP"],
   // ─── 其他美股 ────────────────────────────────────────────
   "STM": ["STMicro"],
+  "SNDK": ["SanDisk"],
+  "STX": [],
+  "AXTI": [],
   "7631": ["聚賢研發"],
+  // ─── 台股（非 categories）────────────────────────────────
+  "2441": [],
+  "4971": [],
   // ─── 日股 ────────────────────────────────────────────────
   "3407.T": ["旭化成", "Asahi Kasei", "Asahi"],
   "3110.T": ["日東紡", "Nittobo"],
