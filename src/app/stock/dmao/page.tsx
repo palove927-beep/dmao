@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { splitParagraphs } from "@/lib/paragraphs";
-import { lookupStock, scanStocks } from "@/lib/stock-scan";
+import { lookupStock, scanStocks } from "@/lib/stock-lookup";
 
 // ─── Types ──────────────────────────────────────────────
 type StockTag = { ticker: string; stock_name: string };

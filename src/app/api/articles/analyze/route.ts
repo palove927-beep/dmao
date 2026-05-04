@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { scanStocks, lookupStock } from "@/lib/stock-scan";
-import { stockLookup } from "@/lib/stock-lookup";
+import { scanStocks, lookupStock, stockLookup } from "@/lib/stock-lookup";
 import { generateObject } from "ai";
 import { z } from "zod";
 
