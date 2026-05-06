@@ -934,6 +934,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "AXTI",       name: "AXT" },
   { ticker: "AMKR",       name: "Amkor Technology",       aliases: ["Amkor"] },
   { ticker: "WDC",        name: "Western Digital" },
+  { ticker: "ORCL",       name: "Oracle" },
   // ─── 台股（非 /stock 頁面）──────────────────────────────
   { ticker: "7631",       name: "聚賢研發-創",             aliases: ["聚賢研發"] },
   { ticker: "2441",       name: "超豐" },
