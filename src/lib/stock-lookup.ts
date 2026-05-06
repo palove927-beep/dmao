@@ -818,8 +818,8 @@ export type ScanStock = {
   aliases?: string[];
 };
 
-// Aliases for category stocks + extra stocks used for article auto-detection and highlighting.
-export const stockAliases: Record<string, string[]> = {
+// ─── Category stock aliases (name comes from stock-list) ──────────────────
+const categoryAliases: Record<string, string[]> = {
   // ─── IC設計 ──────────────────────────────────────────────
   "2379": ["Realtek"],
   "2454": ["MediaTek"],
@@ -868,52 +868,55 @@ export const stockAliases: Record<string, string[]> = {
   "2383": ["EMC", "台光"],
   "6274": ["Taiflex"],
   "8358": ["Co-Tech"],
-  // ─── 雲端/CSP ───────────────────────────────────────────
-  "AMZN": ["AWS"],
-  "MSFT": ["Azure"],
-  "GOOG": ["Google", "GCP"],
-  // ─── 其他美股 ────────────────────────────────────────────
-  "STM": ["STMicro"],
-  "SNDK": ["SanDisk"],
-  "STX": [],
-  "AXTI": [],
-  "AMKR": ["Amkor"],
-  "WDC": [],
-  "7631": ["聚賢研發"],
-  // ─── 台股（非 categories）────────────────────────────────
-  "2441": [],
-  "4971": [],
-  // ─── 中國 A 股 ──────────────────────────────────────────
-  "002463.SZ": ["滬電"],
-  // ─── 日股 ────────────────────────────────────────────────
-  "3407.T": ["旭化成", "Asahi Kasei", "Asahi"],
-  "3110.T": ["日東紡", "Nittobo"],
-  "1899.T": ["福田", "Fukuda"],
-  "5706.T": ["三井金屬", "Mitsui Kinzoku"],
-  "5801.T": ["古河電工", "Furukawa"],
-  "4004.T": ["昭和電工", "Resonac"],
-  "4182.T": ["三菱瓦斯化學", "MGC"],
-  "285A.T": ["鎧俠", "Kioxia"],
-  // ─── 韓股 ────────────────────────────────────────────────
-  "000157.KS": ["斗山", "Doosan"],
-  // ─── 沙烏地 ──────────────────────────────────────────────
-  "2010.SR": ["沙特基礎工業", "SABIC", "Sabic"],
 };
 
+// ─── Extra detection stocks (not on /stock page) ──────────────────────────
+// Self-contained: name + aliases in one entry. Adding a new stock = one line here.
+const extraStocks: ScanStock[] = [
+  // ─── 雲端/CSP ───────────────────────────────────────────
+  { ticker: "AMZN",       name: "Amazon",                   aliases: ["AWS"] },
+  { ticker: "MSFT",       name: "Microsoft",                aliases: ["Azure"] },
+  { ticker: "GOOG",       name: "Alphabet",                 aliases: ["Google", "GCP"] },
+  // ─── 美股 ────────────────────────────────────────────────
+  { ticker: "STM",        name: "STMicroelectronics",       aliases: ["STMicro"] },
+  { ticker: "SNDK",       name: "Sandisk",                  aliases: ["SanDisk"] },
+  { ticker: "STX",        name: "Seagate" },
+  { ticker: "AXTI",       name: "AXT" },
+  { ticker: "AMKR",       name: "Amkor Technology",         aliases: ["Amkor"] },
+  { ticker: "WDC",        name: "Western Digital" },
+  // ─── 台股 ────────────────────────────────────────────────
+  { ticker: "7631",       name: "聚賢研發-創",               aliases: ["聚賢研發"] },
+  { ticker: "2441",       name: "超豐" },
+  { ticker: "4971",       name: "IET-KY" },
+  // ─── 中國 A 股 ──────────────────────────────────────────
+  { ticker: "002463.SZ",  name: "滬電股份",                  aliases: ["滬電"] },
+  // ─── 日股 ────────────────────────────────────────────────
+  { ticker: "3407.T",     name: "旭化成(Asahi Kasei)",       aliases: ["旭化成", "Asahi Kasei", "Asahi"] },
+  { ticker: "3110.T",     name: "日東紡(Nittobo)",            aliases: ["日東紡", "Nittobo"] },
+  { ticker: "1899.T",     name: "福田(Fukuda)",               aliases: ["福田", "Fukuda"] },
+  { ticker: "5706.T",     name: "三井金屬(Mitsui Kinzoku)",   aliases: ["三井金屬", "Mitsui Kinzoku"] },
+  { ticker: "5801.T",     name: "古河電工(Furukawa)",          aliases: ["古河電工", "Furukawa"] },
+  { ticker: "4004.T",     name: "昭和電工(Resonac)",           aliases: ["昭和電工", "Resonac"] },
+  { ticker: "4182.T",     name: "三菱瓦斯化學(MGC)",           aliases: ["三菱瓦斯化學", "MGC"] },
+  { ticker: "285A.T",     name: "鎧俠(Kioxia)",               aliases: ["鎧俠", "Kioxia"] },
+  // ─── 韓股 ────────────────────────────────────────────────
+  { ticker: "000157.KS",  name: "斗山(Doosan)",               aliases: ["斗山", "Doosan"] },
+  // ─── 沙烏地 ──────────────────────────────────────────────
+  { ticker: "2010.SR",    name: "沙特基礎工業(SABIC)",         aliases: ["沙特基礎工業", "SABIC", "Sabic"] },
+];
+
 // All stocks for article auto-detection and text highlighting.
-// Part 1: every category stock (A~U) with aliases → detected by name, alias, or ticker
-// Part 2: stockAliases entries outside categories → extra stocks detected by alias only
+// Part 1: every category stock (A~U) + their aliases
+// Part 2: extraStocks — non-category stocks, name + aliases self-contained
 export const scanStocks: ScanStock[] = [
   ...categories.flatMap((c) =>
     c.stocks.map((s) => ({
       ticker: s.ticker,
       name: s.name,
-      aliases: stockAliases[s.ticker],
+      aliases: categoryAliases[s.ticker],
     }))
   ),
-  ...Object.entries(stockAliases)
-    .filter(([ticker]) => !categories.some((c) => c.stocks.some((s) => s.ticker === ticker)))
-    .map(([ticker, aliases]) => ({ ticker, name: stockLookup[ticker] ?? ticker, aliases })),
+  ...extraStocks,
 ];
 
 export function lookupStock(query: string): { ticker: string; stock_name: string } | null {
