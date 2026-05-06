@@ -245,44 +245,12 @@ export default function DmaoPage() {
     setDocxLoading(true);
     showToast("正在匯入 Word 文件...", true);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/docx", { method: "POST", body: fd });
-      if (res.status === 413) {
-        showToast("匯入失敗：檔案太大，請壓縮後再試");
-        return;
-      }
-      if (!res.headers.get("content-type")?.includes("application/json")) {
-        showToast(`匯入失敗：伺服器錯誤 (${res.status})`);
-        return;
-      }
-      const json = await res.json();
-      if (json.ok) {
-        if (json.title) handleTitleChange(json.title);
-        let content: string = json.content || "";
-        const dataUriRegex = /!\[圖片\]\((data:image\/[^)]+)\)/g;
-        const dataUris: string[] = [];
-        let match;
-        while ((match = dataUriRegex.exec(content)) !== null) {
-          dataUris.push(match[1]);
-        }
-        let imgIndex = 0;
-        for (const dataUri of dataUris) {
-          try {
-            const resp = await fetch(dataUri);
-            const blob = await resp.blob();
-            const ext = blob.type.split("/")[1] || "png";
-            const imgFile = new File([blob], `docx-image-${imgIndex++}.${ext}`, { type: blob.type });
-            const blobUrl = queueLocalFile(imgFile);
-            content = content.replace(dataUri, blobUrl);
-          } catch { /* leave as-is */ }
-        }
-        setFormContent(content);
-        autoAnalyzeRef.current = true;
-        showToast(`已匯入「${json.title || "無標題"}」，開始分析...`);
-      } else {
-        showToast(`匯入失敗：${json.error}`);
-      }
+      const { importDocxClient } = await import("@/lib/docx-client");
+      const { title, content } = await importDocxClient(file, queueLocalFile);
+      if (title) handleTitleChange(title);
+      setFormContent(content);
+      autoAnalyzeRef.current = true;
+      showToast(`已匯入「${title || "無標題"}」，開始分析...`);
     } catch (err) {
       showToast(`匯入失敗：${err instanceof Error ? err.message : "未知錯誤"}`);
     } finally {
