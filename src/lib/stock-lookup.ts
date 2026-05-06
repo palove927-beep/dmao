@@ -1,7 +1,6 @@
 // Comprehensive Taiwan stock ticker → name lookup map
 // Covers: 0050 (台灣50), 0051 (中型100) constituents, popular ETFs, and other commonly traded stocks
 // Used for auto-complete when adding stock tags; also exports scanStocks and lookupStock for article detection
-import { categories } from "./stock-list";
 
 export const stockLookup: Record<string, string> = {
   // ─── ETF ────────────────────────────────────────────────
@@ -818,105 +817,142 @@ export type ScanStock = {
   aliases?: string[];
 };
 
-// ─── Category stock aliases (name comes from stock-list) ──────────────────
-const categoryAliases: Record<string, string[]> = {
-  // ─── IC設計 ──────────────────────────────────────────────
-  "2379": ["Realtek"],
-  "2454": ["MediaTek"],
-  "5274": ["Aspeed"],
-  // ─── 晶圓代工 ────────────────────────────────────────────
-  "2303": ["UMC"],
-  "2330": ["TSMC", "台積"],
-  "5347": ["VIS", "世界先進"],
-  // ─── 半導體封測 ──────────────────────────────────────────
-  "3711": ["ASE", "日月光投控"],
-  "6239": ["PTI"],
-  "6257": ["Sigurd"],
-  // ─── 半導體耗材 ──────────────────────────────────────────
-  "1560": ["KINIK"],
-  "1727": ["中華化學"],
-  "3680": ["Gudeng"],
-  "6488": ["GlobalWafers"],
-  // ─── III-V族 ─────────────────────────────────────────────
-  "4991": ["環宇"],
-  // ─── 記憶體 ──────────────────────────────────────────────
-  "2337": ["Macronix", "MXIC"],
-  "2344": ["Winbond"],
-  "2408": ["Nanya", "南亞科技"],
-  "3260": ["ADATA"],
-  "6531": ["Ap Memory", "ApMemory"],
-  "8299": ["Phison"],
-  // ─── 品牌/ODM ────────────────────────────────────────────
-  "2317": ["Foxconn", "Hon Hai"],
-  "2382": ["Quanta"],
-  // ─── 電子零組件 ──────────────────────────────────────────
-  "2301": ["Lite-On", "光寶"],
-  "2308": ["Delta", "台達"],
-  "3017": ["Asia Vital", "AVC"],
-  // ─── PCB ─────────────────────────────────────────────────
-  "2313": ["Compeq"],
-  "3037": ["Unimicron"],
-  "3715": ["定穎"],
-  "4958": ["臻鼎", "ZDT"],
-  "6191": ["GCE"],
-  // ─── 車用零組件 ──────────────────────────────────────────
-  "6271": ["Tong Hsing"],
-  "8255": ["PanJit"],
-  // ─── 功率元件 ────────────────────────────────────────────
-  "5425": ["TSC"],
-  // ─── 銅箔基板 ────────────────────────────────────────────
-  "2383": ["EMC", "台光"],
-  "6274": ["Taiflex"],
-  "8358": ["Co-Tech"],
-};
-
-// ─── Extra detection stocks (not on /stock page) ──────────────────────────
-// Self-contained: name + aliases in one entry. Adding a new stock = one line here.
-const extraStocks: ScanStock[] = [
+// All stocks for article auto-detection and text highlighting.
+// stock-list.ts is for /stock page display only — this list is fully independent.
+// Adding a new detection stock = one entry here (ticker + name + optional aliases).
+export const scanStocks: ScanStock[] = [
+  // ─── A IC設計 ────────────────────────────────────────────
+  { ticker: "2379", name: "瑞昱",      aliases: ["Realtek"] },
+  { ticker: "2454", name: "聯發科",    aliases: ["MediaTek"] },
+  { ticker: "5274", name: "信驊",      aliases: ["Aspeed"] },
+  // ─── B 晶圓代工 ──────────────────────────────────────────
+  { ticker: "2303", name: "聯電",      aliases: ["UMC"] },
+  { ticker: "2330", name: "台積電",    aliases: ["TSMC", "台積"] },
+  { ticker: "5347", name: "世界",      aliases: ["VIS", "世界先進"] },
+  // ─── C 半導體封測 ────────────────────────────────────────
+  { ticker: "3711", name: "日月光",    aliases: ["ASE", "日月光投控"] },
+  { ticker: "6239", name: "力成",      aliases: ["PTI"] },
+  { ticker: "6257", name: "矽格",      aliases: ["Sigurd"] },
+  // ─── D 半導體檢測 ────────────────────────────────────────
+  { ticker: "3587", name: "閎康" },
+  // ─── E 半導體耗材 ────────────────────────────────────────
+  { ticker: "1560", name: "中砂",      aliases: ["KINIK"] },
+  { ticker: "1727", name: "中華化",    aliases: ["中華化學"] },
+  { ticker: "3680", name: "家登",      aliases: ["Gudeng"] },
+  { ticker: "6488", name: "環球晶",    aliases: ["GlobalWafers"] },
+  // ─── F 半導體廠務 ────────────────────────────────────────
+  { ticker: "2404", name: "漢唐" },
+  { ticker: "6196", name: "帆宣" },
+  { ticker: "6826", name: "和淞" },
+  // ─── G 半導體設備 ────────────────────────────────────────
+  { ticker: "2467", name: "志聖" },
+  { ticker: "3131", name: "弘塑" },
+  { ticker: "3455", name: "由田" },
+  { ticker: "3583", name: "辛耘" },
+  { ticker: "6438", name: "迅得" },
+  { ticker: "6664", name: "群翊" },
+  { ticker: "6937", name: "天虹" },
+  { ticker: "6953", name: "家碩" },
+  { ticker: "7822", name: "倍利科" },
+  { ticker: "7853", name: "政美應用" },
+  { ticker: "8027", name: "鈦昇" },
+  // ─── H III-V族 ───────────────────────────────────────────
+  { ticker: "2455", name: "全新" },
+  { ticker: "3081", name: "聯亞" },
+  { ticker: "3105", name: "穩懋" },
+  { ticker: "4991", name: "環宇-KY",   aliases: ["環宇"] },
+  { ticker: "8086", name: "宏捷科" },
+  // ─── I 記憶體 ────────────────────────────────────────────
+  { ticker: "2337", name: "旺宏",      aliases: ["Macronix", "MXIC"] },
+  { ticker: "2344", name: "華邦電",    aliases: ["Winbond"] },
+  { ticker: "2408", name: "南亞科",    aliases: ["Nanya", "南亞科技"] },
+  { ticker: "3260", name: "威剛",      aliases: ["ADATA"] },
+  { ticker: "6531", name: "愛普",      aliases: ["Ap Memory", "ApMemory"] },
+  { ticker: "8299", name: "群聯",      aliases: ["Phison"] },
+  // ─── J 品牌/ODM ──────────────────────────────────────────
+  { ticker: "2317", name: "鴻海",      aliases: ["Foxconn", "Hon Hai"] },
+  { ticker: "2382", name: "廣達",      aliases: ["Quanta"] },
+  // ─── K 電子零組件 ────────────────────────────────────────
+  { ticker: "2059", name: "川湖" },
+  { ticker: "2301", name: "光寶科",    aliases: ["Lite-On", "光寶"] },
+  { ticker: "2308", name: "台達電",    aliases: ["Delta", "台達"] },
+  { ticker: "3017", name: "奇鋐",      aliases: ["Asia Vital", "AVC"] },
+  { ticker: "3324", name: "雙鴻" },
+  { ticker: "3533", name: "嘉澤" },
+  { ticker: "4931", name: "新盛力" },
+  { ticker: "6584", name: "南俊國際" },
+  { ticker: "6805", name: "富世達" },
+  { ticker: "8210", name: "勤誠" },
+  // ─── L 被動元件 ──────────────────────────────────────────
+  { ticker: "2472", name: "立隆電" },
+  { ticker: "3026", name: "禾伸堂" },
+  { ticker: "3357", name: "臺慶科" },
+  { ticker: "6449", name: "鈺邦" },
+  // ─── M PCB ───────────────────────────────────────────────
+  { ticker: "2313", name: "華通",      aliases: ["Compeq"] },
+  { ticker: "3037", name: "欣興",      aliases: ["Unimicron"] },
+  { ticker: "3715", name: "定穎投控",  aliases: ["定穎"] },
+  { ticker: "4958", name: "臻鼎-KY",   aliases: ["臻鼎", "ZDT"] },
+  { ticker: "6191", name: "精成科",    aliases: ["GCE"] },
+  // ─── N 車用零組件 ────────────────────────────────────────
+  { ticker: "2351", name: "順德" },
+  { ticker: "6271", name: "同欣電",    aliases: ["Tong Hsing"] },
+  { ticker: "8255", name: "朋程",      aliases: ["PanJit"] },
+  // ─── O 功率元件 ──────────────────────────────────────────
+  { ticker: "5425", name: "台半",      aliases: ["TSC"] },
+  // ─── P 航太軍工 ──────────────────────────────────────────
+  { ticker: "2645", name: "長榮航太" },
+  { ticker: "3004", name: "豐達科" },
+  { ticker: "5222", name: "全訊" },
+  { ticker: "6753", name: "龍德造船" },
+  // ─── Q 銅箔基板 ──────────────────────────────────────────
+  { ticker: "2383", name: "台光電",    aliases: ["EMC", "台光"] },
+  { ticker: "6274", name: "台燿",      aliases: ["Taiflex"] },
+  { ticker: "8358", name: "金居",      aliases: ["Co-Tech"] },
+  // ─── R 機器系統 ──────────────────────────────────────────
+  { ticker: "4906", name: "正文" },
+  { ticker: "5388", name: "中磊" },
+  { ticker: "6285", name: "啟碁" },
+  // ─── S 自行車 ────────────────────────────────────────────
+  { ticker: "9914", name: "美利達" },
+  { ticker: "5306", name: "桂盟" },
+  // ─── T 循環經濟 ──────────────────────────────────────────
+  { ticker: "6894", name: "衛司特" },
+  { ticker: "8936", name: "國統" },
+  // ─── U 紡織製鞋 ──────────────────────────────────────────
+  { ticker: "6768", name: "志強-KY" },
+  { ticker: "6890", name: "來億-KY" },
+  { ticker: "9938", name: "百和" },
   // ─── 雲端/CSP ───────────────────────────────────────────
-  { ticker: "AMZN",       name: "Amazon",                   aliases: ["AWS"] },
-  { ticker: "MSFT",       name: "Microsoft",                aliases: ["Azure"] },
-  { ticker: "GOOG",       name: "Alphabet",                 aliases: ["Google", "GCP"] },
+  { ticker: "AMZN",       name: "Amazon",                 aliases: ["AWS"] },
+  { ticker: "MSFT",       name: "Microsoft",              aliases: ["Azure"] },
+  { ticker: "GOOG",       name: "Alphabet",               aliases: ["Google", "GCP"] },
   // ─── 美股 ────────────────────────────────────────────────
-  { ticker: "STM",        name: "STMicroelectronics",       aliases: ["STMicro"] },
-  { ticker: "SNDK",       name: "Sandisk",                  aliases: ["SanDisk"] },
+  { ticker: "STM",        name: "STMicroelectronics",     aliases: ["STMicro"] },
+  { ticker: "SNDK",       name: "Sandisk",                aliases: ["SanDisk"] },
   { ticker: "STX",        name: "Seagate" },
   { ticker: "AXTI",       name: "AXT" },
-  { ticker: "AMKR",       name: "Amkor Technology",         aliases: ["Amkor"] },
+  { ticker: "AMKR",       name: "Amkor Technology",       aliases: ["Amkor"] },
   { ticker: "WDC",        name: "Western Digital" },
-  // ─── 台股 ────────────────────────────────────────────────
-  { ticker: "7631",       name: "聚賢研發-創",               aliases: ["聚賢研發"] },
+  // ─── 台股（非 /stock 頁面）──────────────────────────────
+  { ticker: "7631",       name: "聚賢研發-創",             aliases: ["聚賢研發"] },
   { ticker: "2441",       name: "超豐" },
   { ticker: "4971",       name: "IET-KY" },
   // ─── 中國 A 股 ──────────────────────────────────────────
-  { ticker: "002463.SZ",  name: "滬電股份",                  aliases: ["滬電"] },
+  { ticker: "002463.SZ",  name: "滬電股份",                aliases: ["滬電"] },
   // ─── 日股 ────────────────────────────────────────────────
-  { ticker: "3407.T",     name: "旭化成(Asahi Kasei)",       aliases: ["旭化成", "Asahi Kasei", "Asahi"] },
-  { ticker: "3110.T",     name: "日東紡(Nittobo)",            aliases: ["日東紡", "Nittobo"] },
-  { ticker: "1899.T",     name: "福田(Fukuda)",               aliases: ["福田", "Fukuda"] },
-  { ticker: "5706.T",     name: "三井金屬(Mitsui Kinzoku)",   aliases: ["三井金屬", "Mitsui Kinzoku"] },
-  { ticker: "5801.T",     name: "古河電工(Furukawa)",          aliases: ["古河電工", "Furukawa"] },
-  { ticker: "4004.T",     name: "昭和電工(Resonac)",           aliases: ["昭和電工", "Resonac"] },
-  { ticker: "4182.T",     name: "三菱瓦斯化學(MGC)",           aliases: ["三菱瓦斯化學", "MGC"] },
-  { ticker: "285A.T",     name: "鎧俠(Kioxia)",               aliases: ["鎧俠", "Kioxia"] },
+  { ticker: "3407.T",     name: "旭化成(Asahi Kasei)",     aliases: ["旭化成", "Asahi Kasei", "Asahi"] },
+  { ticker: "3110.T",     name: "日東紡(Nittobo)",          aliases: ["日東紡", "Nittobo"] },
+  { ticker: "1899.T",     name: "福田(Fukuda)",             aliases: ["福田", "Fukuda"] },
+  { ticker: "5706.T",     name: "三井金屬(Mitsui Kinzoku)", aliases: ["三井金屬", "Mitsui Kinzoku"] },
+  { ticker: "5801.T",     name: "古河電工(Furukawa)",        aliases: ["古河電工", "Furukawa"] },
+  { ticker: "4004.T",     name: "昭和電工(Resonac)",         aliases: ["昭和電工", "Resonac"] },
+  { ticker: "4182.T",     name: "三菱瓦斯化學(MGC)",         aliases: ["三菱瓦斯化學", "MGC"] },
+  { ticker: "285A.T",     name: "鎧俠(Kioxia)",             aliases: ["鎧俠", "Kioxia"] },
   // ─── 韓股 ────────────────────────────────────────────────
-  { ticker: "000157.KS",  name: "斗山(Doosan)",               aliases: ["斗山", "Doosan"] },
+  { ticker: "000157.KS",  name: "斗山(Doosan)",             aliases: ["斗山", "Doosan"] },
   // ─── 沙烏地 ──────────────────────────────────────────────
-  { ticker: "2010.SR",    name: "沙特基礎工業(SABIC)",         aliases: ["沙特基礎工業", "SABIC", "Sabic"] },
-];
-
-// All stocks for article auto-detection and text highlighting.
-// Part 1: every category stock (A~U) + their aliases
-// Part 2: extraStocks — non-category stocks, name + aliases self-contained
-export const scanStocks: ScanStock[] = [
-  ...categories.flatMap((c) =>
-    c.stocks.map((s) => ({
-      ticker: s.ticker,
-      name: s.name,
-      aliases: categoryAliases[s.ticker],
-    }))
-  ),
-  ...extraStocks,
+  { ticker: "2010.SR",    name: "沙特基礎工業(SABIC)",       aliases: ["沙特基礎工業", "SABIC", "Sabic"] },
 ];
 
 export function lookupStock(query: string): { ticker: string; stock_name: string } | null {
