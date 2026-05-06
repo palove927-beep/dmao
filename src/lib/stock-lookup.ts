@@ -448,6 +448,7 @@ export const stockLookup: Record<string, string> = {
   "COHR": "Coherent",
   "LITE": "Lumentum",
   "AMKR": "Amkor Technology",
+  "WDC": "Western Digital",
   "FORM": "FormFactor",
   "ONTO": "Onto Innovation",
   "POWI": "Power Integrations",
@@ -729,6 +730,7 @@ export const stockLookup: Record<string, string> = {
   // ─── 中國 A 股 ──────────────────────────────────────────
   "688183.SS": "生益電子",
   "300395.SZ": "菲利華",
+  "002463.SZ": "滬電股份",
 
   // ─── 日本 Nikkei 225 主要成分股 ────────────────────────
   "7203.T": "Toyota Motor",
@@ -875,10 +877,14 @@ export const stockAliases: Record<string, string[]> = {
   "SNDK": ["SanDisk"],
   "STX": [],
   "AXTI": [],
+  "AMKR": ["Amkor"],
+  "WDC": [],
   "7631": ["聚賢研發"],
   // ─── 台股（非 categories）────────────────────────────────
   "2441": [],
   "4971": [],
+  // ─── 中國 A 股 ──────────────────────────────────────────
+  "002463.SZ": ["滬電"],
   // ─── 日股 ────────────────────────────────────────────────
   "3407.T": ["旭化成", "Asahi Kasei", "Asahi"],
   "3110.T": ["日東紡", "Nittobo"],
