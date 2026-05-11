@@ -298,6 +298,7 @@ export const stockLookup: Record<string, string> = {
   "8008": "建興電",
   "8016": "矽創",
   "8027": "鈦昇",
+  "8042": "金山電",
   "8046": "南電",
   "8069": "元太",
   "8086": "宏捷科",
@@ -888,6 +889,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "3026", name: "禾伸堂" },
   { ticker: "3357", name: "臺慶科" },
   { ticker: "6449", name: "鈺邦" },
+  { ticker: "8042", name: "金山電" },
   // ─── M PCB ───────────────────────────────────────────────
   { ticker: "2313", name: "華通",      aliases: ["Compeq"] },
   { ticker: "3037", name: "欣興",      aliases: ["Unimicron"] },

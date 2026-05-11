@@ -135,6 +135,7 @@ export const categories: Category[] = [
       { code: "L2", ticker: "3026", name: "禾伸堂" },
       { code: "L3", ticker: "3357", name: "臺慶科" },
       { code: "L4", ticker: "6449", name: "鈺邦" },
+      { code: "L5", ticker: "8042", name: "金山電" },
     ],
   },
   {
