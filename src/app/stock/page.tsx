@@ -51,6 +51,7 @@ export default function StockPage() {
   const [epsForecasts, setEpsForecasts] = useState<Record<string, EpsForecast[]>>({});
   const [annotationCounts, setAnnotationCounts] = useState<Record<string, number>>({});
   const [latestEps, setLatestEps] = useState<Record<string, number>>({});
+  const [latestEpsDate, setLatestEpsDate] = useState<Record<string, string>>({});
   const [latestEps2027, setLatestEps2027] = useState<Record<string, number>>({});
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
   const [loadingAnnotations, setLoadingAnnotations] = useState<string | null>(null);
@@ -75,9 +76,14 @@ export default function StockPage() {
       ]);
       const [json26, json27] = await Promise.all([res26.json(), res27.json()]);
       if (json26.ok) {
-        const map: Record<string, number> = {};
-        for (const f of json26.forecasts) map[f.ticker] = f.eps;
-        setLatestEps(map);
+        const epsMap: Record<string, number> = {};
+        const dateMap: Record<string, string> = {};
+        for (const f of json26.forecasts) {
+          epsMap[f.ticker] = f.eps;
+          if (f.dmao_articles?.article_date) dateMap[f.ticker] = f.dmao_articles.article_date;
+        }
+        setLatestEps(epsMap);
+        setLatestEpsDate(dateMap);
       }
       if (json27.ok) {
         const map: Record<string, number> = {};
@@ -217,6 +223,7 @@ export default function StockPage() {
             <th style={thStyle}>股票</th>
             <th style={thStyle}>代號</th>
             <th style={{ ...thStyle, textAlign: "right" }}>現價</th>
+            <th style={{ ...thStyle, textAlign: "right" }}>日期</th>
             <th style={{ ...thStyle, textAlign: "right" }}>2026 EPS</th>
             <th style={{ ...thStyle, textAlign: "right" }}>2027 EPS</th>
             <th style={{ ...thStyle, textAlign: "center", width: 60 }}>標記</th>
@@ -227,7 +234,7 @@ export default function StockPage() {
             <>
               <tr key={`cat-${cat.id}`} style={{ background: "#f0f4f8" }}>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   style={{ padding: "10px 14px", fontWeight: "bold", fontSize: 15, color: "#1e3a5f" }}
                 >
                   {cat.label}
@@ -243,8 +250,9 @@ export default function StockPage() {
                 const isLoadingThis = loadingAnnotations === stock.ticker;
                 const eps26 = latestEps[stock.ticker];
                 const eps27 = latestEps2027[stock.ticker];
-                const pe26 = price && eps26 > 0 ? Math.round(price / eps26) : null;
-                const pe27 = price && eps27 > 0 ? Math.round(price / eps27) : null;
+                const epsDate = latestEpsDate[stock.ticker];
+                const pe26 = price && eps26 > 0 ? (price / eps26).toFixed(1) : null;
+                const pe27 = price && eps27 > 0 ? (price / eps27).toFixed(1) : null;
 
                 return (
                   <>
@@ -260,6 +268,9 @@ export default function StockPage() {
                       <td style={tdStyle}>{stock.ticker}</td>
                       <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold" }}>
                         {hasTwData ? formatPrice(p.price) : "-"}
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: "right", color: "#9ca3af", fontSize: 13 }}>
+                        {epsDate ? new Date(epsDate).toLocaleDateString("zh-TW", { month: "2-digit", day: "2-digit" }) : "-"}
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right", color: "#b45309", fontWeight: eps26 != null ? "bold" : "normal" }}>
                         {eps26 != null ? (
