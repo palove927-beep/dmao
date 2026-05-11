@@ -51,6 +51,7 @@ export default function StockPage() {
   const [epsForecasts, setEpsForecasts] = useState<Record<string, EpsForecast[]>>({});
   const [annotationCounts, setAnnotationCounts] = useState<Record<string, number>>({});
   const [latestEps, setLatestEps] = useState<Record<string, number>>({});
+  const [latestEps2027, setLatestEps2027] = useState<Record<string, number>>({});
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
   const [loadingAnnotations, setLoadingAnnotations] = useState<string | null>(null);
 
@@ -68,14 +69,20 @@ export default function StockPage() {
 
   const fetchLatestEps = useCallback(async () => {
     try {
-      const res = await fetch("/api/eps-forecasts?forecast_year=2026&latest=1");
-      const json = await res.json();
-      if (json.ok) {
+      const [res26, res27] = await Promise.all([
+        fetch("/api/eps-forecasts?forecast_year=2026&latest=1"),
+        fetch("/api/eps-forecasts?forecast_year=2027&latest=1"),
+      ]);
+      const [json26, json27] = await Promise.all([res26.json(), res27.json()]);
+      if (json26.ok) {
         const map: Record<string, number> = {};
-        for (const f of json.forecasts) {
-          map[f.ticker] = f.eps;
-        }
+        for (const f of json26.forecasts) map[f.ticker] = f.eps;
         setLatestEps(map);
+      }
+      if (json27.ok) {
+        const map: Record<string, number> = {};
+        for (const f of json27.forecasts) map[f.ticker] = f.eps;
+        setLatestEps2027(map);
       }
     } catch {
       // ignore
@@ -207,11 +214,11 @@ export default function StockPage() {
         <thead>
           <tr style={{ background: "#1e3a5f", color: "#fff" }}>
             <th style={thStyle}>編號</th>
-            <th style={thStyle}>類別</th>
             <th style={thStyle}>股票</th>
             <th style={thStyle}>代號</th>
             <th style={{ ...thStyle, textAlign: "right" }}>現價</th>
             <th style={{ ...thStyle, textAlign: "right" }}>2026 EPS</th>
+            <th style={{ ...thStyle, textAlign: "right" }}>2027 EPS</th>
             <th style={{ ...thStyle, textAlign: "center", width: 60 }}>標記</th>
           </tr>
         </thead>
@@ -229,10 +236,15 @@ export default function StockPage() {
               {cat.stocks.map((stock, i) => {
                 const p = prices[stock.ticker];
                 const hasTwData = isTwStock(stock.ticker) && p;
+                const price = hasTwData ? p.price : null;
                 const isExpanded = expandedTicker === stock.ticker;
                 const stockAnnotations = annotations[stock.ticker] || [];
                 const stockEps = epsForecasts[stock.ticker] || [];
                 const isLoadingThis = loadingAnnotations === stock.ticker;
+                const eps26 = latestEps[stock.ticker];
+                const eps27 = latestEps2027[stock.ticker];
+                const pe26 = price && eps26 > 0 ? Math.round(price / eps26) : null;
+                const pe27 = price && eps27 > 0 ? Math.round(price / eps27) : null;
 
                 return (
                   <>
@@ -244,18 +256,20 @@ export default function StockPage() {
                       }}
                     >
                       <td style={tdStyle}>{stock.code}</td>
-                      <td style={tdStyle}>{cat.label}</td>
                       <td style={tdStyle}>{hasTwData ? p.name || stock.name : stock.name}</td>
                       <td style={tdStyle}>{stock.ticker}</td>
-                      <td style={{
-                        ...tdStyle,
-                        textAlign: "right",
-                        fontWeight: "bold",
-                      }}>
+                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold" }}>
                         {hasTwData ? formatPrice(p.price) : "-"}
                       </td>
-                      <td style={{ ...tdStyle, textAlign: "right", color: "#b45309", fontWeight: latestEps[stock.ticker] ? "bold" : "normal" }}>
-                        {latestEps[stock.ticker] != null ? latestEps[stock.ticker] : "-"}
+                      <td style={{ ...tdStyle, textAlign: "right", color: "#b45309", fontWeight: eps26 != null ? "bold" : "normal" }}>
+                        {eps26 != null ? (
+                          <>{eps26}{pe26 != null && <span style={{ color: "#9ca3af", fontSize: 12, fontWeight: "normal", marginLeft: 3 }}>({pe26}x)</span>}</>
+                        ) : "-"}
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: "right", color: "#b45309", fontWeight: eps27 != null ? "bold" : "normal" }}>
+                        {eps27 != null ? (
+                          <>{eps27}{pe27 != null && <span style={{ color: "#9ca3af", fontSize: 12, fontWeight: "normal", marginLeft: 3 }}>({pe27}x)</span>}</>
+                        ) : "-"}
                       </td>
                       <td style={{ ...tdStyle, textAlign: "center" }}>
                         {(() => {
