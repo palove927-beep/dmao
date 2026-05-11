@@ -947,6 +947,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "ORCL",       name: "Oracle" },
   // ─── 台股（非 /stock 頁面）──────────────────────────────
   { ticker: "7631",       name: "聚賢研發-創",             aliases: ["聚賢研發"] },
+  { ticker: "2327",       name: "國巨" },
   { ticker: "2441",       name: "超豐" },
   { ticker: "2481",       name: "強茂" },
   { ticker: "3013",       name: "晟銘電" },
