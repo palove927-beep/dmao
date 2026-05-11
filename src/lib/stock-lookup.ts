@@ -187,6 +187,7 @@ export const stockLookup: Record<string, string> = {
   "3081": "聯亞",
   "3105": "穩懋",
   "3131": "弘塑",
+  "3163": "波若威",
   "3189": "景碩",
   "3260": "威剛",
   "3296": "勝德",
@@ -291,6 +292,7 @@ export const stockLookup: Record<string, string> = {
   "6668": "中揚光",
   "6670": "復盛應用",
   "6672": "騰輝電子-KY",
+  "6715": "嘉基",
   "6719": "力智",
   "6752": "未秧-KY",
   "6753": "龍德造船",
@@ -459,6 +461,8 @@ export const stockLookup: Record<string, string> = {
   "RMBS": "Rambus",
   "COHR": "Coherent",
   "LITE": "Lumentum",
+  "FN": "Fabrinet",
+  "APH": "Amphenol",
   "AMKR": "Amkor Technology",
   "WDC": "Western Digital",
   "FORM": "FormFactor",
@@ -741,6 +745,7 @@ export const stockLookup: Record<string, string> = {
 
   // ─── 中國 A 股 ──────────────────────────────────────────
   "688183.SS": "生益電子",
+  "300394.SZ": "天孚通信",
   "300395.SZ": "菲利華",
   "002463.SZ": "滬電股份",
 
@@ -949,6 +954,8 @@ export const scanStocks: ScanStock[] = [
   { ticker: "AMKR",       name: "Amkor Technology",       aliases: ["Amkor"] },
   { ticker: "WDC",        name: "Western Digital" },
   { ticker: "ORCL",       name: "Oracle" },
+  { ticker: "FN",         name: "Fabrinet" },
+  { ticker: "APH",        name: "Amphenol" },
   // ─── 台股（非 /stock 頁面）──────────────────────────────
   // ─── 石化/化工 ──────────────────────────────────────────
   { ticker: "1101",       name: "台泥" },
@@ -961,6 +968,8 @@ export const scanStocks: ScanStock[] = [
   { ticker: "2327",       name: "國巨" },
   { ticker: "2441",       name: "超豐" },
   { ticker: "2481",       name: "強茂" },
+  { ticker: "3163",       name: "波若威" },
+  { ticker: "6715",       name: "嘉基" },
   { ticker: "3013",       name: "晟銘電" },
   { ticker: "3675",       name: "德微" },
   { ticker: "3693",       name: "營邦" },
@@ -972,6 +981,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "7712",       name: "博盛半導體" },
   // ─── 中國 A 股 ──────────────────────────────────────────
   { ticker: "002463.SZ",  name: "滬電股份",                aliases: ["滬電"] },
+  { ticker: "300394.SZ",  name: "天孚通信",               aliases: ["TFC"] },
   // ─── 日股 ────────────────────────────────────────────────
   { ticker: "3407.T",     name: "旭化成(Asahi Kasei)",     aliases: ["旭化成", "Asahi Kasei", "Asahi"] },
   { ticker: "3110.T",     name: "日東紡(Nittobo)",          aliases: ["日東紡", "Nittobo"] },
