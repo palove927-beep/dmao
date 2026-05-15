@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
 
   let query = getSupabase()
     .from("dmao_annotations")
-    .select("*, dmao_articles(id, title, created_at)")
+    .select("*, dmao_articles(id, title, article_date)")
     .order("created_at", { ascending: false });
 
   if (ticker) {
@@ -94,5 +94,11 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  return NextResponse.json({ ok: true, annotations: data });
+  const sorted = [...(data || [])].sort((a, b) => {
+    const dateA = a.dmao_articles?.article_date ?? a.created_at ?? "";
+    const dateB = b.dmao_articles?.article_date ?? b.created_at ?? "";
+    return dateB.localeCompare(dateA);
+  });
+
+  return NextResponse.json({ ok: true, annotations: sorted });
 }

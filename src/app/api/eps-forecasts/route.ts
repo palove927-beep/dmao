@@ -39,5 +39,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, forecasts: filtered });
   }
 
-  return NextResponse.json({ ok: true, forecasts: data });
+  const sorted = [...(data || [])].sort((a, b) => {
+    const dateA = a.dmao_articles?.article_date ?? a.created_at ?? "";
+    const dateB = b.dmao_articles?.article_date ?? b.created_at ?? "";
+    if (dateA !== dateB) return dateB.localeCompare(dateA);
+    return a.forecast_year - b.forecast_year;
+  });
+  return NextResponse.json({ ok: true, forecasts: sorted });
 }

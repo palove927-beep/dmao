@@ -13,7 +13,7 @@ type Annotation = {
   paragraph: string;
   is_summary: boolean;
   article_id: string;
-  dmao_articles: { id: string; title: string; created_at: string } | null;
+  dmao_articles: { id: string; title: string; article_date: string } | null;
 };
 
 type EpsForecast = {
@@ -338,9 +338,9 @@ export default function StockPage() {
                                 <div key={ann.id} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid #e5e7eb" }}>
                                   <div style={{ fontSize: 13, color: "#666", marginBottom: 4 }}>
                                     <strong>{ann.dmao_articles?.title || "無標題"}</strong>
-                                    {ann.dmao_articles?.created_at && (
+                                    {ann.dmao_articles?.article_date && (
                                       <span style={{ marginLeft: 8 }}>
-                                        {new Date(ann.dmao_articles.created_at).toLocaleDateString("zh-TW")}
+                                        {new Date(ann.dmao_articles.article_date).toLocaleDateString("zh-TW")}
                                       </span>
                                     )}
                                     <a
