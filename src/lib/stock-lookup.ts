@@ -753,6 +753,7 @@ export const stockLookup: Record<string, string> = {
   // ─── 中國 A 股 ──────────────────────────────────────────
   "000636.SZ": "風華高科",
   "600460.SS": "士蘭微",
+  "603228.SS": "景旺電子",
   "603986.SS": "兆易創新",
   "688183.SS": "生益電子",
   "688396.SS": "華潤微",
@@ -1010,6 +1011,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "300394.SZ",  name: "天孚通信",               aliases: ["TFC"] },
   { ticker: "300476.SZ",  name: "勝宏科技",              aliases: ["勝宏"] },
   { ticker: "600460.SS",  name: "士蘭微" },
+  { ticker: "603228.SS",  name: "景旺電子",               aliases: ["景旺"] },
   { ticker: "603986.SS",  name: "兆易創新" },
   { ticker: "688396.SS",  name: "華潤微" },
   // ─── 日股 ────────────────────────────────────────────────

@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
+import { scanStocks } from "@/lib/stock-lookup";
+
+const aliasMap = new Map<string, string[]>(
+  scanStocks.filter((s) => s.aliases).map((s) => [s.ticker, s.aliases!])
+);
 
 export async function POST(req: NextRequest) {
   try {
@@ -100,5 +105,10 @@ export async function GET(req: NextRequest) {
     return dateB.localeCompare(dateA);
   });
 
-  return NextResponse.json({ ok: true, annotations: sorted });
+  const withAliases = sorted.map((ann) => ({
+    ...ann,
+    aliases: aliasMap.get(ann.ticker) ?? [],
+  }));
+
+  return NextResponse.json({ ok: true, annotations: withAliases });
 }

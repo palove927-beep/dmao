@@ -13,6 +13,7 @@ type Annotation = {
   paragraph: string;
   is_summary: boolean;
   article_id: string;
+  aliases: string[];
   dmao_articles: { id: string; title: string; article_date: string } | null;
 };
 
@@ -354,7 +355,7 @@ export default function StockPage() {
                                     {ann.is_summary && (
                                       <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "#fef3c7", color: "#92400e", marginRight: 6 }}>AI 摘要</span>
                                     )}
-                                    {highlightKeywords(ann.paragraph, [ann.stock_name, ann.ticker])}
+                                    {highlightKeywords(ann.paragraph, [ann.stock_name, ann.ticker, ...(ann.aliases ?? [])])}
                                   </div>
                                 </div>
                               ))}
