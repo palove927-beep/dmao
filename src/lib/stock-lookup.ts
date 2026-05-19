@@ -758,6 +758,7 @@ export const stockLookup: Record<string, string> = {
   "688396.SS": "華潤微",
   "300394.SZ": "天孚通信",
   "300395.SZ": "菲利華",
+  "300476.SZ": "勝宏科技",
   "002463.SZ": "滬電股份",
 
   // ─── 日本 Nikkei 225 主要成分股 ────────────────────────
@@ -1007,6 +1008,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "000636.SZ",  name: "風華高科" },
   { ticker: "002463.SZ",  name: "滬電股份",                aliases: ["滬電"] },
   { ticker: "300394.SZ",  name: "天孚通信",               aliases: ["TFC"] },
+  { ticker: "300476.SZ",  name: "勝宏科技",              aliases: ["勝宏"] },
   { ticker: "600460.SS",  name: "士蘭微" },
   { ticker: "603986.SS",  name: "兆易創新" },
   { ticker: "688396.SS",  name: "華潤微" },
