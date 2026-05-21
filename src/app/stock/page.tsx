@@ -5,6 +5,23 @@ import { categories } from "@/lib/stock-list";
 import type { StockPrice } from "@/app/api/stock/route";
 
 type PriceMap = Record<string, StockPrice>;
+type TimeRange = "all" | "1w" | "1m" | "3m";
+
+const TIME_RANGE_LABELS: Record<TimeRange, string> = {
+  all: "全部",
+  "1w": "一周",
+  "1m": "一個月",
+  "3m": "三個月",
+};
+
+function getSince(range: TimeRange): string | null {
+  if (range === "all") return null;
+  const d = new Date();
+  if (range === "1w") d.setDate(d.getDate() - 7);
+  else if (range === "1m") d.setMonth(d.getMonth() - 1);
+  else if (range === "3m") d.setMonth(d.getMonth() - 3);
+  return d.toISOString().slice(0, 10);
+}
 
 type Annotation = {
   id: string;
@@ -56,10 +73,13 @@ export default function StockPage() {
   const [latestEps2027, setLatestEps2027] = useState<Record<string, number>>({});
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
   const [loadingAnnotations, setLoadingAnnotations] = useState<string | null>(null);
+  const [timeRange, setTimeRange] = useState<TimeRange>("all");
 
   const fetchAnnotationCounts = useCallback(async () => {
     try {
-      const res = await fetch("/api/annotations?mode=counts");
+      const since = getSince(timeRange);
+      const params = since ? `mode=counts&since=${since}` : `mode=counts`;
+      const res = await fetch(`/api/annotations?${params}`);
       const json = await res.json();
       if (json.ok) {
         setAnnotationCounts(json.counts);
@@ -67,7 +87,7 @@ export default function StockPage() {
     } catch {
       // ignore
     }
-  }, []);
+  }, [timeRange]);
 
   const fetchLatestEps = useCallback(async () => {
     try {
@@ -113,11 +133,17 @@ export default function StockPage() {
 
   useEffect(() => {
     fetchPrices();
-    fetchAnnotationCounts();
     fetchLatestEps();
     const interval = setInterval(fetchPrices, 30000);
     return () => clearInterval(interval);
-  }, [fetchPrices, fetchAnnotationCounts, fetchLatestEps]);
+  }, [fetchPrices, fetchLatestEps]);
+
+  // Re-fetch counts and clear cache when time range changes (also fires on mount)
+  useEffect(() => {
+    setAnnotations({});
+    setExpandedTicker(null);
+    fetchAnnotationCounts();
+  }, [fetchAnnotationCounts]);
 
   const fetchAnnotations = async (ticker: string) => {
     if (expandedTicker === ticker) {
@@ -129,8 +155,12 @@ export default function StockPage() {
 
     setLoadingAnnotations(ticker);
     try {
+      const since = getSince(timeRange);
+      const annUrl = since
+        ? `/api/annotations?ticker=${ticker}&since=${since}`
+        : `/api/annotations?ticker=${ticker}`;
       const [annRes, epsRes] = await Promise.all([
-        fetch(`/api/annotations?ticker=${ticker}`).then((r) => r.json()),
+        fetch(annUrl).then((r) => r.json()),
         fetch(`/api/eps-forecasts?ticker=${ticker}`).then((r) => r.json()),
       ]);
       if (annRes.ok) {
@@ -215,6 +245,27 @@ export default function StockPage() {
             {loading ? "更新中..." : "重新整理"}
           </button>
         </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+        <span style={{ fontSize: 13, color: "#666" }}>標記區間：</span>
+        {(["all", "1w", "1m", "3m"] as TimeRange[]).map((r) => (
+          <button
+            key={r}
+            onClick={() => setTimeRange(r)}
+            style={{
+              padding: "4px 14px",
+              fontSize: 13,
+              border: `1px solid ${timeRange === r ? "#1a56db" : "#d1d5db"}`,
+              borderRadius: 20,
+              background: timeRange === r ? "#1a56db" : "#fff",
+              color: timeRange === r ? "#fff" : "#374151",
+              cursor: "pointer",
+            }}
+          >
+            {TIME_RANGE_LABELS[r]}
+          </button>
+        ))}
       </div>
 
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15 }}>
