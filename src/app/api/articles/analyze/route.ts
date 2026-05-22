@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { scanStocks, lookupStock, stockLookup } from "@/lib/stock-lookup";
+import { scanStocks, lookupStock } from "@/lib/stock-lookup";
 import { generateObject } from "ai";
 import { z } from "zod";
 
@@ -44,20 +44,6 @@ function scanParagraphForStocks(text: string): { ticker: string; stock_name: str
     const tickerInParens = new RegExp(`[（(]${escapeRegex(s.ticker)}[)）]`);
     if (tickerInParens.test(text)) {
       found.set(s.ticker, { ticker: s.ticker, stock_name: s.name });
-    }
-  }
-
-  // 2. Scan stockLookup for tickers that appear in parentheses pattern
-  //    e.g. "(2330)" "（2330）" — this is how tickers commonly appear in Chinese finance articles
-  const parenTickerRegex = /[（(]([A-Za-z0-9.]+)[)）]/g;
-  let match;
-  while ((match = parenTickerRegex.exec(text)) !== null) {
-    const candidate = match[1];
-    if (found.has(candidate)) continue;
-    if (NON_STOCK_TERMS.has(candidate)) continue;
-    // Check stockLookup
-    if (stockLookup[candidate]) {
-      found.set(candidate, { ticker: candidate, stock_name: stockLookup[candidate] });
     }
   }
 
