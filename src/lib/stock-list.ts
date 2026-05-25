@@ -163,10 +163,11 @@ export const categories: Category[] = [
     label: "功率半導體",
     stocks: [
       { code: "O1", ticker: "2351", name: "順德" },
-      { code: "O2", ticker: "6271", name: "同欣電", aliases: ["Tong Hsing"] },
-      { code: "O3", ticker: "8255", name: "朋程", aliases: ["PanJit"] },
-      { code: "O4", ticker: "5425", name: "台半", aliases: ["TSC"] },
-      { code: "O5", ticker: "8261", name: "富鼎" },
+      { code: "O2", ticker: "3675", name: "德微" },
+      { code: "O3", ticker: "5425", name: "台半", aliases: ["TSC"] },
+      { code: "O4", ticker: "6271", name: "同欣電", aliases: ["Tong Hsing"] },
+      { code: "O5", ticker: "8255", name: "朋程", aliases: ["PanJit"] },
+      { code: "O6", ticker: "8261", name: "富鼎" },
     ],
   },
   {
