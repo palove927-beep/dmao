@@ -188,6 +188,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "4004.T",     name: "昭和電工(Resonac)",         aliases: ["昭和電工", "Resonac"] },
   { ticker: "4182.T",     name: "三菱瓦斯化學(MGC)",         aliases: ["三菱瓦斯化學", "MGC"] },
   { ticker: "285A.T",     name: "鎧俠(Kioxia)",             aliases: ["鎧俠", "Kioxia"] },
+  { ticker: "6997.T",     name: "Chemi-Con" },
   // ─── 韓股 ────────────────────────────────────────────────
   { ticker: "000157.KS",  name: "斗山(Doosan)",             aliases: ["斗山", "Doosan"] },
   // ─── 沙烏地 ──────────────────────────────────────────────
@@ -353,6 +354,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "3563", name: "牧德" },
   { ticker: "3588", name: "通嘉" },
   { ticker: "3596", name: "智易" },
+  { ticker: "3611", name: "鼎翰" },
   { ticker: "3615", name: "安可" },
   { ticker: "3617", name: "碩天" },
   { ticker: "3653", name: "健策" },
@@ -536,6 +538,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "CRUS",  name: "Cirrus Logic" },
   { ticker: "SLAB",  name: "Silicon Labs" },
   { ticker: "DIOD",  name: "Diodes" },
+  { ticker: "VSH",   name: "Vishay" },
   { ticker: "MTSI",  name: "MACOM Technology" },
   { ticker: "SITM",  name: "SiTime" },
   { ticker: "RMBS",  name: "Rambus" },
@@ -796,7 +799,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "003550.KS", name: "LG" },
   { ticker: "373220.KS", name: "LG Energy Solution" },
   { ticker: "012330.KS", name: "Hyundai Mobis" },
-  { ticker: "009150.KS", name: "Samsung Electro-Mechanics" },
+  { ticker: "009150.KS", name: "Samsung Electro-Mechanics", aliases: ["SEMCO"] },
   { ticker: "028260.KS", name: "Samsung C&T" },
   { ticker: "034020.KS", name: "Doosan Enerbility" },
   { ticker: "010130.KS", name: "Korea Zinc" },
