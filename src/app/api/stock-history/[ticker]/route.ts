@@ -1,39 +1,72 @@
 import { NextRequest, NextResponse } from "next/server";
+import { categories } from "@/lib/stock-list";
+
+// Build a lookup map from ticker → stock name
+const nameMap = new Map(
+  categories.flatMap((c) => c.stocks.map((s) => [s.ticker, s.name]))
+);
+
+type PriceRow = { date: string; close: number };
+
+async function fetchTwseMonth(stockNo: string, year: number, month: number): Promise<PriceRow[]> {
+  const date = `${year}${String(month).padStart(2, "0")}01`;
+  const url = `https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=${date}&stockNo=${stockNo}`;
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    if (json.stat !== "OK" || !Array.isArray(json.data)) return [];
+
+    return json.data.flatMap((row: string[]) => {
+      // date format: 114/05/02 (ROC year/month/day)
+      const parts = row[0].split("/");
+      if (parts.length !== 3) return [];
+      const ad = parseInt(parts[0]) + 1911;
+      const isoDate = `${ad}-${parts[1]}-${parts[2]}`;
+      const close = parseFloat(row[6].replace(/,/g, ""));
+      if (isNaN(close)) return [];
+      return [{ date: isoDate, close }];
+    });
+  } catch {
+    return [];
+  }
+}
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ ticker: string }> }
 ) {
   const { ticker } = await params;
-  const symbol = `${ticker}.TW`;
+
+  // Generate last 12 months
+  const months: { year: number; month: number }[] = [];
+  const now = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ year: d.getFullYear(), month: d.getMonth() + 1 });
+  }
 
   try {
-    const res = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1y`,
-      { headers: { "User-Agent": "Mozilla/5.0" }, next: { revalidate: 3600 } }
+    const chunks = await Promise.all(
+      months.map(({ year, month }) => fetchTwseMonth(ticker, year, month))
     );
-    if (!res.ok) return NextResponse.json({ ok: false, error: "upstream error" }, { status: 502 });
 
-    const json = await res.json();
-    const result = json?.chart?.result?.[0];
-    if (!result) return NextResponse.json({ ok: false, error: "no data" }, { status: 404 });
+    const prices = chunks
+      .flat()
+      .sort((a, b) => a.date.localeCompare(b.date));
 
-    const timestamps: number[] = result.timestamp ?? [];
-    const closes: (number | null)[] = result.indicators?.quote?.[0]?.close ?? [];
-    const meta = result.meta ?? {};
-
-    const prices = timestamps
-      .map((ts, i) => ({
-        date: new Date(ts * 1000).toISOString().slice(0, 10),
-        close: closes[i] != null ? Math.round(closes[i]! * 100) / 100 : null,
-      }))
-      .filter((p) => p.close != null);
+    if (prices.length === 0) {
+      return NextResponse.json({ ok: false, error: "查無資料" }, { status: 404 });
+    }
 
     return NextResponse.json({
       ok: true,
       ticker,
-      name: meta.longName ?? meta.shortName ?? ticker,
-      currency: meta.currency ?? "TWD",
+      name: nameMap.get(ticker) ?? ticker,
+      currency: "TWD",
       prices,
     });
   } catch (err) {
