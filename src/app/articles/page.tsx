@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 type Article = {
   id: string;
@@ -9,6 +9,7 @@ type Article = {
   article_date: string | null;
   article_type: string | null;
   created_at: string;
+  snippet?: string;
 };
 
 const TYPE_LABELS: Record<string, { label: string; bg: string; color: string }> = {
@@ -18,18 +19,46 @@ const TYPE_LABELS: Record<string, { label: string; bg: string; color: string }> 
   industry: { label: "產業", bg: "#ede9fe", color: "#5b21b6" },
 };
 
+function highlightSnippet(snippet: string, q: string) {
+  if (!q) return snippet;
+  const parts = snippet.split(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"));
+  return parts.map((part, i) =>
+    part.toLowerCase() === q.toLowerCase() ? (
+      <mark key={i} style={{ background: "#fef9c3", padding: "0 1px", borderRadius: 2 }}>{part}</mark>
+    ) : part
+  );
+}
+
 export default function ArticlesPage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchInput, setSearchInput] = useState("");
+  const [activeQuery, setActiveQuery] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    fetch("/api/articles")
+  const fetchArticles = (q: string) => {
+    setLoading(true);
+    const url = q ? `/api/articles?q=${encodeURIComponent(q)}` : "/api/articles";
+    fetch(url)
       .then((res) => res.json())
-      .then((json) => {
-        if (json.ok) setArticles(json.articles);
-      })
+      .then((json) => { if (json.ok) setArticles(json.articles ?? []); })
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { fetchArticles(""); }, []);
+
+  const handleSearch = () => {
+    const q = searchInput.trim();
+    setActiveQuery(q);
+    fetchArticles(q);
+  };
+
+  const handleClear = () => {
+    setSearchInput("");
+    setActiveQuery("");
+    fetchArticles("");
+    inputRef.current?.focus();
+  };
 
   return (
     <div style={{ maxWidth: 700, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
@@ -37,7 +66,7 @@ export default function ArticlesPage() {
         ← 股票報價
       </a>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "24px 0 20px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "24px 0 16px" }}>
         <h1 style={{ fontSize: 28, fontWeight: "bold", margin: 0 }}>文章列表</h1>
         <a
           href="/stock/dmao"
@@ -55,9 +84,67 @@ export default function ArticlesPage() {
         </a>
       </div>
 
+      {/* 搜尋列 */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <input
+          ref={inputRef}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+          placeholder="搜尋文章內容（如：台積電、碳化矽）"
+          style={{
+            flex: 1,
+            padding: "8px 12px",
+            fontSize: 14,
+            border: "1px solid #d1d5db",
+            borderRadius: 6,
+            outline: "none",
+          }}
+        />
+        <button
+          onClick={handleSearch}
+          style={{
+            padding: "8px 18px",
+            fontSize: 14,
+            border: "none",
+            borderRadius: 6,
+            background: "#1a56db",
+            color: "#fff",
+            cursor: "pointer",
+          }}
+        >
+          搜尋
+        </button>
+        {activeQuery && (
+          <button
+            onClick={handleClear}
+            style={{
+              padding: "8px 14px",
+              fontSize: 14,
+              border: "1px solid #d1d5db",
+              borderRadius: 6,
+              background: "#fff",
+              color: "#374151",
+              cursor: "pointer",
+            }}
+          >
+            清除
+          </button>
+        )}
+      </div>
+
+      {/* 搜尋結果摘要 */}
+      {activeQuery && !loading && (
+        <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>
+          {articles.length > 0
+            ? `共 ${articles.length} 篇符合「${activeQuery}」`
+            : `沒有符合「${activeQuery}」的文章`}
+        </div>
+      )}
+
       {loading ? (
         <div style={{ textAlign: "center", padding: 40, color: "#999" }}>載入中...</div>
-      ) : articles.length === 0 ? (
+      ) : articles.length === 0 && !activeQuery ? (
         <div style={{ textAlign: "center", padding: 40, color: "#999" }}>尚無文章</div>
       ) : (
         <div>
@@ -92,13 +179,14 @@ export default function ArticlesPage() {
                 <span>{a.title}</span>
               </div>
               <div style={{ fontSize: 13, color: "#888" }}>
-                {a.article_date && (
-                  <span>{a.article_date}</span>
-                )}
-                {a.source && (
-                  <span style={{ marginLeft: 12 }}>{a.source}</span>
-                )}
+                {a.article_date && <span>{a.article_date}</span>}
+                {a.source && <span style={{ marginLeft: 12 }}>{a.source}</span>}
               </div>
+              {a.snippet && (
+                <div style={{ fontSize: 13, color: "#6b7280", marginTop: 6, lineHeight: 1.5 }}>
+                  {highlightSnippet(a.snippet, activeQuery)}
+                </div>
+              )}
             </a>
           ))}
         </div>
