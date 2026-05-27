@@ -43,6 +43,12 @@ type EpsForecast = {
   dmao_articles: { id: string; title: string; article_date: string } | null;
 };
 
+function getPeColor(pe: number): string {
+  if (pe < 20) return "#16a34a";
+  if (pe <= 40) return "#dc2626";
+  return "#7c3aed";
+}
+
 function highlightKeywords(text: string, keywords: string[]) {
   const filtered = keywords.filter(Boolean);
   if (filtered.length === 0) return text;
@@ -324,14 +330,24 @@ export default function StockPage() {
                       <td style={{ ...tdStyle, textAlign: "right", color: "#9ca3af", fontSize: 13 }}>
                         {epsDate ? new Date(epsDate).toLocaleDateString("zh-TW", { month: "2-digit", day: "2-digit" }) : "-"}
                       </td>
-                      <td style={{ ...tdStyle, textAlign: "right", color: "#b45309", fontWeight: eps26 != null ? "bold" : "normal" }}>
+                      <td style={{ ...tdStyle, textAlign: "right" }}>
                         {eps26 != null ? (
-                          <>{eps26}{pe26 != null && <span style={{ color: "#9ca3af", fontSize: 12, fontWeight: "normal", marginLeft: 3 }}>({pe26}x)</span>}</>
+                          <div style={{ lineHeight: 1.4 }}>
+                            <div style={{ color: "#b45309", fontWeight: "bold" }}>{eps26}</div>
+                            {pe26 != null && (
+                              <div style={{ fontSize: 12, fontWeight: "bold", color: getPeColor(Number(pe26)) }}>{pe26}x</div>
+                            )}
+                          </div>
                         ) : "-"}
                       </td>
-                      <td style={{ ...tdStyle, textAlign: "right", color: "#b45309", fontWeight: eps27 != null ? "bold" : "normal" }}>
+                      <td style={{ ...tdStyle, textAlign: "right" }}>
                         {eps27 != null ? (
-                          <>{eps27}{pe27 != null && <span style={{ color: "#9ca3af", fontSize: 12, fontWeight: "normal", marginLeft: 3 }}>({pe27}x)</span>}</>
+                          <div style={{ lineHeight: 1.4 }}>
+                            <div style={{ color: "#b45309", fontWeight: "bold" }}>{eps27}</div>
+                            {pe27 != null && (
+                              <div style={{ fontSize: 12, fontWeight: "bold", color: getPeColor(Number(pe27)) }}>{pe27}x</div>
+                            )}
+                          </div>
                         ) : "-"}
                       </td>
                       <td style={{ ...tdStyle, textAlign: "center" }}>
