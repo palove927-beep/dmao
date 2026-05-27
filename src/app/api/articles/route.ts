@@ -12,33 +12,30 @@ function extractSnippet(content: string, q: string): string {
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim() || "";
 
-  let query = getSupabase().from("dmao_articles");
-
   if (q) {
-    query = query
+    const { data, error } = await getSupabase()
+      .from("dmao_articles")
       .select("id, title, source, article_date, article_type, created_at, content")
       .or(`title.ilike.%${q}%,content.ilike.%${q}%`)
       .order("article_date", { ascending: false });
-  } else {
-    query = query
-      .select("id, title, source, article_date, article_type, created_at")
-      .order("article_date", { ascending: false });
+
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+
+    const articles = data?.map(({ content, ...rest }) => ({
+      ...rest,
+      snippet: extractSnippet(content ?? "", q),
+    }));
+    return NextResponse.json({ ok: true, articles });
   }
 
-  const { data, error } = await query;
+  const { data, error } = await getSupabase()
+    .from("dmao_articles")
+    .select("id, title, source, article_date, article_type, created_at")
+    .order("article_date", { ascending: false });
 
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  }
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
-  const articles = q
-    ? data?.map(({ content, ...rest }) => ({
-        ...rest,
-        snippet: extractSnippet(content ?? "", q),
-      }))
-    : data;
-
-  return NextResponse.json({ ok: true, articles });
+  return NextResponse.json({ ok: true, articles: data });
 }
 
 export async function POST(req: NextRequest) {
