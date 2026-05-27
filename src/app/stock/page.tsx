@@ -44,6 +44,7 @@ type EpsForecast = {
 };
 
 function getPeStyle(pe: number): { color: string; background: string } {
+  if (pe < 15)  return { color: "#0369a1", background: "#e0f2fe" };  // blue
   if (pe < 20)  return { color: "#15803d", background: "#dcfce7" };  // green
   if (pe < 30)  return { color: "#b45309", background: "#fef3c7" };  // amber
   if (pe <= 40) return { color: "#c2410c", background: "#ffedd5" };  // orange
