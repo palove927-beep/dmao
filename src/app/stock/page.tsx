@@ -325,7 +325,13 @@ export default function StockPage() {
                     >
                       <td style={tdStyle}>{stock.code}</td>
                       <td style={tdStyle}>{hasTwData ? p.name || stock.name : stock.name}</td>
-                      <td style={tdStyle}>{stock.ticker}</td>
+                      <td style={tdStyle}>
+                        {isTwStock(stock.ticker) ? (
+                          <a href={`/stock/${stock.ticker}`} style={{ color: "#1a56db", textDecoration: "none", fontWeight: 500 }}>
+                            {stock.ticker}
+                          </a>
+                        ) : stock.ticker}
+                      </td>
                       <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold" }}>
                         {hasTwData ? formatPrice(p.price) : "-"}
                       </td>
