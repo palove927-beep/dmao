@@ -43,10 +43,10 @@ type EpsForecast = {
   dmao_articles: { id: string; title: string; article_date: string } | null;
 };
 
-function getPeColor(pe: number): string {
-  if (pe < 20) return "#16a34a";
-  if (pe <= 40) return "#dc2626";
-  return "#7c3aed";
+function getPeStyle(pe: number): { color: string; background: string } {
+  if (pe < 20) return { color: "#15803d", background: "#dcfce7" };
+  if (pe <= 40) return { color: "#dc2626", background: "#fee2e2" };
+  return { color: "#7c3aed", background: "#ede9fe" };
 }
 
 function highlightKeywords(text: string, keywords: string[]) {
@@ -190,7 +190,7 @@ export default function StockPage() {
   const isTwStock = (ticker: string) => /^\d+$/.test(ticker);
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
+    <div style={{ maxWidth: 1060, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
       <a href="/" style={{ color: "#1a56db", textDecoration: "none", fontSize: 15 }}>
         ← stock頁面
       </a>
@@ -282,8 +282,10 @@ export default function StockPage() {
             <th style={thStyle}>代號</th>
             <th style={{ ...thStyle, textAlign: "right" }}>現價</th>
             <th style={{ ...thStyle, textAlign: "right" }}>日期</th>
-            <th style={{ ...thStyle, textAlign: "right" }}>2026 EPS</th>
-            <th style={{ ...thStyle, textAlign: "right" }}>2027 EPS</th>
+            <th style={{ ...thStyle, textAlign: "right" }}>EPS 26</th>
+            <th style={{ ...thStyle, textAlign: "right" }}>PE 26</th>
+            <th style={{ ...thStyle, textAlign: "right" }}>EPS 27</th>
+            <th style={{ ...thStyle, textAlign: "right" }}>PE 27</th>
             <th style={{ ...thStyle, textAlign: "center", width: 60 }}>標記</th>
           </tr>
         </thead>
@@ -292,7 +294,7 @@ export default function StockPage() {
             <>
               <tr key={`cat-${cat.id}`} style={{ background: "#f0f4f8" }}>
                 <td
-                  colSpan={8}
+                  colSpan={10}
                   style={{ padding: "10px 14px", fontWeight: "bold", fontSize: 15, color: "#1e3a5f" }}
                 >
                   {cat.label}
@@ -330,25 +332,21 @@ export default function StockPage() {
                       <td style={{ ...tdStyle, textAlign: "right", color: "#9ca3af", fontSize: 13 }}>
                         {epsDate ? new Date(epsDate).toLocaleDateString("zh-TW", { month: "2-digit", day: "2-digit" }) : "-"}
                       </td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>
-                        {eps26 != null ? (
-                          <div style={{ lineHeight: 1.4 }}>
-                            <div style={{ color: "#b45309", fontWeight: "bold" }}>{eps26}</div>
-                            {pe26 != null && (
-                              <div style={{ fontSize: 12, fontWeight: "bold", color: getPeColor(Number(pe26)) }}>{pe26}x</div>
-                            )}
-                          </div>
-                        ) : "-"}
+                      <td style={{ ...tdStyle, textAlign: "right", color: "#b45309", fontWeight: "bold" }}>
+                        {eps26 != null ? eps26 : "-"}
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right" }}>
-                        {eps27 != null ? (
-                          <div style={{ lineHeight: 1.4 }}>
-                            <div style={{ color: "#b45309", fontWeight: "bold" }}>{eps27}</div>
-                            {pe27 != null && (
-                              <div style={{ fontSize: 12, fontWeight: "bold", color: getPeColor(Number(pe27)) }}>{pe27}x</div>
-                            )}
-                          </div>
-                        ) : "-"}
+                        {pe26 != null ? (() => { const s = getPeStyle(Number(pe26)); return (
+                          <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 6, fontSize: 13, fontWeight: "bold", background: s.background, color: s.color }}>{pe26}x</span>
+                        ); })() : "-"}
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: "right", color: "#b45309", fontWeight: "bold" }}>
+                        {eps27 != null ? eps27 : "-"}
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: "right" }}>
+                        {pe27 != null ? (() => { const s = getPeStyle(Number(pe27)); return (
+                          <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 6, fontSize: 13, fontWeight: "bold", background: s.background, color: s.color }}>{pe27}x</span>
+                        ); })() : "-"}
                       </td>
                       <td style={{ ...tdStyle, textAlign: "center" }}>
                         {(() => {
@@ -378,7 +376,7 @@ export default function StockPage() {
                     </tr>
                     {isExpanded && (
                       <tr key={`ann-${stock.ticker}`}>
-                        <td colSpan={7} style={{ padding: 0 }}>
+                        <td colSpan={9} style={{ padding: 0 }}>
                           <div style={{ background: "#f8fafc", borderLeft: "3px solid #1a56db", margin: "0 14px 8px", padding: "12px 16px" }}>
                             {isLoadingThis ? (
                               <div style={{ color: "#999", fontSize: 13 }}>載入中...</div>
