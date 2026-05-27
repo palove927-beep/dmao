@@ -12,16 +12,17 @@ function extractSnippet(content: string, q: string): string {
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim() || "";
 
-  let query = getSupabase()
-    .from("dmao_articles")
-    .order("article_date", { ascending: false });
+  let query = getSupabase().from("dmao_articles");
 
   if (q) {
     query = query
       .select("id, title, source, article_date, article_type, created_at, content")
-      .or(`title.ilike.%${q}%,content.ilike.%${q}%`);
+      .or(`title.ilike.%${q}%,content.ilike.%${q}%`)
+      .order("article_date", { ascending: false });
   } else {
-    query = query.select("id, title, source, article_date, article_type, created_at");
+    query = query
+      .select("id, title, source, article_date, article_type, created_at")
+      .order("article_date", { ascending: false });
   }
 
   const { data, error } = await query;
