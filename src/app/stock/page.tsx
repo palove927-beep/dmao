@@ -44,9 +44,10 @@ type EpsForecast = {
 };
 
 function getPeStyle(pe: number): { color: string; background: string } {
-  if (pe < 20) return { color: "#15803d", background: "#dcfce7" };
-  if (pe <= 40) return { color: "#dc2626", background: "#fee2e2" };
-  return { color: "#7c3aed", background: "#ede9fe" };
+  if (pe < 20)  return { color: "#15803d", background: "#dcfce7" };  // green
+  if (pe < 30)  return { color: "#b45309", background: "#fef3c7" };  // amber
+  if (pe <= 40) return { color: "#c2410c", background: "#ffedd5" };  // orange
+  return { color: "#7c3aed", background: "#ede9fe" };                 // purple
 }
 
 function highlightKeywords(text: string, keywords: string[]) {
