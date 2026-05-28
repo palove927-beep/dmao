@@ -5,6 +5,10 @@ const nameMap = new Map(
   categories.flatMap((c) => c.stocks.map((s) => [s.ticker, s.name]))
 );
 
+const tpexSet = new Set(
+  categories.flatMap((c) => c.stocks.filter((s) => s.market === "tpex").map((s) => s.ticker))
+);
+
 type PriceRow = { date: string; close: number };
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -30,7 +34,10 @@ async function fetchFugle(ticker: string): Promise<PriceRow[]> {
     );
     if (!res.ok) return [];
     const json = await res.json();
-    const candles: Array<{ date: string; close: number }> = json?.candles ?? json?.data?.candles ?? [];
+    // Fugle response: { symbol, candles: [...] } or nested under data
+    const candles: Array<{ date: string; close: number }> =
+      json?.candles ?? json?.data?.candles ?? json?.data ?? [];
+    if (!Array.isArray(candles)) return [];
     return candles
       .filter((c) => c.date && c.close > 0)
       .map((c) => ({ date: c.date.slice(0, 10), close: c.close }))
@@ -78,21 +85,42 @@ async function fetchTwse(ticker: string): Promise<PriceRow[]> {
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ ticker: string }> }
 ) {
   const { ticker } = await params;
+  const isTpex = tpexSet.has(ticker);
 
-  // 1. Fugle API (handles both TWSE and TPEX)
-  const fuglePrices = await fetchFugle(ticker);
-  if (fuglePrices.length > 0) {
-    return NextResponse.json({ ok: true, ticker, name: nameMap.get(ticker) ?? ticker, currency: "TWD", prices: fuglePrices });
+  // ?debug=1 returns raw Fugle JSON for troubleshooting
+  if (req.nextUrl.searchParams.get("debug") === "1") {
+    const apiKey = process.env.FUGLE_API_KEY;
+    if (!apiKey) return NextResponse.json({ error: "no FUGLE_API_KEY" });
+    const to = new Date().toISOString().slice(0, 10);
+    const from = new Date(Date.now() - 366 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+    const url = `https://api.fugle.tw/marketdata/v1.0/stock/historical/candles?symbol=${ticker}&resolution=D&from=${from}&to=${to}&apiToken=${apiKey}`;
+    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+    const json = await res.json();
+    return NextResponse.json({ status: res.status, url: url.replace(apiKey, "***"), body: json });
   }
 
-  // 2. Fallback: TWSE official API (main-board only)
+  if (isTpex) {
+    // TPEX stocks: Fugle only
+    const fuglePrices = await fetchFugle(ticker);
+    if (fuglePrices.length > 0) {
+      return NextResponse.json({ ok: true, ticker, name: nameMap.get(ticker) ?? ticker, currency: "TWD", prices: fuglePrices });
+    }
+    return NextResponse.json({ ok: false, error: "查無資料" }, { status: 404 });
+  }
+
+  // TWSE stocks: try TWSE first (free, reliable), Fugle as fallback
   const twsePrices = await fetchTwse(ticker);
   if (twsePrices.length > 0) {
     return NextResponse.json({ ok: true, ticker, name: nameMap.get(ticker) ?? ticker, currency: "TWD", prices: twsePrices });
+  }
+
+  const fuglePrices = await fetchFugle(ticker);
+  if (fuglePrices.length > 0) {
+    return NextResponse.json({ ok: true, ticker, name: nameMap.get(ticker) ?? ticker, currency: "TWD", prices: fuglePrices });
   }
 
   return NextResponse.json(
