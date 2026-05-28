@@ -25,7 +25,7 @@ async function fetchFugle(ticker: string): Promise<PriceRow[]> {
 
   const to = new Date().toISOString().slice(0, 10);
   const from = new Date(Date.now() - 366 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-  const url = `https://api.fugle.tw/marketdata/v1.0/stock/historical/candles?symbol=${ticker}&resolution=D&from=${from}&to=${to}&apiToken=${apiKey}`;
+  const url = `https://api.fugle.tw/marketdata/v1.0/stock/historical/candles/${ticker}?resolution=D&from=${from}&to=${to}&apiToken=${apiKey}`;
 
   try {
     const res = await withTimeout(
@@ -97,7 +97,7 @@ export async function GET(
     if (!apiKey) return NextResponse.json({ error: "no FUGLE_API_KEY" });
     const to = new Date().toISOString().slice(0, 10);
     const from = new Date(Date.now() - 366 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-    const url = `https://api.fugle.tw/marketdata/v1.0/stock/historical/candles?symbol=${ticker}&resolution=D&from=${from}&to=${to}&apiToken=${apiKey}`;
+    const url = `https://api.fugle.tw/marketdata/v1.0/stock/historical/candles/${ticker}?resolution=D&from=${from}&to=${to}&apiToken=${apiKey}`;
     const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
     const json = await res.json();
     return NextResponse.json({ status: res.status, url: url.replace(apiKey, "***"), body: json });
