@@ -2,10 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { categories } from "@/lib/stock-list";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
 } from "recharts";
+
+const nameMap: Record<string, string> = Object.fromEntries(
+  categories.flatMap((c) => c.stocks.map((s) => [s.ticker, s.name]))
+);
 
 type PricePoint = { date: string; close: number };
 
@@ -66,7 +71,12 @@ export default function StockDetailPage() {
         {loading ? (
           <div style={{ color: "#999" }}>載入中...</div>
         ) : error ? (
-          <div style={{ color: "#dc2626" }}>{error}</div>
+          <div style={{ marginTop: 32 }}>
+            <div style={{ fontSize: 16, color: "#374151", marginBottom: 8 }}>{nameMap[ticker] ?? ticker}</div>
+            <div style={{ fontSize: 14, color: "#9ca3af", padding: "20px 0", borderTop: "1px solid #e5e7eb" }}>
+              {error}
+            </div>
+          </div>
         ) : data && (
           <>
             <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>

@@ -14,7 +14,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
-// --- TWSE monthly API (main-board) ---
+// --- TWSE monthly API (main-board only) ---
 function parseRocRows(rows: string[][]): PriceRow[] {
   return rows.flatMap((row) => {
     const parts = row[0].split("/");
@@ -53,78 +53,21 @@ async function fetchTwse(ticker: string): Promise<PriceRow[]> {
   return chunks.flat().sort((a, b) => a.date.localeCompare(b.date));
 }
 
-// --- TPEX OpenAPI monthly-end sampling ---
-function lastTradingDay(year: number, month: number, cap: Date): string {
-  // Last calendar day of month, capped at today, adjusted back if weekend
-  const d = new Date(Math.min(new Date(year, month + 1, 0).getTime(), cap.getTime()));
-  const dow = d.getDay();
-  if (dow === 0) d.setDate(d.getDate() - 2);
-  else if (dow === 6) d.setDate(d.getDate() - 1);
-  return d.toISOString().slice(0, 10);
-}
-
-async function fetchTpex(ticker: string): Promise<PriceRow[]> {
-  const now = new Date();
-  const dates = Array.from({ length: 12 }, (_, i) => {
-    const m = now.getMonth() - (11 - i); // may be negative; JS Date handles wrap
-    return lastTradingDay(now.getFullYear(), m, now);
-  });
-
-  const results = await Promise.all(dates.map(async (dateStr) => {
-    try {
-      const res = await withTimeout(
-        fetch(`https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes?date=${dateStr}`, {
-          headers: { "User-Agent": "Mozilla/5.0" },
-          next: { revalidate: 3600 },
-        }),
-        6000
-      );
-      if (!res.ok) return null;
-      const json: Array<Record<string, string>> = await res.json();
-      const row = json.find((r) => r.SecuritiesCompanyCode === ticker);
-      if (!row) return null;
-      const close = parseFloat(row.Close.replace(/,/g, ""));
-      if (!isNaN(close) && close > 0) return { date: dateStr, close };
-    } catch { return null; }
-    return null;
-  }));
-
-  return results.filter((r): r is PriceRow => r !== null);
-}
-
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ ticker: string }> }
 ) {
   const { ticker } = await params;
 
-  // Debug: test TPEX stk_day_all_result endpoint with a historical date
-  if (req.nextUrl.searchParams.get("debug") === "1") {
-    // Test with last day of a month ~6 months ago (ROC format)
-    const d = new Date(); d.setMonth(d.getMonth() - 6);
-    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-    const roc = `${lastDay.getFullYear() - 1911}/${String(lastDay.getMonth() + 1).padStart(2, "0")}/${String(lastDay.getDate()).padStart(2, "0")}`;
-    const url = `https://www.tpex.org.tw/web/stock/aftertrading/otc_quotes_date/stk_day_all_result.php?l=zh-tw&d=${encodeURIComponent(roc)}&s=0,asc,0`;
-    try {
-      const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-      const text = await res.text();
-      let parsed: unknown;
-      try { parsed = JSON.parse(text); } catch { parsed = text.slice(0, 400); }
-      return NextResponse.json({ url, status: res.status, roc, parsed });
-    } catch (e) { return NextResponse.json({ url, error: String(e) }); }
+  // TWSE main-board: full daily data for past 12 months
+  const prices = await fetchTwse(ticker);
+  if (prices.length > 0) {
+    return NextResponse.json({ ok: true, ticker, name: nameMap.get(ticker) ?? ticker, currency: "TWD", prices });
   }
 
-  // 1. Try TWSE (main-board daily data)
-  const twsePrices = await fetchTwse(ticker);
-  if (twsePrices.length > 0) {
-    return NextResponse.json({ ok: true, ticker, name: nameMap.get(ticker) ?? ticker, currency: "TWD", prices: twsePrices });
-  }
-
-  // 2. Fallback: TPEX OpenAPI monthly sampling
-  const tpexPrices = await fetchTpex(ticker);
-  if (tpexPrices.length > 0) {
-    return NextResponse.json({ ok: true, ticker, name: nameMap.get(ticker) ?? ticker, currency: "TWD", prices: tpexPrices });
-  }
-
-  return NextResponse.json({ ok: false, error: "查無資料" }, { status: 404 });
+  // TPEX and others: no reliable free historical data source available
+  return NextResponse.json(
+    { ok: false, error: "上櫃股暫不支援歷史走勢圖（TPEX 歷史 API 已停用）" },
+    { status: 404 }
+  );
 }
