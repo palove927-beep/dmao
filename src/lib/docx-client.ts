@@ -1,51 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+// Client-side DOCX → markdown converter.
+// Replaces /api/docx so large files (>4.5MB Vercel body limit) can be imported.
+// Images become blob URLs registered with the caller; deferred S3 upload is preserved.
+
 import mammoth from "mammoth";
-import { inflateRawSync } from "zlib";
-
-export const maxDuration = 30;
-
-// Extract word/document.xml from the docx ZIP using the Central Directory.
-// The Central Directory always has the correct compSize, even when local
-// file headers use the data-descriptor flag (bit 3, compSize=0).
-function extractDocumentXml(buffer: Buffer): string | null {
-  try {
-    let eocd = -1;
-    for (let i = buffer.length - 22; i >= 0; i--) {
-      if (
-        buffer[i] === 0x50 && buffer[i + 1] === 0x4b &&
-        buffer[i + 2] === 0x05 && buffer[i + 3] === 0x06
-      ) { eocd = i; break; }
-    }
-    if (eocd === -1) return null;
-
-    const cdOffset = buffer.readUInt32LE(eocd + 16);
-    const cdSize   = buffer.readUInt32LE(eocd + 12);
-    let pos = cdOffset;
-
-    while (pos < cdOffset + cdSize && pos + 46 <= buffer.length) {
-      if (buffer.readUInt32LE(pos) !== 0x02014b50) break;
-      const method      = buffer.readUInt16LE(pos + 10);
-      const compSize    = buffer.readUInt32LE(pos + 20);
-      const fnLen       = buffer.readUInt16LE(pos + 28);
-      const extraLen    = buffer.readUInt16LE(pos + 30);
-      const commentLen  = buffer.readUInt16LE(pos + 32);
-      const localOffset = buffer.readUInt32LE(pos + 42);
-      const fn = buffer.subarray(pos + 46, pos + 46 + fnLen).toString("utf8");
-
-      if (fn === "word/document.xml") {
-        const localFnLen    = buffer.readUInt16LE(localOffset + 26);
-        const localExtraLen = buffer.readUInt16LE(localOffset + 28);
-        const dataStart = localOffset + 30 + localFnLen + localExtraLen;
-        const data = buffer.subarray(dataStart, dataStart + compSize);
-        if (method === 0) return data.toString("utf8");
-        if (method === 8) return inflateRawSync(data).toString("utf8");
-        return null;
-      }
-      pos += 46 + fnLen + extraLen + commentLen;
-    }
-  } catch { /* ignore */ }
-  return null;
-}
+import JSZip from "jszip";
 
 function isColoredFill(rPrXml: string): boolean {
   const m = rPrXml.match(/<w:shd\b[^>]*\/>/);
@@ -121,9 +79,9 @@ function htmlToMarkdown(html: string): string {
 function applyHighlights(content: string, shaded: Set<string>): string {
   if (shaded.size === 0) return content;
   const norm = (s: string) => s.replace(/\s+/g, " ").trim();
-  const shadedNorms = Array.from(shaded).map(norm).filter(s => s.length > 10);
+  const shadedNorms = Array.from(shaded).map(norm).filter((s) => s.length > 10);
   if (shadedNorms.length === 0) return content;
-  return content.split("\n").map(line => {
+  return content.split("\n").map((line) => {
     let result = line;
     for (const s of shadedNorms) {
       const literalIdx = result.indexOf(s);
@@ -135,32 +93,42 @@ function applyHighlights(content: string, shaded: Set<string>): string {
   }).join("\n");
 }
 
-export async function POST(req: NextRequest) {
+export type DocxImportResult = { title: string; content: string };
+
+export async function importDocxClient(
+  file: File,
+  registerImage: (file: File) => string
+): Promise<DocxImportResult> {
+  const arrayBuffer = await file.arrayBuffer();
+
+  // Detect run-level character shading (w:shd in w:rPr) which mammoth ignores
+  let shaded = new Set<string>();
   try {
-    const formData = await req.formData();
-    const file = formData.get("file") as File | null;
-    if (!file) return NextResponse.json({ ok: false, error: "缺少檔案" }, { status: 400 });
-    if (!file.name.endsWith(".docx")) return NextResponse.json({ ok: false, error: "僅支援 .docx 格式" }, { status: 400 });
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    const xml = await zip.file("word/document.xml")?.async("string");
+    if (xml) shaded = getShadedRunTexts(xml);
+  } catch { /* fall through */ }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
+  let imgIndex = 0;
+  const result = await mammoth.convertToHtml(
+    { arrayBuffer },
+    {
+      convertImage: mammoth.images.imgElement(async (image) => {
+        const base64 = await image.read("base64");
+        const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+        const contentType = image.contentType || "image/png";
+        const ext = contentType.split("/")[1] || "png";
+        const blob = new Blob([bytes], { type: contentType });
+        const imgFile = new File([blob], `docx-image-${imgIndex++}.${ext}`, { type: contentType });
+        const src = registerImage(imgFile);
+        return { src };
+      }),
+    }
+  );
 
-    // Detect run-level character shading (w:shd in w:rPr) which mammoth ignores
-    let shadedTexts = new Set<string>();
-    try {
-      const xml = extractDocumentXml(buffer);
-      if (xml) shadedTexts = getShadedRunTexts(xml);
-    } catch { /* fall through */ }
+  let content = htmlToMarkdown(result.value);
+  content = applyHighlights(content, shaded);
 
-    const htmlResult = await mammoth.convertToHtml({ buffer });
-    let content = htmlToMarkdown(htmlResult.value);
-    content = applyHighlights(content, shadedTexts);
-
-    const title = file.name.replace(/\.docx$/i, "");
-    return NextResponse.json({ ok: true, title, content });
-  } catch (err) {
-    return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : "未知錯誤" },
-      { status: 500 }
-    );
-  }
+  const title = file.name.replace(/\.docx$/i, "");
+  return { title, content };
 }

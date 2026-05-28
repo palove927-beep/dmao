@@ -1,15 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 
-export async function GET() {
+function extractSnippet(content: string, q: string): string {
+  const idx = content.toLowerCase().indexOf(q.toLowerCase());
+  if (idx === -1) return content.slice(0, 160) + (content.length > 160 ? "…" : "");
+  const start = Math.max(0, idx - 80);
+  const end = Math.min(content.length, idx + q.length + 80);
+  return (start > 0 ? "…" : "") + content.slice(start, end) + (end < content.length ? "…" : "");
+}
+
+export async function GET(req: NextRequest) {
+  const q = req.nextUrl.searchParams.get("q")?.trim() || "";
+
+  if (q) {
+    const { data, error } = await getSupabase()
+      .from("dmao_articles")
+      .select("id, title, source, article_date, article_type, created_at, content")
+      .or(`title.ilike.%${q}%,content.ilike.%${q}%`)
+      .order("article_date", { ascending: false });
+
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+
+    const articles = data?.map(({ content, ...rest }) => ({
+      ...rest,
+      snippet: extractSnippet(content ?? "", q),
+    }));
+    return NextResponse.json({ ok: true, articles });
+  }
+
   const { data, error } = await getSupabase()
     .from("dmao_articles")
     .select("id, title, source, article_date, article_type, created_at")
     .order("article_date", { ascending: false });
 
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  }
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
   return NextResponse.json({ ok: true, articles: data });
 }

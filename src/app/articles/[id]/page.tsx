@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { scanStocks } from "@/lib/stock-scan";
+import { scanStocks } from "@/lib/stock-lookup";
 
 type Article = {
   id: string;

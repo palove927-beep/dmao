@@ -22,11 +22,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  // latest=1: keep only the most recent forecast per ticker
+  // latest=1: keep only the forecast from the most recent article (by article_date) per ticker
   const latest = req.nextUrl.searchParams.get("latest");
   if (latest === "1" && data) {
+    const sorted = [...data].sort((a, b) => {
+      const dateA = a.dmao_articles?.article_date ?? a.created_at ?? "";
+      const dateB = b.dmao_articles?.article_date ?? b.created_at ?? "";
+      return dateB.localeCompare(dateA);
+    });
     const seen = new Set<string>();
-    const filtered = data.filter((f: { ticker: string }) => {
+    const filtered = sorted.filter((f: { ticker: string }) => {
       if (seen.has(f.ticker)) return false;
       seen.add(f.ticker);
       return true;
@@ -34,5 +39,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, forecasts: filtered });
   }
 
-  return NextResponse.json({ ok: true, forecasts: data });
+  const sorted = [...(data || [])].sort((a, b) => {
+    const dateA = a.dmao_articles?.article_date ?? a.created_at ?? "";
+    const dateB = b.dmao_articles?.article_date ?? b.created_at ?? "";
+    if (dateA !== dateB) return dateB.localeCompare(dateA);
+    return a.forecast_year - b.forecast_year;
+  });
+  return NextResponse.json({ ok: true, forecasts: sorted });
 }
