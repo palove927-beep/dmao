@@ -5,23 +5,6 @@ import { categories } from "@/lib/stock-list";
 import type { StockPrice } from "@/app/api/stock/route";
 
 type PriceMap = Record<string, StockPrice>;
-type TimeRange = "all" | "1w" | "1m" | "3m";
-
-const TIME_RANGE_LABELS: Record<TimeRange, string> = {
-  all: "全部",
-  "1w": "一周",
-  "1m": "一個月",
-  "3m": "三個月",
-};
-
-function getSince(range: TimeRange): string | null {
-  if (range === "all") return null;
-  const d = new Date();
-  if (range === "1w") d.setDate(d.getDate() - 7);
-  else if (range === "1m") d.setMonth(d.getMonth() - 1);
-  else if (range === "3m") d.setMonth(d.getMonth() - 3);
-  return d.toISOString().slice(0, 10);
-}
 
 type Annotation = {
   id: string;
@@ -30,8 +13,7 @@ type Annotation = {
   paragraph: string;
   is_summary: boolean;
   article_id: string;
-  aliases: string[];
-  dmao_articles: { id: string; title: string; article_date: string } | null;
+  dmao_articles: { id: string; title: string; created_at: string } | null;
 };
 
 type EpsForecast = {
@@ -42,14 +24,6 @@ type EpsForecast = {
   eps: number;
   dmao_articles: { id: string; title: string; article_date: string } | null;
 };
-
-function getPeStyle(pe: number): { color: string; background: string } {
-  if (pe < 15)  return { color: "#0369a1", background: "#e0f2fe" };  // blue
-  if (pe < 20)  return { color: "#15803d", background: "#dcfce7" };  // green
-  if (pe < 30)  return { color: "#b45309", background: "#fef3c7" };  // amber
-  if (pe <= 40) return { color: "#c2410c", background: "#ffedd5" };  // orange
-  return { color: "#7c3aed", background: "#ede9fe" };                 // purple
-}
 
 function highlightKeywords(text: string, keywords: string[]) {
   const filtered = keywords.filter(Boolean);
@@ -77,17 +51,12 @@ export default function StockPage() {
   const [epsForecasts, setEpsForecasts] = useState<Record<string, EpsForecast[]>>({});
   const [annotationCounts, setAnnotationCounts] = useState<Record<string, number>>({});
   const [latestEps, setLatestEps] = useState<Record<string, number>>({});
-  const [latestEpsDate, setLatestEpsDate] = useState<Record<string, string>>({});
-  const [latestEps2027, setLatestEps2027] = useState<Record<string, number>>({});
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
   const [loadingAnnotations, setLoadingAnnotations] = useState<string | null>(null);
-  const [timeRange, setTimeRange] = useState<TimeRange>("all");
 
   const fetchAnnotationCounts = useCallback(async () => {
     try {
-      const since = getSince(timeRange);
-      const params = since ? `mode=counts&since=${since}` : `mode=counts`;
-      const res = await fetch(`/api/annotations?${params}`);
+      const res = await fetch("/api/annotations?mode=counts");
       const json = await res.json();
       if (json.ok) {
         setAnnotationCounts(json.counts);
@@ -95,29 +64,18 @@ export default function StockPage() {
     } catch {
       // ignore
     }
-  }, [timeRange]);
+  }, []);
 
   const fetchLatestEps = useCallback(async () => {
     try {
-      const [res26, res27] = await Promise.all([
-        fetch("/api/eps-forecasts?forecast_year=2026&latest=1"),
-        fetch("/api/eps-forecasts?forecast_year=2027&latest=1"),
-      ]);
-      const [json26, json27] = await Promise.all([res26.json(), res27.json()]);
-      if (json26.ok) {
-        const epsMap: Record<string, number> = {};
-        const dateMap: Record<string, string> = {};
-        for (const f of json26.forecasts) {
-          epsMap[f.ticker] = f.eps;
-          if (f.dmao_articles?.article_date) dateMap[f.ticker] = f.dmao_articles.article_date;
-        }
-        setLatestEps(epsMap);
-        setLatestEpsDate(dateMap);
-      }
-      if (json27.ok) {
+      const res = await fetch("/api/eps-forecasts?forecast_year=2026&latest=1");
+      const json = await res.json();
+      if (json.ok) {
         const map: Record<string, number> = {};
-        for (const f of json27.forecasts) map[f.ticker] = f.eps;
-        setLatestEps2027(map);
+        for (const f of json.forecasts) {
+          map[f.ticker] = f.eps;
+        }
+        setLatestEps(map);
       }
     } catch {
       // ignore
@@ -141,17 +99,11 @@ export default function StockPage() {
 
   useEffect(() => {
     fetchPrices();
+    fetchAnnotationCounts();
     fetchLatestEps();
     const interval = setInterval(fetchPrices, 30000);
     return () => clearInterval(interval);
-  }, [fetchPrices, fetchLatestEps]);
-
-  // Re-fetch counts and clear cache when time range changes (also fires on mount)
-  useEffect(() => {
-    setAnnotations({});
-    setExpandedTicker(null);
-    fetchAnnotationCounts();
-  }, [fetchAnnotationCounts]);
+  }, [fetchPrices, fetchAnnotationCounts, fetchLatestEps]);
 
   const fetchAnnotations = async (ticker: string) => {
     if (expandedTicker === ticker) {
@@ -163,12 +115,8 @@ export default function StockPage() {
 
     setLoadingAnnotations(ticker);
     try {
-      const since = getSince(timeRange);
-      const annUrl = since
-        ? `/api/annotations?ticker=${ticker}&since=${since}`
-        : `/api/annotations?ticker=${ticker}`;
       const [annRes, epsRes] = await Promise.all([
-        fetch(annUrl).then((r) => r.json()),
+        fetch(`/api/annotations?ticker=${ticker}`).then((r) => r.json()),
         fetch(`/api/eps-forecasts?ticker=${ticker}`).then((r) => r.json()),
       ]);
       if (annRes.ok) {
@@ -192,7 +140,7 @@ export default function StockPage() {
   const isTwStock = (ticker: string) => /^\d+$/.test(ticker);
 
   return (
-    <div style={{ maxWidth: 940, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
       <a href="/" style={{ color: "#1a56db", textDecoration: "none", fontSize: 15 }}>
         ← stock頁面
       </a>
@@ -255,37 +203,15 @@ export default function StockPage() {
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
-        <span style={{ fontSize: 13, color: "#666" }}>標記區間：</span>
-        {(["all", "1w", "1m", "3m"] as TimeRange[]).map((r) => (
-          <button
-            key={r}
-            onClick={() => setTimeRange(r)}
-            style={{
-              padding: "4px 14px",
-              fontSize: 13,
-              border: `1px solid ${timeRange === r ? "#1a56db" : "#d1d5db"}`,
-              borderRadius: 20,
-              background: timeRange === r ? "#1a56db" : "#fff",
-              color: timeRange === r ? "#fff" : "#374151",
-              cursor: "pointer",
-            }}
-          >
-            {TIME_RANGE_LABELS[r]}
-          </button>
-        ))}
-      </div>
-
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15 }}>
         <thead>
           <tr style={{ background: "#1e3a5f", color: "#fff" }}>
             <th style={thStyle}>編號</th>
+            <th style={thStyle}>類別</th>
             <th style={thStyle}>股票</th>
             <th style={thStyle}>代號</th>
             <th style={{ ...thStyle, textAlign: "right" }}>現價</th>
-            <th style={{ ...thStyle, textAlign: "right" }}>日期</th>
-            <th style={{ ...thStyle, textAlign: "right", width: 140 }}>2026 EPS</th>
-            <th style={{ ...thStyle, textAlign: "right", width: 140 }}>2027 EPS</th>
+            <th style={{ ...thStyle, textAlign: "right" }}>2026 EPS</th>
             <th style={{ ...thStyle, textAlign: "center", width: 60 }}>標記</th>
           </tr>
         </thead>
@@ -294,7 +220,7 @@ export default function StockPage() {
             <>
               <tr key={`cat-${cat.id}`} style={{ background: "#f0f4f8" }}>
                 <td
-                  colSpan={8}
+                  colSpan={7}
                   style={{ padding: "10px 14px", fontWeight: "bold", fontSize: 15, color: "#1e3a5f" }}
                 >
                   {cat.label}
@@ -303,16 +229,10 @@ export default function StockPage() {
               {cat.stocks.map((stock, i) => {
                 const p = prices[stock.ticker];
                 const hasTwData = isTwStock(stock.ticker) && p;
-                const price = hasTwData ? p.price : null;
                 const isExpanded = expandedTicker === stock.ticker;
                 const stockAnnotations = annotations[stock.ticker] || [];
                 const stockEps = epsForecasts[stock.ticker] || [];
                 const isLoadingThis = loadingAnnotations === stock.ticker;
-                const eps26 = latestEps[stock.ticker];
-                const eps27 = latestEps2027[stock.ticker];
-                const epsDate = latestEpsDate[stock.ticker];
-                const pe26 = price && eps26 > 0 ? (price / eps26).toFixed(1) : null;
-                const pe27 = price && eps27 > 0 ? (price / eps27).toFixed(1) : null;
 
                 return (
                   <>
@@ -324,6 +244,7 @@ export default function StockPage() {
                       }}
                     >
                       <td style={tdStyle}>{stock.code}</td>
+                      <td style={tdStyle}>{cat.label}</td>
                       <td style={tdStyle}>{hasTwData ? p.name || stock.name : stock.name}</td>
                       <td style={tdStyle}>
                         {isTwStock(stock.ticker) ? (
@@ -332,31 +253,15 @@ export default function StockPage() {
                           </a>
                         ) : stock.ticker}
                       </td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold" }}>
+                      <td style={{
+                        ...tdStyle,
+                        textAlign: "right",
+                        fontWeight: "bold",
+                      }}>
                         {hasTwData ? formatPrice(p.price) : "-"}
                       </td>
-                      <td style={{ ...tdStyle, textAlign: "right", color: "#9ca3af", fontSize: 13 }}>
-                        {epsDate ? new Date(epsDate).toLocaleDateString("zh-TW", { month: "2-digit", day: "2-digit" }) : "-"}
-                      </td>
-                      <td style={{ ...tdStyle, width: 140 }}>
-                        {eps26 != null ? (
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
-                            <span style={{ color: "#b45309", fontWeight: "bold" }}>{eps26}</span>
-                            {pe26 != null && (() => { const s = getPeStyle(Number(pe26)); return (
-                              <span style={{ padding: "1px 7px", borderRadius: 5, fontSize: 12, fontWeight: "bold", background: s.background, color: s.color, whiteSpace: "nowrap" }}>{pe26}x</span>
-                            ); })()}
-                          </div>
-                        ) : <span style={{ float: "right" }}>-</span>}
-                      </td>
-                      <td style={{ ...tdStyle, width: 140 }}>
-                        {eps27 != null ? (
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
-                            <span style={{ color: "#b45309", fontWeight: "bold" }}>{eps27}</span>
-                            {pe27 != null && (() => { const s = getPeStyle(Number(pe27)); return (
-                              <span style={{ padding: "1px 7px", borderRadius: 5, fontSize: 12, fontWeight: "bold", background: s.background, color: s.color, whiteSpace: "nowrap" }}>{pe27}x</span>
-                            ); })()}
-                          </div>
-                        ) : <span style={{ float: "right" }}>-</span>}
+                      <td style={{ ...tdStyle, textAlign: "right", color: "#b45309", fontWeight: latestEps[stock.ticker] ? "bold" : "normal" }}>
+                        {latestEps[stock.ticker] != null ? latestEps[stock.ticker] : "-"}
                       </td>
                       <td style={{ ...tdStyle, textAlign: "center" }}>
                         {(() => {
@@ -414,9 +319,9 @@ export default function StockPage() {
                                 <div key={ann.id} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid #e5e7eb" }}>
                                   <div style={{ fontSize: 13, color: "#666", marginBottom: 4 }}>
                                     <strong>{ann.dmao_articles?.title || "無標題"}</strong>
-                                    {ann.dmao_articles?.article_date && (
+                                    {ann.dmao_articles?.created_at && (
                                       <span style={{ marginLeft: 8 }}>
-                                        {new Date(ann.dmao_articles.article_date).toLocaleDateString("zh-TW")}
+                                        {new Date(ann.dmao_articles.created_at).toLocaleDateString("zh-TW")}
                                       </span>
                                     )}
                                     <a
@@ -430,7 +335,7 @@ export default function StockPage() {
                                     {ann.is_summary && (
                                       <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "#fef3c7", color: "#92400e", marginRight: 6 }}>AI 摘要</span>
                                     )}
-                                    {highlightKeywords(ann.paragraph, [ann.stock_name, ann.ticker, ...(ann.aliases ?? [])])}
+                                    {highlightKeywords(ann.paragraph, [ann.stock_name, ann.ticker])}
                                   </div>
                                 </div>
                               ))}
