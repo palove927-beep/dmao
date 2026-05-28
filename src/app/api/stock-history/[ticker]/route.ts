@@ -64,27 +64,36 @@ async function fetchTwse(ticker: string): Promise<PriceRow[]> {
   return chunks.flat().sort((a, b) => a.date.localeCompare(b.date));
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([promise, new Promise<T>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))]);
+}
+
 // --- TPEX OpenAPI monthly-end sampling (12 points) ---
 async function fetchTpex(ticker: string): Promise<PriceRow[]> {
-  const results: PriceRow[] = [];
   const now = new Date();
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i + 1, 0); // last day of month
-    const dateStr = d.toISOString().slice(0, 10);
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (10 - i) + 1, 0);
+    return d.toISOString().slice(0, 10);
+  });
+
+  const results = await Promise.all(months.map(async (dateStr) => {
     try {
-      const res = await fetch(
-        `https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes?date=${dateStr}`,
-        { headers: { "User-Agent": "Mozilla/5.0" }, next: { revalidate: 3600 } }
+      const res = await withTimeout(
+        fetch(`https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes?date=${dateStr}`,
+          { headers: { "User-Agent": "Mozilla/5.0" }, next: { revalidate: 3600 } }),
+        5000
       );
-      if (!res.ok) continue;
+      if (!res.ok) return null;
       const json: Array<Record<string, string>> = await res.json();
       const row = json.find((r) => r.SecuritiesCompanyCode === ticker || r.StockNo === ticker);
-      if (!row) continue;
-      const close = parseFloat((row.Close ?? row.ClosingPrice ?? "").replace(/,/g, ""));
-      if (!isNaN(close) && close > 0) results.push({ date: dateStr, close });
-    } catch { continue; }
-  }
-  return results;
+      if (!row) return null;
+      const close = parseFloat((row.Close ?? row.ClosingPrice ?? row["收盤價"] ?? "").replace(/,/g, ""));
+      if (!isNaN(close) && close > 0) return { date: dateStr, close };
+    } catch { return null; }
+    return null;
+  }));
+
+  return results.filter((r): r is PriceRow => r !== null);
 }
 
 export async function GET(
@@ -93,18 +102,27 @@ export async function GET(
 ) {
   const { ticker } = await params;
 
-  // Debug: show raw response from all sources
+  // Debug: show raw TPEX OpenAPI and TWSE responses
   if (req.nextUrl.searchParams.get("debug") === "1") {
-    const period2 = Math.floor(Date.now() / 1000);
-    const period1 = period2 - 366 * 24 * 3600;
-    const [twRes, twoRes] = await Promise.all([
-      fetch(`https://query1.finance.yahoo.com/v7/finance/download/${ticker}.TW?period1=${period1}&period2=${period2}&interval=1d&events=history`, { headers: { "User-Agent": "Mozilla/5.0" } }),
-      fetch(`https://query1.finance.yahoo.com/v7/finance/download/${ticker}.TWO?period1=${period1}&period2=${period2}&interval=1d&events=history`, { headers: { "User-Agent": "Mozilla/5.0" } }),
+    const today = new Date().toISOString().slice(0, 10);
+    const [tpexRes, twseRes] = await Promise.all([
+      fetch(`https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes?date=${today}`, { headers: { "User-Agent": "Mozilla/5.0" } }),
+      fetch(`https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=${today.replace(/-/g, "")}&stockNo=${ticker}`, { headers: { "User-Agent": "Mozilla/5.0" } }),
     ]);
-    const [twText, twoText] = await Promise.all([twRes.text(), twoRes.text()]);
+    const [tpexText, twseText] = await Promise.all([tpexRes.text(), twseRes.text()]);
+    // Show first record of TPEX (to reveal field names) + first 3 chars of ticker match
+    let tpexSample: unknown = null;
+    try {
+      const arr = JSON.parse(tpexText);
+      tpexSample = {
+        firstRecord: arr[0],
+        matchedRecord: arr.find((r: Record<string, string>) => Object.values(r).includes(ticker)),
+        totalRecords: arr.length,
+      };
+    } catch { tpexSample = tpexText.slice(0, 300); }
     return NextResponse.json({
-      tw: { status: twRes.status, preview: twText.slice(0, 200) },
-      two: { status: twoRes.status, preview: twoText.slice(0, 200) },
+      tpex: { status: tpexRes.status, data: tpexSample },
+      twse: { status: twseRes.status, preview: twseText.slice(0, 300) },
     });
   }
 
