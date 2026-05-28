@@ -72,6 +72,21 @@ export async function GET(
 ) {
   const { ticker } = await params;
 
+  if (req.nextUrl.searchParams.get("debug") === "1") {
+    const today = new Date();
+    const d2 = today.toISOString().slice(0, 10).replace(/-/g, "");
+    const past = new Date(today); past.setFullYear(today.getFullYear() - 1);
+    const d1 = past.toISOString().slice(0, 10).replace(/-/g, "");
+    const url = `https://stooq.com/q/d/l/?s=${ticker}.tw&i=d&d1=${d1}&d2=${d2}`;
+    try {
+      const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+      const text = await res.text();
+      return NextResponse.json({ url, status: res.status, preview: text.slice(0, 400) });
+    } catch (e) {
+      return NextResponse.json({ url, error: String(e) });
+    }
+  }
+
   try {
     // Primary: Stooq (handles both TWSE and TPEX with .tw suffix)
     const prices = await fetchStooq(ticker);
