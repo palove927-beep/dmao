@@ -1,5 +1,4 @@
 import { categories } from "./stock-list";
-import { stockLookup } from "./stock-lookup";
 
 export type ScanStock = {
   ticker: string;
@@ -106,15 +105,6 @@ export function lookupStock(query: string): { ticker: string; stock_name: string
     if (s.ticker.toLowerCase() === ql) return { ticker: s.ticker, stock_name: s.name };
     if (s.name.toLowerCase() === ql) return { ticker: s.ticker, stock_name: s.name };
     if (s.aliases?.some((a) => a.toLowerCase() === ql)) return { ticker: s.ticker, stock_name: s.name };
-  }
-  // 2. Check broad lookup table by ticker
-  const tickerMatch = Object.keys(stockLookup).find((t) => t.toLowerCase() === ql);
-  if (tickerMatch) return { ticker: tickerMatch, stock_name: stockLookup[tickerMatch] };
-  // 3. Check broad lookup table by name — also handles compound names like "三井金屬(Mitsui Kinzoku)"
-  for (const [ticker, name] of Object.entries(stockLookup)) {
-    if (name.toLowerCase() === ql) return { ticker, stock_name: name };
-    const parts = name.split(/[\s()]+/).filter(Boolean);
-    if (parts.some((p) => p.toLowerCase() === ql)) return { ticker, stock_name: name };
   }
   return null;
 }
