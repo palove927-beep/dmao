@@ -14,7 +14,31 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
-// --- TWSE monthly API (main-board only) ---
+// --- Fugle MarketData API (TWSE + TPEX) ---
+async function fetchFugle(ticker: string): Promise<PriceRow[]> {
+  const apiKey = process.env.FUGLE_API_KEY;
+  if (!apiKey) return [];
+
+  const to = new Date().toISOString().slice(0, 10);
+  const from = new Date(Date.now() - 366 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const url = `https://api.fugle.tw/marketdata/v1.0/stock/historical/candles?symbol=${ticker}&resolution=D&from=${from}&to=${to}&apiToken=${apiKey}`;
+
+  try {
+    const res = await withTimeout(
+      fetch(url, { headers: { "User-Agent": "Mozilla/5.0" }, next: { revalidate: 3600 } }),
+      8000
+    );
+    if (!res.ok) return [];
+    const json = await res.json();
+    const candles: Array<{ date: string; close: number }> = json?.candles ?? json?.data?.candles ?? [];
+    return candles
+      .filter((c) => c.date && c.close > 0)
+      .map((c) => ({ date: c.date.slice(0, 10), close: c.close }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  } catch { return []; }
+}
+
+// --- TWSE monthly API (fallback for main-board) ---
 function parseRocRows(rows: string[][]): PriceRow[] {
   return rows.flatMap((row) => {
     const parts = row[0].split("/");
@@ -59,15 +83,20 @@ export async function GET(
 ) {
   const { ticker } = await params;
 
-  // TWSE main-board: full daily data for past 12 months
-  const prices = await fetchTwse(ticker);
-  if (prices.length > 0) {
-    return NextResponse.json({ ok: true, ticker, name: nameMap.get(ticker) ?? ticker, currency: "TWD", prices });
+  // 1. Fugle API (handles both TWSE and TPEX)
+  const fuglePrices = await fetchFugle(ticker);
+  if (fuglePrices.length > 0) {
+    return NextResponse.json({ ok: true, ticker, name: nameMap.get(ticker) ?? ticker, currency: "TWD", prices: fuglePrices });
   }
 
-  // TPEX and others: no reliable free historical data source available
+  // 2. Fallback: TWSE official API (main-board only)
+  const twsePrices = await fetchTwse(ticker);
+  if (twsePrices.length > 0) {
+    return NextResponse.json({ ok: true, ticker, name: nameMap.get(ticker) ?? ticker, currency: "TWD", prices: twsePrices });
+  }
+
   return NextResponse.json(
-    { ok: false, error: "上櫃股暫不支援歷史走勢圖（TPEX 歷史 API 已停用）" },
+    { ok: false, error: "查無資料" },
     { status: 404 }
   );
 }
