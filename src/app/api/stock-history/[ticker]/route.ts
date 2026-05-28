@@ -93,10 +93,26 @@ async function fetchTpex(ticker: string): Promise<PriceRow[]> {
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ ticker: string }> }
 ) {
   const { ticker } = await params;
+
+  // Debug: test TPEX stk_day_all_result endpoint with a historical date
+  if (req.nextUrl.searchParams.get("debug") === "1") {
+    // Test with last day of a month ~6 months ago (ROC format)
+    const d = new Date(); d.setMonth(d.getMonth() - 6);
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    const roc = `${lastDay.getFullYear() - 1911}/${String(lastDay.getMonth() + 1).padStart(2, "0")}/${String(lastDay.getDate()).padStart(2, "0")}`;
+    const url = `https://www.tpex.org.tw/web/stock/aftertrading/otc_quotes_date/stk_day_all_result.php?l=zh-tw&d=${encodeURIComponent(roc)}&s=0,asc,0`;
+    try {
+      const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+      const text = await res.text();
+      let parsed: unknown;
+      try { parsed = JSON.parse(text); } catch { parsed = text.slice(0, 400); }
+      return NextResponse.json({ url, status: res.status, roc, parsed });
+    } catch (e) { return NextResponse.json({ url, error: String(e) }); }
+  }
 
   // 1. Try TWSE (main-board daily data)
   const twsePrices = await fetchTwse(ticker);
