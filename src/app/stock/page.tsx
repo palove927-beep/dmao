@@ -179,7 +179,7 @@ export default function StockPage() {
     if (pe === null) return "#ccc";
     if (pe < 15) return "#16a34a";
     if (pe < 20) return "#65a30d";
-    if (pe < 25) return "#ca8a04";
+    if (pe < 25) return "#eab308";
     if (pe < 35) return "#ea580c";
     return "#dc2626";
   };
