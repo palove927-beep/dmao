@@ -170,15 +170,10 @@ ${trimmedList}`,
     // Validate: only keep stocks whose name/ticker/alias actually appears in the paragraph text
     const stockAppearsInText = (
       text: string,
-      normalized: { ticker: string; stock_name: string },
-      original: { ticker: string; stock_name: string },
+      stock: { ticker: string; stock_name: string },
     ) => {
-      // Check normalized name/ticker
-      if (text.includes(normalized.stock_name) || text.includes(normalized.ticker)) return true;
-      // Check original AI-returned name/ticker (before normalization)
-      if (text.includes(original.stock_name) || text.includes(original.ticker)) return true;
-      // Check aliases from stock database
-      const scanMatch = scanStocks.find((s) => s.ticker === normalized.ticker);
+      if (text.includes(stock.stock_name) || text.includes(stock.ticker)) return true;
+      const scanMatch = scanStocks.find((s) => s.ticker === stock.ticker);
       if (scanMatch) {
         if (scanMatch.aliases?.some((a) => text.includes(a))) return true;
         if (text.includes(scanMatch.name)) return true;
@@ -191,9 +186,15 @@ ${trimmedList}`,
     for (const ps of result.paragraph_stocks) {
       const paraText = paragraphs[ps.index] ?? "";
       const validated = ps.stocks
-        .map((orig) => ({ orig, norm: normalizeStock(orig) }))
-        .filter(({ orig, norm }) => stockAppearsInText(paraText, norm, orig))
-        .map(({ norm }) => norm);
+        .map((orig) => {
+          const norm = normalizeStock(orig);
+          if (norm.ticker !== orig.ticker) {
+            const byName = lookupStock(orig.stock_name);
+            if (byName) return byName;
+          }
+          return norm;
+        })
+        .filter((stock) => stockAppearsInText(paraText, stock));
       if (validated.length > 0) {
         aiStocksByParagraph.set(ps.index, validated);
       }
