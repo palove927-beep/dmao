@@ -204,7 +204,7 @@ export const categories: Category[] = [
     label: "循環經濟",
     stocks: [
       { code: "T1", ticker: "6894", name: "衛司特", market: "tpex" },
-      { code: "T2", ticker: "8936", name: "國統" },
+      { code: "T2", ticker: "8936", name: "國統", market: "tpex" },
     ],
   },
   {
