@@ -72,7 +72,6 @@ export const scanStocks: ScanStock[] = [
   { ticker: "2301", name: "光寶科",    aliases: ["Lite-On", "光寶"] },
   { ticker: "2308", name: "台達電",    aliases: ["Delta", "台達"] },
   { ticker: "3017", name: "奇鋐",      aliases: ["Asia Vital", "AVC"] },
-  { ticker: "3324", name: "雙鴻" },
   { ticker: "3533", name: "嘉澤" },
   { ticker: "4931", name: "新盛力" },
   { ticker: "6584", name: "南俊國際" },
