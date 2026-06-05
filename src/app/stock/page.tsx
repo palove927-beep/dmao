@@ -177,8 +177,8 @@ export default function StockPage() {
 
   const peColor = (pe: number | null): string => {
     if (pe === null) return "#ccc";
-    if (pe < 15) return "#16a34a";
-    if (pe < 20) return "#65a30d";
+    if (pe < 15) return "#2563eb";
+    if (pe < 20) return "#16a34a";
     if (pe < 25) return "#eab308";
     if (pe < 35) return "#ea580c";
     return "#dc2626";
