@@ -186,6 +186,7 @@ ${trimmedList}`,
     for (const ps of result.paragraph_stocks) {
       const paraText = paragraphs[ps.index] ?? "";
       const validated = ps.stocks
+        .filter((orig) => !orig.stock_name.includes("非公司"))
         .map((orig) => {
           const norm = normalizeStock(orig);
           if (norm.ticker !== orig.ticker) {
