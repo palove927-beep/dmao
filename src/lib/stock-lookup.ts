@@ -79,9 +79,11 @@ export const scanStocks: ScanStock[] = [
   { ticker: "6805", name: "富世達" },
   { ticker: "8210", name: "勤誠" },
   // ─── L 被動元件 ──────────────────────────────────────────
+  { ticker: "2428", name: "興勤" },
   { ticker: "2472", name: "立隆電" },
   { ticker: "2478", name: "大毅" },
   { ticker: "3026", name: "禾伸堂" },
+  { ticker: "3624", name: "光頡" },
   { ticker: "3357", name: "臺慶科" },
   { ticker: "6284", name: "佳邦" },
   { ticker: "6449", name: "鈺邦" },
