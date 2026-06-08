@@ -852,7 +852,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "7974.T", name: "Nintendo" },
   { ticker: "6723.T", name: "Renesas Electronics" },
   { ticker: "6762.T", name: "TDK" },
-  { ticker: "6981.T", name: "Murata Manufacturing", aliases: ["Murata"] },
+  { ticker: "6981.T", name: "Murata" },
   { ticker: "9069.T", name: "SENKO" },
   { ticker: "4062.T", name: "Ibiden" },
   { ticker: "7751.T", name: "Canon" },
