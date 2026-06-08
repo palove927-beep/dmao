@@ -80,8 +80,10 @@ export const scanStocks: ScanStock[] = [
   { ticker: "8210", name: "勤誠" },
   // ─── L 被動元件 ──────────────────────────────────────────
   { ticker: "2472", name: "立隆電" },
+  { ticker: "2478", name: "大毅" },
   { ticker: "3026", name: "禾伸堂" },
   { ticker: "3357", name: "臺慶科" },
+  { ticker: "6284", name: "佳邦" },
   { ticker: "6449", name: "鈺邦" },
   { ticker: "8042", name: "金山電" },
   // ─── M PCB ───────────────────────────────────────────────
@@ -173,6 +175,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "7712",       name: "博盛半導體" },
   // ─── 中國 A 股 ──────────────────────────────────────────
   { ticker: "000636.SZ",  name: "風華高科" },
+  { ticker: "002138.SZ",  name: "順絡電子",                aliases: ["順絡"] },
   { ticker: "002463.SZ",  name: "滬電股份",                aliases: ["滬電"] },
   { ticker: "300394.SZ",  name: "天孚通信",               aliases: ["TFC"] },
   { ticker: "300476.SZ",  name: "勝宏科技",              aliases: ["勝宏"] },
@@ -533,7 +536,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "TER",   name: "Teradyne" },
   { ticker: "ENTG",  name: "Entegris" },
   { ticker: "MKSI",  name: "MKS Instruments" },
-  { ticker: "LSCC",  name: "Lattice Semiconductor" },
+  { ticker: "LSCC",  name: "Lattice Semiconductor", aliases: ["Lattice"] },
   { ticker: "WOLF",  name: "Wolfspeed" },
   { ticker: "ACLS",  name: "Axcelis Technologies" },
   { ticker: "CRUS",  name: "Cirrus Logic" },
@@ -847,7 +850,8 @@ export const scanStocks: ScanStock[] = [
   { ticker: "7974.T", name: "Nintendo" },
   { ticker: "6723.T", name: "Renesas Electronics" },
   { ticker: "6762.T", name: "TDK" },
-  { ticker: "6981.T", name: "Murata Manufacturing" },
+  { ticker: "6981.T", name: "Murata Manufacturing", aliases: ["Murata"] },
+  { ticker: "9069.T", name: "SENKO" },
   { ticker: "4062.T", name: "Ibiden" },
   { ticker: "7751.T", name: "Canon" },
   { ticker: "6367.T", name: "Daikin Industries" },
