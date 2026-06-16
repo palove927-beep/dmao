@@ -160,7 +160,7 @@ export default function StockPage() {
   };
 
   const formatPrice = (p: number | null) => {
-    if (p === null) return "-";
+    if (p === null || p === 0) return "-";
     return p.toFixed(2);
   };
 
