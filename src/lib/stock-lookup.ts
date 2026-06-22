@@ -196,7 +196,8 @@ export const scanStocks: ScanStock[] = [
   { ticker: "4004.T",     name: "昭和電工(Resonac)",         aliases: ["昭和電工", "Resonac"] },
   { ticker: "4182.T",     name: "三菱瓦斯化學(MGC)",         aliases: ["三菱瓦斯化學", "MGC"] },
   { ticker: "285A.T",     name: "鎧俠(Kioxia)",             aliases: ["鎧俠", "Kioxia"] },
-  { ticker: "6997.T",     name: "Chemi-Con" },
+  { ticker: "6976.T",     name: "Taiyo Yuden",              aliases: ["太陽誘電"] },
+  { ticker: "6997.T",     name: "Chemi-Con",                aliases: ["佳美工", "ChemiCon"] },
   // ─── 韓股 ────────────────────────────────────────────────
   { ticker: "000157.KS",  name: "斗山(Doosan)",             aliases: ["斗山", "Doosan"] },
   // ─── 沙烏地 ──────────────────────────────────────────────
