@@ -160,7 +160,11 @@ export const categories: Category[] = [
   {
     id: "O",
     label: "功率元件",
-    stocks: [{ code: "O1", ticker: "5425", name: "台半", market: "tpex" }],
+    stocks: [
+      { code: "O1", ticker: "5425", name: "台半", market: "tpex" },
+      { code: "O5", ticker: "6719", name: "力智", market: "tpex" },
+      { code: "O6", ticker: "7712", name: "博盛半導體", market: "tpex" },
+    ],
   },
   {
     id: "P",

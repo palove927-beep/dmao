@@ -82,6 +82,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "2428", name: "興勤" },
   { ticker: "2472", name: "立隆電" },
   { ticker: "2478", name: "大毅" },
+  { ticker: "2493", name: "揚博" },
   { ticker: "3026", name: "禾伸堂" },
   { ticker: "3624", name: "光頡" },
   { ticker: "3357", name: "臺慶科" },
