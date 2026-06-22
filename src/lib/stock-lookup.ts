@@ -88,6 +88,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "3357", name: "臺慶科" },
   { ticker: "6284", name: "佳邦" },
   { ticker: "6449", name: "鈺邦" },
+  { ticker: "6485", name: "點序" },
   { ticker: "8042", name: "金山電" },
   // ─── M PCB ───────────────────────────────────────────────
   { ticker: "2313", name: "華通",      aliases: ["Compeq"] },
@@ -865,7 +866,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "5108.T", name: "Bridgestone" },
   { ticker: "7269.T", name: "Suzuki Motor" },
   { ticker: "7270.T", name: "Subaru" },
-  { ticker: "2802.T", name: "Ajinomoto" },
+  { ticker: "2802.T", name: "Ajinomoto",  aliases: ["味之素"] },
   { ticker: "4901.T", name: "Fujifilm" },
   { ticker: "6301.T", name: "Komatsu" },
   { ticker: "6594.T", name: "Nidec" },
