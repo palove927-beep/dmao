@@ -809,7 +809,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "003550.KS", name: "LG" },
   { ticker: "373220.KS", name: "LG Energy Solution" },
   { ticker: "012330.KS", name: "Hyundai Mobis" },
-  { ticker: "009150.KS", name: "SEMCO", aliases: ["Samsung Electro-Mechanics", "三星電機"] },
+  { ticker: "009150.KS", name: "三星電機(SEMCO)", aliases: ["Samsung Electro-Mechanics", "三星電機", "SEMCO"] },
   { ticker: "028260.KS", name: "Samsung C&T" },
   { ticker: "034020.KS", name: "Doosan Enerbility" },
   { ticker: "010130.KS", name: "Korea Zinc" },
