@@ -507,6 +507,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "ADBE",  name: "Adobe" },
   { ticker: "WMT",   name: "Walmart" },
   { ticker: "MCD",   name: "McDonald's" },
+  { ticker: "CRDO",  name: "Credo" },
   { ticker: "CRM",   name: "Salesforce" },
   { ticker: "CSCO",  name: "Cisco" },
   { ticker: "TMO",   name: "Thermo Fisher" },
