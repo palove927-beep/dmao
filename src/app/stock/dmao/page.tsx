@@ -154,6 +154,8 @@ function StockChips({
   );
 }
 
+const EDITOR_KEY = "dmao_editor";
+
 // ─── Main Page ─────────────────────────────────────────
 export default function DmaoPage() {
   const router = useRouter();
@@ -161,6 +163,16 @@ export default function DmaoPage() {
   const docxRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const today = new Date().toISOString().slice(0, 10);
+
+  const [editorChecked, setEditorChecked] = useState(false);
+
+  useEffect(() => {
+    if (localStorage.getItem(EDITOR_KEY) !== "true") {
+      router.replace("/stock");
+      return;
+    }
+    setEditorChecked(true);
+  }, [router]);
 
   // Step 1: Input form state
   const [formTitle, setFormTitle] = useState("");
@@ -643,6 +655,14 @@ export default function DmaoPage() {
   const getParaEps = (stocks: StockTag[]): EpsForecast[] => {
     return stocks.flatMap((s) => epsByTicker.get(s.ticker) || []);
   };
+
+  if (!editorChecked) {
+    return (
+      <div style={{ maxWidth: 700, margin: "0 auto", padding: "40px 24px", fontFamily: "sans-serif", textAlign: "center", color: "#999" }}>
+        驗證中...
+      </div>
+    );
+  }
 
   return (
     <div

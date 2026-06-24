@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { splitParagraphs } from "@/lib/paragraphs";
 import { lookupStock } from "@/lib/stocks";
 
+const EDITOR_KEY = "dmao_editor";
+
 // ─── Types ──────────────────────────────────────────────
 type StockTag = { ticker: string; stock_name: string };
 type ParagraphData = { text: string; stocks: StockTag[] };
@@ -137,7 +139,16 @@ function StockChips({
 export default function EditAnnotationsPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const [editorChecked, setEditorChecked] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (localStorage.getItem(EDITOR_KEY) !== "true") {
+      router.replace("/stock");
+      return;
+    }
+    setEditorChecked(true);
+  }, [router]);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [articleTitle, setArticleTitle] = useState("");
@@ -331,10 +342,10 @@ export default function EditAnnotationsPage() {
     }
   };
 
-  if (loading) {
+  if (!editorChecked || loading) {
     return (
       <div style={{ maxWidth: 700, margin: "0 auto", padding: "40px 24px", fontFamily: "sans-serif" }}>
-        載入中...
+        {!editorChecked ? "驗證中..." : "載入中..."}
       </div>
     );
   }

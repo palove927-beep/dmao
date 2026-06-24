@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { scanStocks } from "@/lib/stock-lookup";
 
+const EDITOR_KEY = "dmao_editor";
+
 type Article = {
   id: string;
   title: string;
@@ -46,6 +48,11 @@ export default function ArticlePage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [expandedStock, setExpandedStock] = useState<string | null>(null);
+  const [isEditor, setIsEditor] = useState(false);
+
+  useEffect(() => {
+    setIsEditor(localStorage.getItem(EDITOR_KEY) === "true");
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -183,39 +190,41 @@ export default function ArticlePage() {
           )}
           <span>{article.title}</span>
         </h1>
-        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-          <button
-            onClick={() => router.push(`/articles/${id}/edit`)}
-            style={{
-              padding: "6px 14px",
-              fontSize: 13,
-              border: "1px solid #1a56db",
-              borderRadius: 4,
-              background: "#fff",
-              color: "#1a56db",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            編輯標記
-          </button>
-          <button
-            onClick={handleDelete}
-            disabled={deleting}
-            style={{
-              padding: "6px 14px",
-              fontSize: 13,
-              border: "1px solid #dc2626",
-              borderRadius: 4,
-              background: "#fff",
-              color: "#dc2626",
-              cursor: deleting ? "not-allowed" : "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {deleting ? "刪除中..." : "刪除文章"}
-          </button>
-        </div>
+        {isEditor && (
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+            <button
+              onClick={() => router.push(`/articles/${id}/edit`)}
+              style={{
+                padding: "6px 14px",
+                fontSize: 13,
+                border: "1px solid #1a56db",
+                borderRadius: 4,
+                background: "#fff",
+                color: "#1a56db",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              編輯標記
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              style={{
+                padding: "6px 14px",
+                fontSize: 13,
+                border: "1px solid #dc2626",
+                borderRadius: 4,
+                background: "#fff",
+                color: "#dc2626",
+                cursor: deleting ? "not-allowed" : "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {deleting ? "刪除中..." : "刪除文章"}
+            </button>
+          </div>
+        )}
       </div>
 
       <div style={{ fontSize: 13, color: "#999", marginBottom: 20 }}>
