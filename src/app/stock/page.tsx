@@ -202,41 +202,43 @@ export default function StockPage() {
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <a href="/" style={{ color: "#1a56db", textDecoration: "none", display: "flex", alignItems: "center" }} title="首頁">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
             <polyline points="9 22 9 12 15 12 15 22" />
           </svg>
         </a>
-        <button
-          onClick={() => {
-            if (editor) {
-              logoutEditor();
-              setEditor(false);
-            } else {
-              setShowLogin(true);
-              setLoginCode("");
-              setLoginError(false);
-            }
-          }}
-          title={editor ? "登出編輯模式" : "登入編輯模式"}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            fontSize: 18,
-            padding: "2px 6px",
-            borderRadius: 4,
-            color: editor ? "#16a34a" : "#999",
-          }}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
-        </button>
-        {editor && <span style={{ fontSize: 12, color: "#16a34a", fontWeight: "bold" }}>編輯模式</span>}
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {editor && <span style={{ fontSize: 12, color: "#16a34a", fontWeight: "bold" }}>編輯模式</span>}
+          <button
+            onClick={() => {
+              if (editor) {
+                logoutEditor();
+                setEditor(false);
+              } else {
+                setShowLogin(true);
+                setLoginCode("");
+                setLoginError(false);
+              }
+            }}
+            title={editor ? "登出編輯模式" : "登入編輯模式"}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 18,
+              padding: "2px 6px",
+              borderRadius: 4,
+              color: editor ? "#16a34a" : "#999",
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {showLogin && (
