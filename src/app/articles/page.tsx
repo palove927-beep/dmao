@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { isEditor } from "@/lib/auth";
 
 type Article = {
   id: string;
@@ -35,6 +36,9 @@ export default function ArticlesPage() {
   const [searchInput, setSearchInput] = useState("");
   const [activeQuery, setActiveQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const [editor, setEditor] = useState(false);
+
+  useEffect(() => { setEditor(isEditor()); }, []);
 
   const fetchArticles = (q: string) => {
     setLoading(true);
@@ -68,20 +72,22 @@ export default function ArticlesPage() {
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "24px 0 16px" }}>
         <h1 style={{ fontSize: 28, fontWeight: "bold", margin: 0 }}>文章列表</h1>
-        <a
-          href="/stock/dmao"
-          style={{
-            padding: "8px 20px",
-            fontSize: 14,
-            border: "1px solid #1a56db",
-            borderRadius: 6,
-            background: "#1a56db",
-            color: "#fff",
-            textDecoration: "none",
-          }}
-        >
-          貼上文章
-        </a>
+        {editor && (
+          <a
+            href="/stock/dmao"
+            style={{
+              padding: "8px 20px",
+              fontSize: 14,
+              border: "1px solid #1a56db",
+              borderRadius: 6,
+              background: "#1a56db",
+              color: "#fff",
+              textDecoration: "none",
+            }}
+          >
+            貼上文章
+          </a>
+        )}
       </div>
 
       {/* 搜尋列 */}

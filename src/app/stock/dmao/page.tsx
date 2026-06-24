@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { splitParagraphs } from "@/lib/paragraphs";
 import { lookupStock, scanStocks } from "@/lib/stock-lookup";
+import { isEditor } from "@/lib/auth";
 
 // ─── Types ──────────────────────────────────────────────
 type StockTag = { ticker: string; stock_name: string };
@@ -161,6 +162,10 @@ export default function DmaoPage() {
   const docxRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const today = new Date().toISOString().slice(0, 10);
+
+  useEffect(() => {
+    if (!isEditor()) router.replace("/stock");
+  }, [router]);
 
   // Step 1: Input form state
   const [formTitle, setFormTitle] = useState("");

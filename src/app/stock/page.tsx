@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { categories } from "@/lib/stock-list";
+import { isEditor, loginEditor, logoutEditor } from "@/lib/auth";
 import type { StockPrice } from "@/app/api/stock/route";
 
 type PriceMap = Record<string, StockPrice>;
@@ -63,6 +64,12 @@ export default function StockPage() {
   const [prices, setPrices] = useState<PriceMap>({});
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<string>("");
+  const [editor, setEditor] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [loginCode, setLoginCode] = useState("");
+  const [loginError, setLoginError] = useState(false);
+
+  useEffect(() => { setEditor(isEditor()); }, []);
 
   const [annotations, setAnnotations] = useState<Record<string, Annotation[]>>({});
   const [epsForecasts, setEpsForecasts] = useState<Record<string, EpsForecast[]>>({});
@@ -195,9 +202,97 @@ export default function StockPage() {
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
-      <a href="/" style={{ color: "#1a56db", textDecoration: "none", fontSize: 15 }}>
-        ← stock頁面
-      </a>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <a href="/" style={{ color: "#1a56db", textDecoration: "none", fontSize: 15 }}>
+          ← stock頁面
+        </a>
+        <button
+          onClick={() => {
+            if (editor) {
+              logoutEditor();
+              setEditor(false);
+            } else {
+              setShowLogin(true);
+              setLoginCode("");
+              setLoginError(false);
+            }
+          }}
+          title={editor ? "登出編輯模式" : "登入編輯模式"}
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            fontSize: 18,
+            padding: "2px 6px",
+            borderRadius: 4,
+            color: editor ? "#16a34a" : "#999",
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+        </button>
+        {editor && <span style={{ fontSize: 12, color: "#16a34a", fontWeight: "bold" }}>編輯模式</span>}
+      </div>
+
+      {showLogin && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
+        }} onClick={() => setShowLogin(false)}>
+          <div
+            style={{ background: "#fff", borderRadius: 12, padding: "24px 28px", minWidth: 280, boxShadow: "0 4px 20px rgba(0,0,0,0.15)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 16, fontWeight: "bold", marginBottom: 16 }}>輸入編輯代碼</div>
+            <input
+              type="password"
+              value={loginCode}
+              onChange={(e) => { setLoginCode(e.target.value); setLoginError(false); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  if (loginEditor(loginCode)) {
+                    setEditor(true);
+                    setShowLogin(false);
+                  } else {
+                    setLoginError(true);
+                  }
+                }
+              }}
+              placeholder="代碼"
+              autoFocus
+              style={{
+                width: "100%", padding: "8px 12px", fontSize: 14,
+                border: `1px solid ${loginError ? "#dc2626" : "#d1d5db"}`,
+                borderRadius: 6, outline: "none", boxSizing: "border-box",
+              }}
+            />
+            {loginError && <div style={{ color: "#dc2626", fontSize: 13, marginTop: 6 }}>代碼錯誤</div>}
+            <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setShowLogin(false)}
+                style={{ padding: "6px 16px", fontSize: 14, border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", cursor: "pointer" }}
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  if (loginEditor(loginCode)) {
+                    setEditor(true);
+                    setShowLogin(false);
+                  } else {
+                    setLoginError(true);
+                  }
+                }}
+                style={{ padding: "6px 16px", fontSize: 14, border: "none", borderRadius: 6, background: "#1a56db", color: "#fff", cursor: "pointer" }}
+              >
+                確認
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "24px 0 20px" }}>
         <h1 style={{ fontSize: 28, fontWeight: "bold", margin: 0 }}>
@@ -224,21 +319,23 @@ export default function StockPage() {
           >
             文章列表
           </a>
-          <a
-            href="/stock/dmao"
-            style={{
-              padding: "8px 20px",
-              fontSize: 14,
-              border: "1px solid #1a56db",
-              borderRadius: 6,
-              background: "#fff",
-              color: "#1a56db",
-              textDecoration: "none",
-              display: "inline-block",
-            }}
-          >
-            貼上文章
-          </a>
+          {editor && (
+            <a
+              href="/stock/dmao"
+              style={{
+                padding: "8px 20px",
+                fontSize: 14,
+                border: "1px solid #1a56db",
+                borderRadius: 6,
+                background: "#fff",
+                color: "#1a56db",
+                textDecoration: "none",
+                display: "inline-block",
+              }}
+            >
+              貼上文章
+            </a>
+          )}
           <button
             onClick={() => { setLoading(true); fetchPrices(); }}
             disabled={loading}
