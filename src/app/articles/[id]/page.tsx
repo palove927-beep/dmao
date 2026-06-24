@@ -188,21 +188,23 @@ export default function ArticlePage() {
           <span>{article.title}</span>
         </h1>
         <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-          <button
-            onClick={() => router.push(`/articles/${id}/edit`)}
-            style={{
-              padding: "6px 14px",
-              fontSize: 13,
-              border: "1px solid #1a56db",
-              borderRadius: 4,
-              background: "#fff",
-              color: "#1a56db",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            編輯標記
-          </button>
+          {editor && (
+            <button
+              onClick={() => router.push(`/articles/${id}/edit`)}
+              style={{
+                padding: "6px 14px",
+                fontSize: 13,
+                border: "1px solid #1a56db",
+                borderRadius: 4,
+                background: "#fff",
+                color: "#1a56db",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              編輯標記
+            </button>
+          )}
           {editor && (
             <button
               onClick={handleDelete}
