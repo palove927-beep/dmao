@@ -40,9 +40,13 @@ async function fetchMonthsSequentially<T>(
   const all: T[] = [];
   for (let i = 0; i < months.length; i++) {
     const { year, month } = months[i];
-    const rows = await fetcher(year, month);
+    let rows = await fetcher(year, month);
+    if (rows.length === 0) {
+      await delay(delayMs);
+      rows = await fetcher(year, month);
+    }
     all.push(...rows);
-    if (i < months.length - 1 && rows.length >= 0) await delay(delayMs);
+    if (i < months.length - 1) await delay(delayMs);
   }
   return all;
 }

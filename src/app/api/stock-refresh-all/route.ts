@@ -145,7 +145,11 @@ async function fetchFullYear(ticker: string, isTpex: boolean): Promise<PriceRow[
 
   for (let i = 0; i < months.length; i++) {
     const { year, month } = months[i];
-    const rows = await fetcher(ticker, year, month);
+    let rows = await fetcher(ticker, year, month);
+    if (rows.length === 0) {
+      await delay(delayMs);
+      rows = await fetcher(ticker, year, month);
+    }
     all.push(...rows);
     if (i < months.length - 1) await delay(delayMs);
   }
