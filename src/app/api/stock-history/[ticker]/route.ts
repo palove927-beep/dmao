@@ -45,6 +45,44 @@ async function fetchFugle(ticker: string): Promise<PriceRow[]> {
   } catch { return []; }
 }
 
+// --- TPEX monthly API (for OTC stocks) ---
+async function fetchTpexMonth(stockNo: string, year: number, month: number): Promise<PriceRow[]> {
+  const rocYear = year - 1911;
+  const d = `${rocYear}/${String(month).padStart(2, "0")}`;
+  const url = `https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_result.php?l=zh-tw&d=${d}&stkno=${stockNo}`;
+  try {
+    const res = await withTimeout(
+      fetch(url, {
+        headers: { "User-Agent": "Mozilla/5.0" },
+        next: { revalidate: 3600 },
+      }),
+      6000
+    );
+    if (!res.ok) return [];
+    const json = await res.json();
+    const rows: string[][] = json?.aaData;
+    if (!Array.isArray(rows)) return [];
+    return rows.flatMap((row) => {
+      const parts = row[0].split("/");
+      if (parts.length !== 3) return [];
+      const isoDate = `${parseInt(parts[0]) + 1911}-${parts[1].padStart(2, "0")}-${parts[2].padStart(2, "0")}`;
+      const close = parseFloat(row[6].replace(/,/g, ""));
+      if (isNaN(close) || close <= 0) return [];
+      return [{ date: isoDate, close }];
+    });
+  } catch { return []; }
+}
+
+async function fetchTpex(ticker: string): Promise<PriceRow[]> {
+  const now = new Date();
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1);
+    return { year: d.getFullYear(), month: d.getMonth() + 1 };
+  });
+  const chunks = await Promise.all(months.map(({ year, month }) => fetchTpexMonth(ticker, year, month)));
+  return chunks.flat().sort((a, b) => a.date.localeCompare(b.date));
+}
+
 // --- TWSE monthly API (fallback for main-board) ---
 function parseRocRows(rows: string[][]): PriceRow[] {
   return rows.flatMap((row) => {
@@ -104,7 +142,11 @@ export async function GET(
   }
 
   if (isTpex) {
-    // TPEX stocks: Fugle only
+    // TPEX stocks: try TPEX official API first (free, no key needed), Fugle as fallback
+    const tpexPrices = await fetchTpex(ticker);
+    if (tpexPrices.length > 0) {
+      return NextResponse.json({ ok: true, ticker, name: nameMap.get(ticker) ?? ticker, currency: "TWD", prices: tpexPrices });
+    }
     const fuglePrices = await fetchFugle(ticker);
     if (fuglePrices.length > 0) {
       return NextResponse.json({ ok: true, ticker, name: nameMap.get(ticker) ?? ticker, currency: "TWD", prices: fuglePrices });
