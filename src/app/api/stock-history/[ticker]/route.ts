@@ -289,15 +289,35 @@ export async function GET(
   }
 
   try {
+    // ?refresh=1 forces a full re-fetch
+    const forceRefresh = req.nextUrl.searchParams.get("refresh") === "1";
+
     // 1. Read existing data from Supabase
     const latestDate = await getLatestDate(ticker);
-    let needsFetch = !latestDate || isStale(latestDate);
+    let needsFetch = forceRefresh || !latestDate || isStale(latestDate);
 
     // 2. Fetch missing data from external API if needed
     if (needsFetch) {
-      const newData = await fetchExternal(ticker, isTpex, latestDate ?? undefined);
+      if (forceRefresh && latestDate) {
+        await getSupabase().from("dmao_stock_prices").delete().eq("ticker", ticker);
+      }
+
+      const sinceDate = forceRefresh ? undefined : (latestDate ?? undefined);
+      const newData = await fetchExternal(ticker, isTpex, sinceDate);
+
       if (newData.length > 0) {
         await upsertToDb(ticker, newData).catch(() => {});
+      } else if (latestDate) {
+        // Incremental fetch returned nothing — data might be from wrong source
+        // (e.g. stock transferred from TPEX to TWSE). Try full re-fetch.
+        const today = taiwanToday();
+        const gap = (new Date(today).getTime() - new Date(latestDate).getTime()) / (24 * 3600 * 1000);
+        if (gap > 5) {
+          const fullData = await fetchExternal(ticker, isTpex);
+          if (fullData.length > 0) {
+            await upsertToDb(ticker, fullData).catch(() => {});
+          }
+        }
       }
     }
 
