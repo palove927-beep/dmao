@@ -129,16 +129,29 @@ export async function GET(
   const { ticker } = await params;
   const isTpex = tpexSet.has(ticker);
 
-  // ?debug=1 returns raw Fugle JSON for troubleshooting
+  // ?debug=1 returns diagnostic info for troubleshooting
   if (req.nextUrl.searchParams.get("debug") === "1") {
-    const apiKey = process.env.FUGLE_API_KEY;
-    if (!apiKey) return NextResponse.json({ error: "no FUGLE_API_KEY" });
-    const to = new Date().toISOString().slice(0, 10);
-    const from = new Date(Date.now() - 366 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-    const url = `https://api.fugle.tw/marketdata/v1.0/stock/historical/candles/${ticker}?resolution=D&from=${from}&to=${to}`;
-    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0", "Authorization": `Bearer ${apiKey}` } });
-    const json = await res.json();
-    return NextResponse.json({ status: res.status, url: url.replace(apiKey, "***"), body: json });
+    const diag: Record<string, unknown> = { ticker, isTpex, hasFugleKey: !!process.env.FUGLE_API_KEY };
+
+    if (isTpex) {
+      const rocYear = new Date().getFullYear() - 1911;
+      const month = String(new Date().getMonth() + 1).padStart(2, "0");
+      const tpexUrl = `https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_result.php?l=zh-tw&d=${rocYear}/${month}&stkno=${ticker}`;
+      try {
+        const res = await fetch(tpexUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
+        const text = await res.text();
+        diag.tpex = { status: res.status, bodyPreview: text.slice(0, 500) };
+      } catch (e) { diag.tpex = { error: String(e) }; }
+    } else {
+      const twseUrl = `https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, "0")}01&stockNo=${ticker}`;
+      try {
+        const res = await fetch(twseUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
+        const text = await res.text();
+        diag.twse = { status: res.status, bodyPreview: text.slice(0, 500) };
+      } catch (e) { diag.twse = { error: String(e) }; }
+    }
+
+    return NextResponse.json(diag);
   }
 
   if (isTpex) {
