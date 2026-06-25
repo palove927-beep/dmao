@@ -381,16 +381,25 @@ export default function StockPage() {
         ))}
       </div>
 
-      <table style={{ borderCollapse: "collapse", fontSize: 15 }}>
+      <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse", fontSize: 15 }}>
+        <colgroup>
+          <col style={{ width: 50 }} />
+          <col style={{ width: 130 }} />
+          <col style={{ width: 110 }} />
+          <col style={{ width: 70 }} />
+          <col />
+          <col />
+          <col style={{ width: 60 }} />
+        </colgroup>
         <thead>
           <tr style={{ background: "#1e3a5f", color: "#fff" }}>
-            <th style={{ ...thStyle, width: 50, textAlign: "center" }}>編號</th>
-            <th style={{ ...thStyle, paddingLeft: 4, width: 120 }}>股票</th>
+            <th style={{ ...thStyle, textAlign: "center" }}>編號</th>
+            <th style={thStyle}>股票</th>
             <th style={{ ...thStyle, textAlign: "right" }}>現價</th>
             <th style={{ ...thStyle, textAlign: "center" }}>日期</th>
             <th style={{ ...thStyle, textAlign: "right" }}>2026 EPS</th>
             <th style={{ ...thStyle, textAlign: "right" }}>2027 EPS</th>
-            <th style={{ ...thStyle, textAlign: "center", width: 60 }}>標記</th>
+            <th style={{ ...thStyle, textAlign: "center" }}>標記</th>
           </tr>
         </thead>
         <tbody>
@@ -430,7 +439,7 @@ export default function StockPage() {
                       }}
                     >
                       <td style={{ ...tdStyle, color: "#9ca3af", fontSize: 13, textAlign: "center" }}>{stock.code}</td>
-                      <td style={{ ...tdStyle, paddingLeft: 4 }}>
+                      <td style={tdStyle}>
                         {isTwStock(stock.ticker) ? (
                           <a href={`/stock/${stock.ticker}`} style={{ color: "#1a56db", textDecoration: "none", fontWeight: 500 }}>
                             {stock.ticker}
