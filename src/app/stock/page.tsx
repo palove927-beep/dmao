@@ -429,7 +429,6 @@ export default function StockPage() {
                       }}
                     >
                       <td style={tdStyle}>
-                        <span style={{ color: "#9ca3af", fontSize: 13, marginRight: 6 }}>{stock.code}</span>
                         {isTwStock(stock.ticker) ? (
                           <a href={`/stock/${stock.ticker}`} style={{ color: "#1a56db", textDecoration: "none", fontWeight: 500 }}>
                             {stock.ticker}
