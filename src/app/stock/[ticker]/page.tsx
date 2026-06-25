@@ -106,14 +106,19 @@ export default function StockDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [chartMode, setChartMode] = useState<ChartMode>("candlestick");
+  const [refreshing, setRefreshing] = useState(false);
 
-  const fetchData = useCallback(() => {
-    setLoading(true);
-    fetch(`/api/stock-history/${ticker}`)
+  const fetchData = useCallback((refresh = false) => {
+    if (refresh) setRefreshing(true); else setLoading(true);
+    const url = refresh ? `/api/stock-history/${ticker}?refresh=1` : `/api/stock-history/${ticker}`;
+    fetch(url)
       .then((r) => r.json())
-      .then((json) => { if (json.ok) setData(json); else setError(json.error ?? "載入失敗"); })
+      .then((json) => {
+        if (json.ok) { setData(json); setError(null); }
+        else setError(json.error ?? "載入失敗");
+      })
       .catch(() => setError("網路錯誤"))
-      .finally(() => setLoading(false));
+      .finally(() => { setLoading(false); setRefreshing(false); });
   }, [ticker]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -200,22 +205,40 @@ export default function StockDetailPage() {
                 {prices[0]?.date && prices[prices.length - 1]?.date &&
                   `${formatDateFull(prices[0].date)} – ${formatDateFull(prices[prices.length - 1].date)}`}
               </div>
-              {hasOhlc && (
-                <div style={{ display: "flex" }}>
-                  <button
-                    onClick={() => setChartMode("candlestick")}
-                    style={{ ...toggleStyle(chartMode === "candlestick"), borderRadius: "6px 0 0 6px" }}
-                  >
-                    K線
-                  </button>
-                  <button
-                    onClick={() => setChartMode("line")}
-                    style={{ ...toggleStyle(chartMode === "line"), borderRadius: "0 6px 6px 0", borderLeft: "none" }}
-                  >
-                    折線
-                  </button>
-                </div>
-              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button
+                  onClick={() => fetchData(true)}
+                  disabled={refreshing}
+                  title="重新抓取完整一年資料"
+                  style={{
+                    padding: "5px 12px",
+                    fontSize: 13,
+                    border: "1px solid #d1d5db",
+                    borderRadius: 6,
+                    background: "#fff",
+                    color: refreshing ? "#9ca3af" : "#374151",
+                    cursor: refreshing ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {refreshing ? "重新抓取中..." : "重新抓取"}
+                </button>
+                {hasOhlc && (
+                  <div style={{ display: "flex" }}>
+                    <button
+                      onClick={() => setChartMode("candlestick")}
+                      style={{ ...toggleStyle(chartMode === "candlestick"), borderRadius: "6px 0 0 6px" }}
+                    >
+                      K線
+                    </button>
+                    <button
+                      onClick={() => setChartMode("line")}
+                      style={{ ...toggleStyle(chartMode === "line"), borderRadius: "0 6px 6px 0", borderLeft: "none" }}
+                    >
+                      折線
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {chartMode === "candlestick" && hasOhlc ? (
