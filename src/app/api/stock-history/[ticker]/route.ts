@@ -28,6 +28,25 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchMonthsSequentially<T>(
+  months: { year: number; month: number }[],
+  fetcher: (year: number, month: number) => Promise<T[]>,
+  delayMs = 400,
+): Promise<T[]> {
+  const all: T[] = [];
+  for (let i = 0; i < months.length; i++) {
+    const { year, month } = months[i];
+    const rows = await fetcher(year, month);
+    all.push(...rows);
+    if (i < months.length - 1 && rows.length >= 0) await delay(delayMs);
+  }
+  return all;
+}
+
 function parseNum(s: string): number {
   const n = parseFloat(s.replace(/,/g, ""));
   return isNaN(n) ? 0 : n;
@@ -130,7 +149,7 @@ async function fetchTpexMonth(stockNo: string, year: number, month: number): Pro
   try {
     const res = await withTimeout(
       fetch(url, { headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store" }),
-      6000
+      10000
     );
     if (!res.ok) return [];
     const json = await res.json();
@@ -153,8 +172,8 @@ async function fetchTpexMonth(stockNo: string, year: number, month: number): Pro
 
 async function fetchTpex(ticker: string, sinceDate?: string): Promise<PriceRow[]> {
   const months = buildMonthRange(sinceDate);
-  const chunks = await Promise.all(months.map(({ year, month }) => fetchTpexMonth(ticker, year, month)));
-  const all = chunks.flat().sort((a, b) => a.date.localeCompare(b.date));
+  const all = await fetchMonthsSequentially(months, (y, m) => fetchTpexMonth(ticker, y, m), 400);
+  all.sort((a, b) => a.date.localeCompare(b.date));
   return sinceDate ? all.filter((r) => r.date > sinceDate) : all;
 }
 
@@ -184,7 +203,7 @@ async function fetchTwseMonth(stockNo: string, year: number, month: number): Pro
         headers: { "User-Agent": "Mozilla/5.0" },
         cache: "no-store",
       }),
-      6000
+      10000
     );
     if (!res.ok) return [];
     const json = await res.json();
@@ -195,8 +214,8 @@ async function fetchTwseMonth(stockNo: string, year: number, month: number): Pro
 
 async function fetchTwse(ticker: string, sinceDate?: string): Promise<PriceRow[]> {
   const months = buildMonthRange(sinceDate);
-  const chunks = await Promise.all(months.map(({ year, month }) => fetchTwseMonth(ticker, year, month)));
-  const all = chunks.flat().sort((a, b) => a.date.localeCompare(b.date));
+  const all = await fetchMonthsSequentially(months, (y, m) => fetchTwseMonth(ticker, y, m), 500);
+  all.sort((a, b) => a.date.localeCompare(b.date));
   return sinceDate ? all.filter((r) => r.date > sinceDate) : all;
 }
 
@@ -312,7 +331,7 @@ export async function GET(
         // (e.g. stock transferred from TPEX to TWSE). Try full re-fetch.
         const today = taiwanToday();
         const gap = (new Date(today).getTime() - new Date(latestDate).getTime()) / (24 * 3600 * 1000);
-        if (gap > 5) {
+        if (gap > 3) {
           const fullData = await fetchExternal(ticker, isTpex);
           if (fullData.length > 0) {
             await upsertToDb(ticker, fullData).catch(() => {});
