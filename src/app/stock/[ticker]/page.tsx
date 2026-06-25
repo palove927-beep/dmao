@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { categories } from "@/lib/stock-list";
 import {
   ComposedChart, Bar, AreaChart, Area, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, CartesianGrid, Cell,
+  ResponsiveContainer, CartesianGrid,
 } from "recharts";
 
 const nameMap: Record<string, string> = Object.fromEntries(
@@ -47,7 +47,7 @@ function pickTicks(prices: PricePoint[], count = 10): string[] {
 
 type CandleData = PricePoint & {
   bodyLow: number;
-  bodyHigh: number;
+  candleBody: number;
   isUp: boolean;
 };
 
@@ -55,21 +55,20 @@ type CandleData = PricePoint & {
 function CandlestickShape(props: any) {
   const { x, y, width, height, payload } = props;
   if (!payload) return null;
-  const { high, low, bodyLow, bodyHigh, isUp } = payload as CandleData;
+  const { high, low, bodyLow, candleBody, isUp } = payload as CandleData;
+  const bodyHigh = bodyLow + candleBody;
 
   const fill = isUp ? "#dc2626" : "#16a34a";
   const candleWidth = Math.max(width * 0.7, 1);
   const cx = x + width / 2;
   const bodyX = cx - candleWidth / 2;
 
-  const yScale = height !== 0 ? height / (bodyHigh - bodyLow) : 0;
-  const wickTop = bodyHigh !== high && yScale !== 0
-    ? y - (high - bodyHigh) * yScale
-    : y;
-  const wickBottom = bodyLow !== low && yScale !== 0
-    ? y + height + (bodyLow - low) * yScale
-    : y + height;
-
+  // y = top of visible candle body (bodyHigh in price)
+  // y + height = bottom of visible candle body (bodyLow in price)
+  // Calculate pixel-per-price scale from the body
+  const scale = candleBody > 0 && height > 0 ? height / candleBody : 0;
+  const wickTop = scale > 0 ? y - (high - bodyHigh) * scale : y;
+  const wickBottom = scale > 0 ? y + height + (bodyLow - low) * scale : y + height;
   const bodyH = Math.max(height, 1);
 
   return (
@@ -108,13 +107,16 @@ export default function StockDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [chartMode, setChartMode] = useState<ChartMode>("candlestick");
 
-  useEffect(() => {
+  const fetchData = useCallback(() => {
+    setLoading(true);
     fetch(`/api/stock-history/${ticker}`)
       .then((r) => r.json())
       .then((json) => { if (json.ok) setData(json); else setError(json.error ?? "載入失敗"); })
       .catch(() => setError("網路錯誤"))
       .finally(() => setLoading(false));
   }, [ticker]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const prices = data?.prices ?? [];
   const hasOhlc = prices.length > 0 && prices[0].open != null;
@@ -124,13 +126,15 @@ export default function StockDetailPage() {
     const h = p.high ?? p.close;
     const l = p.low ?? p.close;
     const isUp = p.close >= o;
+    const bodyLow = Math.min(o, p.close);
+    const bodyHigh = Math.max(o, p.close);
     return {
       ...p,
       open: o,
       high: h,
       low: l,
-      bodyLow: Math.min(o, p.close),
-      bodyHigh: Math.max(o, p.close),
+      bodyLow,
+      candleBody: Math.max(bodyHigh - bodyLow, 0.01),
       isUp,
     };
   });
@@ -216,7 +220,9 @@ export default function StockDetailPage() {
 
             {chartMode === "candlestick" && hasOhlc ? (
               <ResponsiveContainer width="100%" height={380}>
-                <ComposedChart data={candleData} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
+                <ComposedChart data={candleData} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}
+                  barGap={0} barCategoryGap="10%"
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="date" ticks={pickTicks(prices)} tickFormatter={formatDateShort}
                     tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
@@ -224,15 +230,10 @@ export default function StockDetailPage() {
                     axisLine={false} tickLine={false} width={56}
                     tickFormatter={(v) => v.toLocaleString()} />
                   <Tooltip content={<CandlestickTooltip />} />
-                  <Bar dataKey="bodyHigh" stackId="candle" fill="transparent" isAnimationActive={false}>
-                    {candleData.map((_, i) => <Cell key={i} fill="transparent" />)}
-                  </Bar>
-                  <Bar
-                    dataKey="bodyLow"
-                    stackId="candle"
-                    shape={<CandlestickShape />}
-                    isAnimationActive={false}
-                  />
+                  {/* Invisible base: lifts candle body to correct Y position */}
+                  <Bar dataKey="bodyLow" stackId="candle" fill="transparent" stroke="none" isAnimationActive={false} />
+                  {/* Visible candle body + wicks via custom shape */}
+                  <Bar dataKey="candleBody" stackId="candle" shape={<CandlestickShape />} isAnimationActive={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             ) : (
