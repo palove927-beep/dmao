@@ -28,6 +28,20 @@ type HistoryData = {
 };
 
 type ChartMode = "candlestick" | "line";
+type DateRange = "1m" | "3m" | "6m" | "1y";
+
+const dateRanges: { key: DateRange; label: string; days: number }[] = [
+  { key: "1m", label: "1M", days: 30 },
+  { key: "3m", label: "3M", days: 90 },
+  { key: "6m", label: "6M", days: 180 },
+  { key: "1y", label: "1Y", days: 366 },
+];
+
+function filterByRange(prices: PricePoint[], range: DateRange): PricePoint[] {
+  const days = dateRanges.find((r) => r.key === range)!.days;
+  const cutoff = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  return prices.filter((p) => p.date >= cutoff);
+}
 
 function formatDateShort(d: string) {
   const dt = new Date(d);
@@ -106,6 +120,7 @@ export default function StockDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [chartMode, setChartMode] = useState<ChartMode>("candlestick");
+  const [dateRange, setDateRange] = useState<DateRange>("1y");
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = useCallback((refresh = false) => {
@@ -123,7 +138,8 @@ export default function StockDetailPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const prices = data?.prices ?? [];
+  const allPrices = data?.prices ?? [];
+  const prices = filterByRange(allPrices, dateRange);
   const hasOhlc = prices.length > 0 && prices[0].open != null;
 
   const candleData: CandleData[] = prices.map((p) => {
@@ -149,6 +165,7 @@ export default function StockDetailPage() {
   const change = latest != null && first != null ? latest - first : null;
   const changePct = change != null && first ? (change / first) * 100 : null;
   const isUp = (change ?? 0) >= 0;
+  const rangeLabel = dateRanges.find((r) => r.key === dateRange)!.label;
 
   const allLows = candleData.map((p) => p.low);
   const allHighs = candleData.map((p) => p.high);
@@ -194,16 +211,39 @@ export default function StockDetailPage() {
                 <span style={{ fontSize: 32, fontWeight: "bold" }}>{latest.toFixed(2)}</span>
                 {change != null && changePct != null && (
                   <span style={{ fontSize: 15, fontWeight: "bold", color: isUp ? "#dc2626" : "#16a34a" }}>
-                    {isUp ? "▲" : "▼"} {Math.abs(change).toFixed(2)} ({Math.abs(changePct).toFixed(1)}%) 近一年
+                    {isUp ? "▲" : "▼"} {Math.abs(change).toFixed(2)} ({Math.abs(changePct).toFixed(1)}%) {rangeLabel}
                   </span>
                 )}
               </div>
             )}
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <div style={{ fontSize: 12, color: "#9ca3af" }}>
-                {prices[0]?.date && prices[prices.length - 1]?.date &&
-                  `${formatDateFull(prices[0].date)} – ${formatDateFull(prices[prices.length - 1].date)}`}
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ display: "flex" }}>
+                  {dateRanges.map((r, i) => (
+                    <button
+                      key={r.key}
+                      onClick={() => setDateRange(r.key)}
+                      style={{
+                        padding: "4px 12px",
+                        fontSize: 13,
+                        border: "1px solid #d1d5db",
+                        borderLeft: i === 0 ? "1px solid #d1d5db" : "none",
+                        borderRadius: i === 0 ? "6px 0 0 6px" : i === dateRanges.length - 1 ? "0 6px 6px 0" : 0,
+                        background: dateRange === r.key ? "#374151" : "#fff",
+                        color: dateRange === r.key ? "#fff" : "#374151",
+                        cursor: "pointer",
+                        fontWeight: dateRange === r.key ? "bold" : "normal",
+                      }}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ fontSize: 12, color: "#9ca3af" }}>
+                  {prices[0]?.date && prices[prices.length - 1]?.date &&
+                    `${formatDateFull(prices[0].date)} – ${formatDateFull(prices[prices.length - 1].date)}`}
+                </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <button
