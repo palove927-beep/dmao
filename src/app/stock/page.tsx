@@ -384,8 +384,8 @@ export default function StockPage() {
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15 }}>
         <thead>
           <tr style={{ background: "#1e3a5f", color: "#fff" }}>
-            <th style={{ ...thStyle, width: 60, textAlign: "center" }}>編號</th>
-            <th style={thStyle}>股票</th>
+            <th style={{ ...thStyle, width: 50, textAlign: "center", paddingRight: 0 }}>編號</th>
+            <th style={{ ...thStyle, paddingLeft: 0 }}>股票</th>
             <th style={{ ...thStyle, textAlign: "right" }}>現價</th>
             <th style={{ ...thStyle, textAlign: "center" }}>日期</th>
             <th style={{ ...thStyle, textAlign: "right" }}>2026 EPS</th>
@@ -429,8 +429,8 @@ export default function StockPage() {
                         borderBottom: "1px solid #eee",
                       }}
                     >
-                      <td style={{ ...tdStyle, color: "#9ca3af", fontSize: 13, textAlign: "center" }}>{stock.code}</td>
-                      <td style={{ ...tdStyle, paddingLeft: 4 }}>
+                      <td style={{ ...tdStyle, color: "#9ca3af", fontSize: 13, textAlign: "center", paddingRight: 0 }}>{stock.code}</td>
+                      <td style={{ ...tdStyle, paddingLeft: 0 }}>
                         {isTwStock(stock.ticker) ? (
                           <a href={`/stock/${stock.ticker}`} style={{ color: "#1a56db", textDecoration: "none", fontWeight: 500 }}>
                             {stock.ticker}
