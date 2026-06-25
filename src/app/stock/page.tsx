@@ -381,7 +381,7 @@ export default function StockPage() {
         ))}
       </div>
 
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15 }}>
+      <table style={{ borderCollapse: "collapse", fontSize: 15 }}>
         <thead>
           <tr style={{ background: "#1e3a5f", color: "#fff" }}>
             <th style={{ ...thStyle, width: 50, textAlign: "center" }}>編號</th>
