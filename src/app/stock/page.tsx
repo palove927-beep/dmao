@@ -58,7 +58,7 @@ function getSinceDate(range: TimeRange): string | null {
   return now.toISOString().slice(0, 10);
 }
 
-const COL_COUNT = 6;
+const COL_COUNT = 7;
 
 export default function StockPage() {
   const [prices, setPrices] = useState<PriceMap>({});
@@ -384,6 +384,7 @@ export default function StockPage() {
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15 }}>
         <thead>
           <tr style={{ background: "#1e3a5f", color: "#fff" }}>
+            <th style={{ ...thStyle, width: 50 }}>編號</th>
             <th style={thStyle}>股票</th>
             <th style={{ ...thStyle, textAlign: "right" }}>現價</th>
             <th style={{ ...thStyle, textAlign: "center" }}>日期</th>
@@ -428,6 +429,7 @@ export default function StockPage() {
                         borderBottom: "1px solid #eee",
                       }}
                     >
+                      <td style={{ ...tdStyle, color: "#9ca3af", fontSize: 13 }}>{stock.code}</td>
                       <td style={tdStyle}>
                         {isTwStock(stock.ticker) ? (
                           <a href={`/stock/${stock.ticker}`} style={{ color: "#1a56db", textDecoration: "none", fontWeight: 500 }}>
