@@ -355,6 +355,10 @@ export default function StockDetailPage() {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+
+            <div style={{ textAlign: "right", fontSize: 12, color: "#9ca3af", marginTop: 8 }}>
+              共 {prices.length} 筆資料（{allPrices.length} 筆總計）
+            </div>
           </>
         )}
       </div>
