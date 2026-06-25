@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { categories } from "@/lib/stock-list";
 import {
-  ComposedChart, Bar, AreaChart, Area, XAxis, YAxis, Tooltip,
+  ComposedChart, Bar, BarChart, Cell, AreaChart, Area, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
 } from "recharts";
 
@@ -175,6 +175,19 @@ export default function StockDetailPage() {
   const yMin = Math.floor((minVal - pad) / 5) * 5;
   const yMax = Math.ceil((maxVal + pad) / 5) * 5;
 
+  const volumeData = candleData.map((p) => ({
+    date: p.date,
+    volume: p.volume ?? 0,
+    isUp: p.isUp,
+  }));
+  const maxVolume = Math.max(...volumeData.map((v) => v.volume), 0);
+
+  function formatVolume(v: number) {
+    if (v >= 1e8) return `${(v / 1e8).toFixed(1)}億`;
+    if (v >= 1e4) return `${(v / 1e4).toFixed(0)}萬`;
+    return v.toLocaleString();
+  }
+
   const toggleStyle = (active: boolean): React.CSSProperties => ({
     padding: "5px 14px",
     fontSize: 13,
@@ -282,25 +295,22 @@ export default function StockDetailPage() {
             </div>
 
             {chartMode === "candlestick" && hasOhlc ? (
-              <ResponsiveContainer width="100%" height={380}>
+              <ResponsiveContainer width="100%" height={300}>
                 <ComposedChart data={candleData} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}
                   barGap={0} barCategoryGap="10%"
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="date" ticks={pickTicks(prices)} tickFormatter={formatDateShort}
-                    tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="date" hide />
                   <YAxis domain={[yMin, yMax]} tick={{ fontSize: 11, fill: "#9ca3af" }}
                     axisLine={false} tickLine={false} width={56}
                     tickFormatter={(v) => v.toLocaleString()} />
                   <Tooltip content={<CandlestickTooltip />} />
-                  {/* Invisible base: lifts candle body to correct Y position */}
                   <Bar dataKey="bodyLow" stackId="candle" fill="transparent" stroke="none" isAnimationActive={false} />
-                  {/* Visible candle body + wicks via custom shape */}
                   <Bar dataKey="candleBody" stackId="candle" shape={<CandlestickShape />} isAnimationActive={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             ) : (
-              <ResponsiveContainer width="100%" height={380}>
+              <ResponsiveContainer width="100%" height={300}>
                 <AreaChart data={prices} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
                   <defs>
                     <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
@@ -309,8 +319,7 @@ export default function StockDetailPage() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="date" ticks={pickTicks(prices)} tickFormatter={formatDateShort}
-                    tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="date" hide />
                   <YAxis domain={[yMin, yMax]} tick={{ fontSize: 11, fill: "#9ca3af" }}
                     axisLine={false} tickLine={false} width={56}
                     tickFormatter={(v) => v.toLocaleString()} />
@@ -324,6 +333,28 @@ export default function StockDetailPage() {
                 </AreaChart>
               </ResponsiveContainer>
             )}
+
+            {/* Volume chart */}
+            <ResponsiveContainer width="100%" height={100}>
+              <BarChart data={volumeData} margin={{ top: 0, right: 8, bottom: 0, left: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                <XAxis dataKey="date" ticks={pickTicks(prices)} tickFormatter={formatDateShort}
+                  tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                <YAxis domain={[0, maxVolume * 1.1]} tick={{ fontSize: 10, fill: "#9ca3af" }}
+                  axisLine={false} tickLine={false} width={56}
+                  tickFormatter={formatVolume} />
+                <Tooltip
+                  formatter={(value: unknown) => [`${((value as number) / 1000).toLocaleString()}張`, "成交量"]}
+                  labelFormatter={(label) => formatDateFull(label as string)}
+                  contentStyle={{ fontSize: 13, borderRadius: 6, border: "1px solid #e5e7eb" }}
+                />
+                <Bar dataKey="volume" isAnimationActive={false}>
+                  {volumeData.map((entry, index) => (
+                    <Cell key={index} fill={entry.isUp ? "rgba(220,38,38,0.5)" : "rgba(22,163,74,0.5)"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </>
         )}
       </div>
