@@ -46,10 +46,11 @@ async function fetchFugle(ticker: string): Promise<PriceRow[]> {
 }
 
 // --- TPEX monthly API (for OTC stocks) ---
+// New endpoint: https://www.tpex.org.tw/www/zh-tw/afterTrading/tradingStock
+// Response: { tables: [{ data: [[date, vol, amount, open, high, low, close, change, txn], ...] }] }
 async function fetchTpexMonth(stockNo: string, year: number, month: number): Promise<PriceRow[]> {
-  const rocYear = year - 1911;
-  const d = `${rocYear}/${String(month).padStart(2, "0")}`;
-  const url = `https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_result.php?l=zh-tw&d=${d}&stkno=${stockNo}`;
+  const d = `${year}/${String(month).padStart(2, "0")}/01`;
+  const url = `https://www.tpex.org.tw/www/zh-tw/afterTrading/tradingStock?date=${d}&code=${stockNo}&response=json`;
   try {
     const res = await withTimeout(
       fetch(url, {
@@ -60,7 +61,7 @@ async function fetchTpexMonth(stockNo: string, year: number, month: number): Pro
     );
     if (!res.ok) return [];
     const json = await res.json();
-    const rows: string[][] = json?.aaData;
+    const rows: string[][] = json?.tables?.[0]?.data;
     if (!Array.isArray(rows)) return [];
     return rows.flatMap((row) => {
       const parts = row[0].split("/");
@@ -134,13 +135,12 @@ export async function GET(
     const diag: Record<string, unknown> = { ticker, isTpex, hasFugleKey: !!process.env.FUGLE_API_KEY };
 
     if (isTpex) {
-      const rocYear = new Date().getFullYear() - 1911;
-      const month = String(new Date().getMonth() + 1).padStart(2, "0");
-      const tpexUrl = `https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_result.php?l=zh-tw&d=${rocYear}/${month}&stkno=${ticker}`;
+      const now = new Date();
+      const tpexUrl = `https://www.tpex.org.tw/www/zh-tw/afterTrading/tradingStock?date=${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/01&code=${ticker}&response=json`;
       try {
         const res = await fetch(tpexUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
         const text = await res.text();
-        diag.tpex = { status: res.status, bodyPreview: text.slice(0, 500) };
+        diag.tpex = { status: res.status, url: tpexUrl, bodyPreview: text.slice(0, 500) };
       } catch (e) { diag.tpex = { error: String(e) }; }
     } else {
       const twseUrl = `https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, "0")}01&stockNo=${ticker}`;
