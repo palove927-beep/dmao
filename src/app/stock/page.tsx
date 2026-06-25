@@ -385,7 +385,7 @@ export default function StockPage() {
         <thead>
           <tr style={{ background: "#1e3a5f", color: "#fff" }}>
             <th style={{ ...thStyle, width: 50, textAlign: "center", paddingRight: 0 }}>編號</th>
-            <th style={{ ...thStyle, paddingLeft: 0 }}>股票</th>
+            <th style={{ ...thStyle, paddingLeft: 0, width: 120 }}>股票</th>
             <th style={{ ...thStyle, textAlign: "right" }}>現價</th>
             <th style={{ ...thStyle, textAlign: "center" }}>日期</th>
             <th style={{ ...thStyle, textAlign: "right" }}>2026 EPS</th>
