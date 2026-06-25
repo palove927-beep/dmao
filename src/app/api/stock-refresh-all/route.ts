@@ -182,7 +182,7 @@ async function upsertToDb(ticker: string, rows: PriceRow[]) {
 // ─── Route handler ───
 
 export async function GET(req: NextRequest) {
-  const threshold = parseInt(req.nextUrl.searchParams.get("threshold") ?? "220");
+  const threshold = parseInt(req.nextUrl.searchParams.get("threshold") ?? "239");
   const dryRun = req.nextUrl.searchParams.get("dry") === "1";
 
   const sb = getSupabase();
