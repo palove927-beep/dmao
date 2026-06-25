@@ -58,7 +58,7 @@ function getSinceDate(range: TimeRange): string | null {
   return now.toISOString().slice(0, 10);
 }
 
-const COL_COUNT = 8;
+const COL_COUNT = 6;
 
 export default function StockPage() {
   const [prices, setPrices] = useState<PriceMap>({});
@@ -384,9 +384,7 @@ export default function StockPage() {
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15 }}>
         <thead>
           <tr style={{ background: "#1e3a5f", color: "#fff" }}>
-            <th style={thStyle}>編號</th>
             <th style={thStyle}>股票</th>
-            <th style={{ ...thStyle, textAlign: "center" }}>代號</th>
             <th style={{ ...thStyle, textAlign: "right" }}>現價</th>
             <th style={{ ...thStyle, textAlign: "center" }}>日期</th>
             <th style={{ ...thStyle, textAlign: "right" }}>2026 EPS</th>
@@ -430,14 +428,16 @@ export default function StockPage() {
                         borderBottom: "1px solid #eee",
                       }}
                     >
-                      <td style={tdStyle}>{stock.code}</td>
-                      <td style={tdStyle}>{hasTwData ? p.name || stock.name : stock.name}</td>
-                      <td style={{ ...tdStyle, textAlign: "center" }}>
+                      <td style={tdStyle}>
+                        <span style={{ color: "#9ca3af", fontSize: 13, marginRight: 6 }}>{stock.code}</span>
                         {isTwStock(stock.ticker) ? (
                           <a href={`/stock/${stock.ticker}`} style={{ color: "#1a56db", textDecoration: "none", fontWeight: 500 }}>
                             {stock.ticker}
                           </a>
-                        ) : stock.ticker}
+                        ) : (
+                          <span style={{ fontWeight: 500 }}>{stock.ticker}</span>
+                        )}
+                        <span style={{ marginLeft: 6 }}>{hasTwData ? p.name || stock.name : stock.name}</span>
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold" }}>
                         {hasTwData ? formatPrice(p.price) : "-"}
