@@ -321,10 +321,6 @@ export async function GET(
 
     // 2. Fetch missing data from external API if needed
     if (needsFetch) {
-      if (forceRefresh && latestDate) {
-        await getSupabase().from("dmao_stock_prices").delete().eq("ticker", ticker);
-      }
-
       const sinceDate = forceRefresh ? undefined : (latestDate ?? undefined);
       const newData = await fetchExternal(ticker, isTpex, sinceDate);
 

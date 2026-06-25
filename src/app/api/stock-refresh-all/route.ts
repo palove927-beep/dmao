@@ -220,7 +220,6 @@ export async function GET(req: NextRequest) {
     const isTpex = tpexSet.has(ticker);
 
     try {
-      await sb.from("dmao_stock_prices").delete().eq("ticker", ticker);
       const prices = await fetchFullYear(ticker, isTpex);
       await upsertToDb(ticker, prices);
       results.push({ ticker, name, before, after: prices.length, status: "ok" });
