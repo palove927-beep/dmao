@@ -197,7 +197,7 @@ export default function StockPage() {
     if (diff <= 14) return "#16a34a";
     if (diff <= 30) return "#2563eb";
     if (diff <= 90) return "#ea580c";
-    return "#dc2626";
+    return "#9ca3af";
   };
 
   const isTwStock = (ticker: string) => /^\d+$/.test(ticker);
