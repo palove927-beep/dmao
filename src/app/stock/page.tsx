@@ -471,8 +471,8 @@ export default function StockPage() {
                         {epsDate ? (
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                             <span style={{
-                              width: 8,
-                              height: 8,
+                              width: 11,
+                              height: 11,
                               borderRadius: "50%",
                               background: dateAgeColor(epsDate),
                               flexShrink: 0,
