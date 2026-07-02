@@ -191,6 +191,15 @@ export default function StockPage() {
     return "#dc2626";
   };
 
+  const dateAgeColor = (dateStr: string | null): string => {
+    if (!dateStr) return "#ccc";
+    const diff = (Date.now() - new Date(dateStr).getTime()) / (24 * 3600 * 1000);
+    if (diff <= 14) return "#16a34a";
+    if (diff <= 30) return "#2563eb";
+    if (diff <= 90) return "#ea580c";
+    return "#dc2626";
+  };
+
   const isTwStock = (ticker: string) => /^\d+$/.test(ticker);
 
   const timeRanges: { key: TimeRange; label: string }[] = [
@@ -458,7 +467,7 @@ export default function StockPage() {
                       <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold" }}>
                         {hasTwData ? formatPrice(p.price) : "-"}
                       </td>
-                      <td style={{ ...tdStyle, textAlign: "center", color: "#666", fontSize: 13 }}>
+                      <td style={{ ...tdStyle, textAlign: "center", fontSize: 13, color: dateAgeColor(epsDate), fontWeight: epsDate ? "bold" : undefined }}>
                         {formatDate(epsDate)}
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right" }}>
