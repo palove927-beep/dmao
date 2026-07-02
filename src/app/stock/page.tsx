@@ -383,13 +383,13 @@ export default function StockPage() {
 
       <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse", fontSize: 15 }}>
         <colgroup>
-          <col style={{ width: 50 }} />
-          <col style={{ width: 130 }} />
-          <col style={{ width: 110 }} />
-          <col style={{ width: 70 }} />
-          <col />
-          <col />
-          <col style={{ width: 60 }} />
+          <col style={{ width: "5%" }} />
+          <col style={{ width: "18%" }} />
+          <col style={{ width: "11%" }} />
+          <col style={{ width: "8%" }} />
+          <col style={{ width: "18%" }} />
+          <col style={{ width: "18%" }} />
+          <col style={{ width: "7%" }} />
         </colgroup>
         <thead>
           <tr style={{ background: "#1e3a5f", color: "#fff" }}>
@@ -408,7 +408,7 @@ export default function StockPage() {
               <tr key={`cat-${cat.id}`} style={{ background: "#f0f4f8" }}>
                 <td
                   colSpan={COL_COUNT}
-                  style={{ padding: "10px 14px", fontWeight: "bold", fontSize: 15, color: "#1e3a5f" }}
+                  style={{ padding: "10px 10px", fontWeight: "bold", fontSize: 15, color: "#1e3a5f" }}
                 >
                   {cat.label}
                 </td>
@@ -600,13 +600,13 @@ export default function StockPage() {
 }
 
 const thStyle: React.CSSProperties = {
-  padding: "10px 14px",
+  padding: "10px 10px",
   fontWeight: "bold",
   textAlign: "left",
   fontSize: 14,
 };
 
 const tdStyle: React.CSSProperties = {
-  padding: "10px 14px",
+  padding: "10px 10px",
   color: "#222",
 };
