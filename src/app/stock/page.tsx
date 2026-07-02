@@ -230,6 +230,21 @@ export default function StockPage() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <a
+            href="/track"
+            style={{
+              padding: "6px 16px",
+              fontSize: 13,
+              border: "1px solid #1a56db",
+              borderRadius: 6,
+              background: "#fff",
+              color: "#1a56db",
+              textDecoration: "none",
+              display: "inline-block",
+            }}
+          >
+            追蹤清單
+          </a>
+          <a
             href="/articles"
             style={{
               padding: "6px 16px",
