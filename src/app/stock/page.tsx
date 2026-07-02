@@ -467,8 +467,19 @@ export default function StockPage() {
                       <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold" }}>
                         {hasTwData ? formatPrice(p.price) : "-"}
                       </td>
-                      <td style={{ ...tdStyle, textAlign: "center", fontSize: 13, color: dateAgeColor(epsDate), fontWeight: epsDate ? "bold" : undefined }}>
-                        {formatDate(epsDate)}
+                      <td style={{ ...tdStyle, textAlign: "center", fontSize: 13, color: "#666" }}>
+                        {epsDate ? (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                            <span style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: "50%",
+                              background: dateAgeColor(epsDate),
+                              flexShrink: 0,
+                            }} />
+                            {formatDate(epsDate)}
+                          </span>
+                        ) : "-"}
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right" }}>
                         {eps2026 ? (
