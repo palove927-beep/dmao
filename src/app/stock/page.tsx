@@ -448,11 +448,11 @@ export default function StockPage() {
                           <span style={{ fontWeight: 500 }}>{stock.ticker}</span>
                         )}
                         {isTwStock(stock.ticker) ? (
-                          <a href={`/stock/${stock.ticker}`} style={{ marginLeft: 6, color: "inherit", textDecoration: "none" }}>
+                          <a href={`/stock/${stock.ticker}`} style={{ marginLeft: 12, color: "inherit", textDecoration: "none" }}>
                             {hasTwData ? p.name || stock.name : stock.name}
                           </a>
                         ) : (
-                          <span style={{ marginLeft: 6 }}>{stock.name}</span>
+                          <span style={{ marginLeft: 12 }}>{stock.name}</span>
                         )}
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold" }}>
