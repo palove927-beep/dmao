@@ -202,15 +202,79 @@ export default function StockPage() {
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <a href="/" style={{ color: "#1a56db", textDecoration: "none", display: "flex", alignItems: "center" }} title="首頁">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-            <polyline points="9 22 9 12 15 12 15 22" />
-          </svg>
-        </a>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {editor && <span style={{ fontSize: 12, color: "#16a34a", fontWeight: "bold" }}>編輯模式</span>}
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "16px 0 20px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <a href="/" style={{ color: "#1a56db", textDecoration: "none", display: "flex", alignItems: "center" }} title="首頁">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+          </a>
+          <h1 style={{ fontSize: 24, fontWeight: "bold", margin: 0 }}>
+            股票即時報價
+          </h1>
+          {updatedAt && (
+            <span style={{ fontSize: 13, color: "#999", whiteSpace: "nowrap" }}>
+              {new Date(updatedAt).toLocaleString("zh-TW")}
+            </span>
+          )}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <a
+            href="/articles"
+            style={{
+              padding: "6px 16px",
+              fontSize: 13,
+              border: "1px solid #1a56db",
+              borderRadius: 6,
+              background: "#fff",
+              color: "#1a56db",
+              textDecoration: "none",
+              display: "inline-block",
+            }}
+          >
+            文章列表
+          </a>
+          {editor && (
+            <a
+              href="/stock/dmao"
+              style={{
+                padding: "6px 16px",
+                fontSize: 13,
+                border: "1px solid #1a56db",
+                borderRadius: 6,
+                background: "#fff",
+                color: "#1a56db",
+                textDecoration: "none",
+                display: "inline-block",
+              }}
+            >
+              貼上文章
+            </a>
+          )}
+          <button
+            onClick={() => { setLoading(true); fetchPrices(); }}
+            disabled={loading}
+            title="重新整理"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.5 : 1,
+              padding: "2px 6px",
+              display: "flex",
+              alignItems: "center",
+              color: "#333",
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={loading ? { animation: "spin 1s linear infinite" } : undefined}>
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+          </button>
+          {editor && <span style={{ fontSize: 12, color: "#16a34a", fontWeight: "bold" }}>編輯</span>}
           <button
             onClick={() => {
               if (editor) {
@@ -298,66 +362,6 @@ export default function StockPage() {
           </div>
         </div>
       )}
-
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "24px 0 20px" }}>
-        <h1 style={{ fontSize: 28, fontWeight: "bold", margin: 0 }}>
-          股票即時報價
-          {updatedAt && (
-            <span style={{ fontSize: 13, fontWeight: "normal", color: "#999", marginLeft: 12 }}>
-              {new Date(updatedAt).toLocaleString("zh-TW")}
-            </span>
-          )}
-        </h1>
-        <div style={{ display: "flex", gap: 8 }}>
-          <a
-            href="/articles"
-            style={{
-              padding: "8px 20px",
-              fontSize: 14,
-              border: "1px solid #1a56db",
-              borderRadius: 6,
-              background: "#fff",
-              color: "#1a56db",
-              textDecoration: "none",
-              display: "inline-block",
-            }}
-          >
-            文章列表
-          </a>
-          {editor && (
-            <a
-              href="/stock/dmao"
-              style={{
-                padding: "8px 20px",
-                fontSize: 14,
-                border: "1px solid #1a56db",
-                borderRadius: 6,
-                background: "#fff",
-                color: "#1a56db",
-                textDecoration: "none",
-                display: "inline-block",
-              }}
-            >
-              貼上文章
-            </a>
-          )}
-          <button
-            onClick={() => { setLoading(true); fetchPrices(); }}
-            disabled={loading}
-            style={{
-              padding: "8px 20px",
-              fontSize: 14,
-              border: "1px solid #333",
-              borderRadius: 6,
-              background: "#fff",
-              cursor: loading ? "not-allowed" : "pointer",
-              opacity: loading ? 0.5 : 1,
-            }}
-          >
-            {loading ? "更新中..." : "重新整理"}
-          </button>
-        </div>
-      </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, fontSize: 14 }}>
         <span style={{ color: "#666" }}>標記區間：</span>
