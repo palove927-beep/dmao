@@ -177,6 +177,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "6435",       name: "大中" },
   { ticker: "6770",       name: "力積電" },
   { ticker: "7712",       name: "博盛半導體" },
+  { ticker: "3055",       name: "蔚華科" },
   { ticker: "3485",       name: "敘豐" },
   { ticker: "4768",       name: "晶呈科技",              aliases: ["晶呈科"] },
   { ticker: "6983",       name: "華洋精機" },
