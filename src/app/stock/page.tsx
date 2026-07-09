@@ -481,18 +481,19 @@ export default function StockPage() {
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold" }}>
                         {hasTwData ? (
-                          <>
+                          <span style={{ whiteSpace: "nowrap" }}>
                             {formatPrice(p.price)}
                             {p.changePercent !== null && (
-                              <div style={{
+                              <span style={{
+                                marginLeft: 6,
                                 fontSize: 12,
                                 fontWeight: 600,
                                 color: p.changePercent > 0 ? "#dc2626" : p.changePercent < 0 ? "#15803d" : "#6b7280",
                               }}>
                                 {p.changePercent > 0 ? "+" : ""}{p.changePercent}%
-                              </div>
+                              </span>
                             )}
-                          </>
+                          </span>
                         ) : "-"}
                       </td>
                       <td style={{ ...tdStyle, textAlign: "center", fontSize: 13, color: "#666" }}>
