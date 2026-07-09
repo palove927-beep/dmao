@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { scanStocks } from "@/lib/stock-lookup";
 import type { TrackQuote } from "@/app/api/track/route";
@@ -59,6 +59,17 @@ type Annotation = {
 };
 
 type LatestEpsInfo = { eps: number; article_date: string | null };
+
+const fmt2 = (n: number | null | undefined) =>
+  n === null || n === undefined ? "-" : n.toFixed(2);
+
+// 大數字去掉多餘小數，避免版面換行（台股 500 元以上跳動單位已是整數）
+const fmtCompact = (n: number | null | undefined) => {
+  if (n === null || n === undefined) return "-";
+  if (n >= 1000) return n.toFixed(0);
+  if (n >= 100) return (Math.round(n * 10) / 10).toString();
+  return n.toFixed(2);
+};
 
 const calcPE = (price: number | null | undefined, eps: number | undefined) => {
   if (!price || !eps || eps <= 0) return null;
@@ -160,6 +171,25 @@ export default function TrackPage() {
   const [loading, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<string>("");
   const [sortMode, setSortMode] = useState<SortMode>("custom");
+  const [viewMode, setViewMode] = useState<"card" | "list">("card");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("dmao_track_view");
+      if (saved === "list" || saved === "card") setViewMode(saved);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const changeViewMode = (mode: "card" | "list") => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("dmao_track_view", mode);
+    } catch {
+      // ignore
+    }
+  };
 
   const [query, setQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -515,6 +545,32 @@ export default function TrackPage() {
           ))}
         </div>
 
+        {/* 圖卡 / 清單 檢視切換 */}
+        <div style={{ display: "flex" }}>
+          {([
+            { key: "card", label: "圖卡" },
+            { key: "list", label: "清單" },
+          ] as const).map((m, i) => (
+            <button
+              key={m.key}
+              onClick={() => changeViewMode(m.key)}
+              style={{
+                padding: "5px 14px",
+                fontSize: 13,
+                border: "1px solid #d1d5db",
+                borderLeft: i === 0 ? "1px solid #d1d5db" : "none",
+                borderRadius: i === 0 ? "6px 0 0 6px" : "0 6px 6px 0",
+                background: viewMode === m.key ? "#374151" : "#fff",
+                color: viewMode === m.key ? "#fff" : "#374151",
+                cursor: "pointer",
+                fontWeight: viewMode === m.key ? "bold" : "normal",
+              }}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+
         {(summary.up > 0 || summary.down > 0 || summary.flat > 0) && (
           <div style={{ fontSize: 13, color: "#666", marginLeft: "auto" }}>
             <span style={{ color: "#dc2626", fontWeight: 600 }}>▲ {summary.up} 檔上漲</span>
@@ -537,27 +593,195 @@ export default function TrackPage() {
         </div>
       )}
 
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))",
-        gap: 14,
-      }}>
-        {sortedList.map((stock) => (
-          <StockCard
-            key={stock.ticker}
-            stock={stock}
-            quote={quotes[stock.ticker]}
-            onRemove={() => removeStock(stock.ticker)}
-            eps2026={latestEps2026[stock.ticker]}
-            eps2027={latestEps2027[stock.ticker]}
-            annotationCount={annotationCounts[stock.ticker] || 0}
-            isExpanded={expandedTicker === stock.ticker}
-            annotations={annotationsMap[stock.ticker]}
-            isLoadingAnnotations={loadingAnnotations === stock.ticker}
-            onToggleAnnotations={() => toggleAnnotations(stock.ticker)}
-          />
-        ))}
-      </div>
+      {viewMode === "card" ? (
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))",
+          gap: 14,
+        }}>
+          {sortedList.map((stock) => (
+            <StockCard
+              key={stock.ticker}
+              stock={stock}
+              quote={quotes[stock.ticker]}
+              onRemove={() => removeStock(stock.ticker)}
+              eps2026={latestEps2026[stock.ticker]}
+              eps2027={latestEps2027[stock.ticker]}
+              annotationCount={annotationCounts[stock.ticker] || 0}
+              isExpanded={expandedTicker === stock.ticker}
+              annotations={annotationsMap[stock.ticker]}
+              isLoadingAnnotations={loadingAnnotations === stock.ticker}
+              onToggleAnnotations={() => toggleAnnotations(stock.ticker)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", minWidth: 780, tableLayout: "fixed", borderCollapse: "collapse", fontSize: 14 }}>
+            <colgroup>
+              <col style={{ width: "17%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "6%" }} />
+            </colgroup>
+            <thead>
+              <tr style={{ background: "#1e3a5f", color: "#fff" }}>
+                <th style={{ ...listThStyle, textAlign: "left" }}>股票</th>
+                <th style={listThStyle}>近一月</th>
+                <th style={{ ...listThStyle, textAlign: "right" }}>現價</th>
+                <th style={{ ...listThStyle, textAlign: "right" }}>漲跌</th>
+                <th style={{ ...listThStyle, textAlign: "right" }}>26E</th>
+                <th style={{ ...listThStyle, textAlign: "right" }}>27E</th>
+                <th style={{ ...listThStyle, textAlign: "center" }}>日期</th>
+                <th style={{ ...listThStyle, textAlign: "center" }}>標記</th>
+                <th style={listThStyle} />
+              </tr>
+            </thead>
+            <tbody>
+              {sortedList.map((stock, i) => {
+                const q = quotes[stock.ticker];
+                const eps26 = latestEps2026[stock.ticker];
+                const eps27 = latestEps2027[stock.ticker];
+                const annCount = annotationCounts[stock.ticker] || 0;
+                const isExpanded = expandedTicker === stock.ticker;
+                const anns = annotationsMap[stock.ticker];
+                const pct = q?.changePercent ?? null;
+                const pctColor = pct === null || pct === 0 ? "#6b7280" : pct > 0 ? "#dc2626" : "#15803d";
+                const epsDate = eps26?.article_date ?? eps27?.article_date ?? null;
+                const renderEps = (info: LatestEpsInfo | undefined) => {
+                  if (!info) return "-";
+                  const pe = calcPE(q?.price, info.eps);
+                  return (
+                    <span style={{ whiteSpace: "nowrap" }}>
+                      <b style={{ color: "#b45309" }}>{info.eps}</b>
+                      {pe !== null && (
+                        <span style={{
+                          marginLeft: 5, fontSize: 11, fontWeight: "bold", color: "#fff",
+                          background: peColor(pe), padding: "1px 5px", borderRadius: 4,
+                        }}>
+                          {pe}x
+                        </span>
+                      )}
+                    </span>
+                  );
+                };
+                return (
+                  <React.Fragment key={stock.ticker}>
+                    <tr style={{ background: i % 2 === 0 ? "#fff" : "#f9fafb", borderBottom: "1px solid #eee" }}>
+                      <td style={listTdStyle}>
+                        <Link href={`/stock/${stock.ticker}`} style={{ color: "#1a56db", textDecoration: "none", fontWeight: 500 }}>
+                          {stock.ticker}
+                        </Link>
+                        <Link href={`/stock/${stock.ticker}`} style={{ marginLeft: 8, color: "inherit", textDecoration: "none" }}>
+                          {q?.name || stock.name}
+                        </Link>
+                      </td>
+                      <td style={{ ...listTdStyle, padding: "4px 10px" }}>
+                        <Sparkline ticker={stock.ticker} />
+                      </td>
+                      <td style={{ ...listTdStyle, textAlign: "right", fontWeight: "bold", fontVariantNumeric: "tabular-nums" }}>
+                        {q ? fmtCompact(q.price) : "-"}
+                      </td>
+                      <td style={{ ...listTdStyle, textAlign: "right", fontSize: 13, fontWeight: 600, color: pctColor, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                        {q && q.change !== null && pct !== null
+                          ? `${q.change > 0 ? "+" : ""}${fmt2(q.change)} (${pct > 0 ? "+" : ""}${pct.toFixed(2)}%)`
+                          : "-"}
+                      </td>
+                      <td style={{ ...listTdStyle, textAlign: "right" }}>{renderEps(eps26)}</td>
+                      <td style={{ ...listTdStyle, textAlign: "right" }}>{renderEps(eps27)}</td>
+                      <td style={{ ...listTdStyle, textAlign: "center", fontSize: 12, color: "#666" }}>
+                        {epsDate ? (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            <span style={{ width: 9, height: 9, borderRadius: "50%", background: dateAgeColor(epsDate), flexShrink: 0 }} />
+                            {formatShortDate(epsDate)}
+                          </span>
+                        ) : "-"}
+                      </td>
+                      <td style={{ ...listTdStyle, textAlign: "center" }}>
+                        {annCount > 0 ? (
+                          <button
+                            onClick={() => toggleAnnotations(stock.ticker)}
+                            style={{
+                              padding: "2px 10px", fontSize: 13, fontWeight: "bold",
+                              border: "none", borderRadius: 10,
+                              background: isExpanded ? "#1a56db" : "#e0e7ff",
+                              color: isExpanded ? "#fff" : "#1a56db",
+                              cursor: "pointer", minWidth: 28,
+                            }}
+                          >
+                            {annCount}
+                          </button>
+                        ) : (
+                          <span style={{ color: "#ccc", fontSize: 13 }}>-</span>
+                        )}
+                      </td>
+                      <td style={{ ...listTdStyle, textAlign: "center" }}>
+                        <button
+                          onClick={() => removeStock(stock.ticker)}
+                          title={`移除 ${q?.name || stock.name}`}
+                          style={{
+                            border: "none", background: "none", cursor: "pointer",
+                            color: "#c4c9d1", fontSize: 16, lineHeight: 1, padding: 4,
+                          }}
+                        >
+                          ×
+                        </button>
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan={9} style={{ padding: 0 }}>
+                          <div style={{ background: "#f8fafc", borderLeft: "3px solid #1a56db", margin: "0 14px 8px", padding: "12px 16px" }}>
+                            {loadingAnnotations === stock.ticker ? (
+                              <div style={{ color: "#999", fontSize: 13 }}>載入中...</div>
+                            ) : !anns || anns.length === 0 ? (
+                              <div style={{ color: "#999", fontSize: 13 }}>尚無標記段落</div>
+                            ) : (
+                              anns.map((ann, idx) => (
+                                <div
+                                  key={ann.id}
+                                  style={{
+                                    marginBottom: idx < anns.length - 1 ? 12 : 0,
+                                    paddingBottom: idx < anns.length - 1 ? 12 : 0,
+                                    borderBottom: idx < anns.length - 1 ? "1px solid #e5e7eb" : "none",
+                                  }}
+                                >
+                                  <div style={{ fontSize: 13, color: "#666", marginBottom: 4 }}>
+                                    <strong>{ann.dmao_articles?.title || "無標題"}</strong>
+                                    {ann.dmao_articles?.article_date && (
+                                      <span style={{ marginLeft: 8 }}>
+                                        {formatShortDate(ann.dmao_articles.article_date)}
+                                      </span>
+                                    )}
+                                    <Link href={`/articles/${ann.article_id}`} style={{ marginLeft: 8, color: "#1a56db", fontSize: 12 }}>
+                                      查看全文 →
+                                    </Link>
+                                  </div>
+                                  <div style={{ fontSize: 14, color: "#333", lineHeight: 1.6 }}>
+                                    {ann.is_summary && (
+                                      <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "#fef3c7", color: "#92400e", marginRight: 6 }}>AI 摘要</span>
+                                    )}
+                                    {highlightKeywords(ann.paragraph, [ann.stock_name, ann.ticker])}
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {list === null && (
         <div style={{ textAlign: "center", padding: 40, color: "#999" }}>載入中...</div>
@@ -565,6 +789,18 @@ export default function TrackPage() {
     </div>
   );
 }
+
+const listThStyle: React.CSSProperties = {
+  padding: "9px 10px",
+  fontWeight: "bold",
+  textAlign: "center",
+  fontSize: 13,
+};
+
+const listTdStyle: React.CSSProperties = {
+  padding: "8px 10px",
+  color: "#222",
+};
 
 // ─── Stat card ───────────────────────────────────────────
 // 台股慣例：紅漲綠跌；方向另以 ▲/▼ 符號標示，不只靠顏色
@@ -603,16 +839,7 @@ function StockCard({
     dir === "up" ? "#b91c1c" : dir === "down" ? "#166534" : "#6b7280";
   const arrow = dir === "up" ? "▲" : dir === "down" ? "▼" : "—";
 
-  const fmt = (n: number | null | undefined) =>
-    n === null || n === undefined ? "-" : n.toFixed(2);
-
-  // 大數字去掉多餘小數，避免卡片內換行（台股 500 元以上跳動單位已是整數）
-  const fmtCompact = (n: number | null | undefined) => {
-    if (n === null || n === undefined) return "-";
-    if (n >= 1000) return n.toFixed(0);
-    if (n >= 100) return (Math.round(n * 10) / 10).toString();
-    return n.toFixed(2);
-  };
+  const fmt = fmt2;
 
   const displayName = quote?.name || stock.name;
 

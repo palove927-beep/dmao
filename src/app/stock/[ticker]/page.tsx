@@ -66,6 +66,34 @@ type CandleData = PricePoint & {
   isUp: boolean;
 };
 
+// ─── 標記資料 ─────────────────────────────────────────────
+type AnnotationRow = {
+  id: string;
+  ticker: string;
+  stock_name: string;
+  paragraph: string;
+  is_summary: boolean;
+  article_id: string;
+  aliases?: string[];
+  dmao_articles: { id: string; title: string; article_date: string | null } | null;
+};
+
+function highlightKeywords(text: string, keywords: string[]) {
+  const filtered = keywords.filter(Boolean);
+  if (filtered.length === 0) return text;
+  const escaped = filtered.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  escaped.sort((a, b) => b.length - a.length);
+  const regex = new RegExp(`(${escaped.join("|")})`, "g");
+  const parts = text.split(regex);
+  return parts.map((part, i) =>
+    filtered.includes(part) ? (
+      <mark key={i} style={{ background: "#fef9c3", padding: "1px 2px", borderRadius: 2 }}>{part}</mark>
+    ) : (
+      part
+    )
+  );
+}
+
 // ─── 文章事件圖釘 ─────────────────────────────────────────
 type ArticleParagraph = { text: string; is_summary: boolean };
 type ArticleEvent = { id: string; title: string; date: string; paragraphs: ArticleParagraph[] };
@@ -161,6 +189,7 @@ export default function StockDetailPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [quote, setQuote] = useState<TrackQuote | null>(null);
   const [articleEvents, setArticleEvents] = useState<ArticleEvent[]>([]);
+  const [annotationRows, setAnnotationRows] = useState<AnnotationRow[]>([]);
   const [hoverPin, setHoverPin] = useState<{ pin: ArticlePinGroup; x: number; y: number } | null>(null);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chartWrapRef = useRef<HTMLDivElement>(null);
@@ -186,6 +215,7 @@ export default function StockDetailPage() {
       .then((r) => r.json())
       .then((json) => {
         if (cancelled || !json.ok) return;
+        setAnnotationRows(json.annotations);
         const seen = new Map<string, ArticleEvent>();
         for (const ann of json.annotations) {
           const art = ann.dmao_articles;
@@ -592,6 +622,51 @@ export default function StockDetailPage() {
               </span>
               <span>共 {prices.length} 筆資料（{allPrices.length} 筆總計）</span>
             </div>
+
+            {/* 標記段落 */}
+            {annotationRows.length > 0 && (
+              <div style={{ marginTop: 32 }}>
+                <h2 style={{ fontSize: 17, fontWeight: "bold", margin: "0 0 12px", color: "#1e3a5f" }}>
+                  標記段落
+                  <span style={{ marginLeft: 8, fontSize: 13, fontWeight: "normal", color: "#9ca3af" }}>
+                    {annotationRows.length} 筆
+                  </span>
+                </h2>
+                <div style={{ background: "#f8fafc", borderLeft: "3px solid #1a56db", borderRadius: 4, padding: "14px 18px" }}>
+                  {annotationRows.map((ann, idx) => (
+                    <div
+                      key={ann.id}
+                      style={{
+                        marginBottom: idx < annotationRows.length - 1 ? 14 : 0,
+                        paddingBottom: idx < annotationRows.length - 1 ? 14 : 0,
+                        borderBottom: idx < annotationRows.length - 1 ? "1px solid #e5e7eb" : "none",
+                      }}
+                    >
+                      <div style={{ fontSize: 13, color: "#666", marginBottom: 4 }}>
+                        <strong>{ann.dmao_articles?.title || "無標題"}</strong>
+                        {ann.dmao_articles?.article_date && (
+                          <span style={{ marginLeft: 8 }}>
+                            {new Date(ann.dmao_articles.article_date).toLocaleDateString("zh-TW")}
+                          </span>
+                        )}
+                        <a
+                          href={`/articles/${ann.article_id}`}
+                          style={{ marginLeft: 8, color: "#1a56db", fontSize: 12 }}
+                        >
+                          查看全文 →
+                        </a>
+                      </div>
+                      <div style={{ fontSize: 14, color: "#333", lineHeight: 1.6 }}>
+                        {ann.is_summary && (
+                          <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "#fef3c7", color: "#92400e", marginRight: 6 }}>AI 摘要</span>
+                        )}
+                        {highlightKeywords(ann.paragraph, [ann.stock_name, ann.ticker, ...(ann.aliases ?? [])])}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
