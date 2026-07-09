@@ -58,7 +58,7 @@ function getSinceDate(range: TimeRange): string | null {
   return now.toISOString().slice(0, 10);
 }
 
-const COL_COUNT = 7;
+const COL_COUNT = 8;
 
 export default function StockPage() {
   const [prices, setPrices] = useState<PriceMap>({});
@@ -405,14 +405,16 @@ export default function StockPage() {
         ))}
       </div>
 
-      <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse", fontSize: 15 }}>
+      <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", minWidth: 720, tableLayout: "fixed", borderCollapse: "collapse", fontSize: 15 }}>
         <colgroup>
           <col style={{ width: "5%" }} />
-          <col style={{ width: "18%" }} />
-          <col style={{ width: "11%" }} />
+          <col style={{ width: "16%" }} />
+          <col style={{ width: "10%" }} />
           <col style={{ width: "8%" }} />
-          <col style={{ width: "18%" }} />
-          <col style={{ width: "18%" }} />
+          <col style={{ width: "8%" }} />
+          <col style={{ width: "17%" }} />
+          <col style={{ width: "17%" }} />
           <col style={{ width: "7%" }} />
         </colgroup>
         <thead>
@@ -420,6 +422,7 @@ export default function StockPage() {
             <th style={{ ...thStyle, textAlign: "center" }}>編號</th>
             <th style={thStyle}>股票</th>
             <th style={{ ...thStyle, textAlign: "right" }}>現價</th>
+            <th style={{ ...thStyle, textAlign: "right" }}>漲跌</th>
             <th style={{ ...thStyle, textAlign: "center" }}>日期</th>
             <th style={{ ...thStyle, textAlign: "right" }}>2026 EPS</th>
             <th style={{ ...thStyle, textAlign: "right" }}>2027 EPS</th>
@@ -479,23 +482,22 @@ export default function StockPage() {
                           <span style={{ marginLeft: 12 }}>{stock.name}</span>
                         )}
                       </td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold" }}>
-                        {hasTwData ? (
-                          <span style={{ whiteSpace: "nowrap" }}>
-                            {formatPrice(p.price)}
-                            <span style={{
-                              display: "inline-block",
-                              width: 56,
-                              marginLeft: 6,
-                              fontSize: 12,
-                              fontWeight: 600,
-                              textAlign: "right",
-                              color: p.changePercent === null || p.changePercent === 0 ? "#6b7280" : p.changePercent > 0 ? "#dc2626" : "#15803d",
-                            }}>
-                              {p.changePercent === null ? "" : `${p.changePercent > 0 ? "+" : ""}${p.changePercent.toFixed(2)}%`}
-                            </span>
-                          </span>
-                        ) : "-"}
+                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", fontVariantNumeric: "tabular-nums" }}>
+                        {hasTwData ? formatPrice(p.price) : "-"}
+                      </td>
+                      <td style={{
+                        ...tdStyle,
+                        textAlign: "right",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        fontVariantNumeric: "tabular-nums",
+                        color: hasTwData && p.changePercent !== null && p.changePercent !== 0
+                          ? (p.changePercent > 0 ? "#dc2626" : "#15803d")
+                          : "#6b7280",
+                      }}>
+                        {hasTwData && p.changePercent !== null
+                          ? `${p.changePercent > 0 ? "+" : ""}${p.changePercent.toFixed(2)}%`
+                          : "-"}
                       </td>
                       <td style={{ ...tdStyle, textAlign: "center", fontSize: 13, color: "#666" }}>
                         {epsDate ? (
@@ -639,6 +641,7 @@ export default function StockPage() {
           ))}
         </tbody>
       </table>
+      </div>
 
       {loading && Object.keys(prices).length === 0 && (
         <div style={{ textAlign: "center", padding: 40, color: "#999" }}>
