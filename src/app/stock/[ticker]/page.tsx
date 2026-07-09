@@ -130,6 +130,159 @@ function ArticlePinShape(props: any) {
   );
 }
 
+// ─── AI 提問 ─────────────────────────────────────────────
+type ChatMessage = { role: "user" | "assistant"; content: string };
+
+function StockChat({ ticker, stockName }: { ticker: string; stockName: string }) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
+  }, [messages]);
+
+  const send = async () => {
+    const question = input.trim();
+    if (!question || sending) return;
+    setChatError(null);
+    setSending(true);
+    setInput("");
+    const history = messages;
+    setMessages((prev) => [...prev, { role: "user", content: question }, { role: "assistant", content: "" }]);
+
+    try {
+      const res = await fetch("/api/stock-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker, stock_name: stockName, question, history }),
+      });
+
+      if (!res.ok) {
+        let msg = "提問失敗";
+        try {
+          const json = await res.json();
+          if (json.error) msg = json.error;
+        } catch { /* 非 JSON 回應 */ }
+        throw new Error(msg);
+      }
+      if (!res.body) throw new Error("沒有回應內容");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        setMessages((prev) => {
+          const next = [...prev];
+          const last = next[next.length - 1];
+          if (last?.role === "assistant") {
+            next[next.length - 1] = { ...last, content: last.content + chunk };
+          }
+          return next;
+        });
+      }
+    } catch (err) {
+      setChatError(err instanceof Error ? err.message : "網路錯誤");
+      // 移除空的 assistant 佔位訊息
+      setMessages((prev) =>
+        prev[prev.length - 1]?.role === "assistant" && prev[prev.length - 1].content === ""
+          ? prev.slice(0, -1)
+          : prev
+      );
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: 32 }}>
+      <h2 style={{ fontSize: 17, fontWeight: "bold", margin: "0 0 4px", color: "#1e3a5f" }}>
+        AI 提問
+      </h2>
+      <div style={{ fontSize: 12.5, color: "#9ca3af", marginBottom: 12 }}>
+        根據近三個月的標記段落回答，僅供參考、非投資建議
+      </div>
+
+      <div style={{ border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
+        {messages.length > 0 && (
+          <div ref={listRef} style={{ maxHeight: 380, overflowY: "auto", padding: "14px 16px", background: "#f8fafc" }}>
+            {messages.map((m, i) => (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  justifyContent: m.role === "user" ? "flex-end" : "flex-start",
+                  marginBottom: i < messages.length - 1 ? 10 : 0,
+                }}
+              >
+                <div
+                  style={{
+                    maxWidth: "85%",
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    fontSize: 14,
+                    lineHeight: 1.7,
+                    whiteSpace: "pre-wrap",
+                    background: m.role === "user" ? "#1a56db" : "#fff",
+                    color: m.role === "user" ? "#fff" : "#333",
+                    border: m.role === "user" ? "none" : "1px solid #e5e7eb",
+                  }}
+                >
+                  {m.content || (sending && i === messages.length - 1 ? "思考中…" : "")}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 8, padding: 10, background: "#fff", borderTop: messages.length > 0 ? "1px solid #e5e7eb" : "none" }}>
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) send(); }}
+            placeholder={`詢問 ${stockName} 的營運展望、財測、產業地位…`}
+            disabled={sending}
+            style={{
+              flex: 1,
+              padding: "8px 12px",
+              fontSize: 14,
+              border: "1px solid #d1d5db",
+              borderRadius: 6,
+              outline: "none",
+              color: "#222",
+              background: sending ? "#f9fafb" : "#fff",
+            }}
+          />
+          <button
+            onClick={send}
+            disabled={sending || !input.trim()}
+            style={{
+              padding: "8px 18px",
+              fontSize: 14,
+              fontWeight: "bold",
+              border: "none",
+              borderRadius: 6,
+              background: sending || !input.trim() ? "#93b4ec" : "#1a56db",
+              color: "#fff",
+              cursor: sending || !input.trim() ? "not-allowed" : "pointer",
+            }}
+          >
+            {sending ? "回答中…" : "送出"}
+          </button>
+        </div>
+      </div>
+
+      {chatError && (
+        <div style={{ fontSize: 13, color: "#dc2626", marginTop: 8 }}>{chatError}</div>
+      )}
+    </div>
+  );
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CandlestickShape(props: any) {
   const { x, y, width, height, payload } = props;
@@ -667,6 +820,9 @@ export default function StockDetailPage() {
                 </div>
               </div>
             )}
+
+            {/* AI 提問 */}
+            <StockChat ticker={ticker} stockName={data.name || nameMap[ticker] || ticker} />
           </>
         )}
       </div>
