@@ -47,6 +47,100 @@ const isTwTicker = (t: string) => /^\d{4,6}$/.test(t);
 
 type SortMode = "custom" | "gainers" | "losers";
 
+// ─── 站內研究資料（EPS 財測、文章標記）────────────────────
+type Annotation = {
+  id: string;
+  ticker: string;
+  stock_name: string;
+  paragraph: string;
+  is_summary: boolean;
+  article_id: string;
+  dmao_articles: { id: string; title: string; article_date: string | null } | null;
+};
+
+type LatestEpsInfo = { eps: number; article_date: string | null };
+
+const calcPE = (price: number | null | undefined, eps: number | undefined) => {
+  if (!price || !eps || eps <= 0) return null;
+  return Math.round((price / eps) * 10) / 10;
+};
+
+// 與 /stock 頁相同的本益比色階
+const peColor = (pe: number): string => {
+  if (pe < 15) return "#2563eb";
+  if (pe < 20) return "#16a34a";
+  if (pe < 25) return "#eab308";
+  if (pe < 35) return "#ea580c";
+  return "#dc2626";
+};
+
+const dateAgeColor = (dateStr: string): string => {
+  const diff = (Date.now() - new Date(dateStr).getTime()) / (24 * 3600 * 1000);
+  if (diff <= 14) return "#16a34a";
+  if (diff <= 30) return "#2563eb";
+  if (diff <= 90) return "#ea580c";
+  return "#9ca3af";
+};
+
+const formatShortDate = (dateStr: string) => {
+  const d = new Date(dateStr);
+  return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
+};
+
+function highlightKeywords(text: string, keywords: string[]) {
+  const filtered = keywords.filter(Boolean);
+  if (filtered.length === 0) return text;
+  const escaped = filtered.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  escaped.sort((a, b) => b.length - a.length);
+  const regex = new RegExp(`(${escaped.join("|")})`, "g");
+  const parts = text.split(regex);
+  return parts.map((part, i) =>
+    filtered.includes(part) ? (
+      <mark key={i} style={{ background: "#fef9c3", padding: "1px 2px", borderRadius: 2 }}>{part}</mark>
+    ) : (
+      part
+    )
+  );
+}
+
+// ─── Sparkline（近一月收盤走勢）──────────────────────────
+function Sparkline({ ticker }: { ticker: string }) {
+  const [points, setPoints] = useState<number[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/stock-history/${ticker}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (cancelled || !json.ok || !Array.isArray(json.prices)) return;
+        const closes = json.prices
+          .slice(-22)
+          .map((p: { close: number }) => p.close)
+          .filter((c: unknown): c is number => typeof c === "number");
+        setPoints(closes);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [ticker]);
+
+  if (!points || points.length < 2) return null;
+
+  const w = 72, h = 30;
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const range = max - min || 1;
+  const coords = points
+    .map((c, i) => `${((i / (points.length - 1)) * w).toFixed(1)},${(h - 3 - ((c - min) / range) * (h - 6)).toFixed(1)}`)
+    .join(" ");
+
+  return (
+    <svg width={w} height={h} style={{ flexShrink: 0 }} aria-hidden="true">
+      <title>近一月走勢</title>
+      <polyline points={coords} fill="none" stroke="#94a3b8" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export default function TrackPage() {
   const [list, setList] = useState<TrackedStock[] | null>(null);
   const [quotes, setQuotes] = useState<Record<string, TrackQuote>>({});
@@ -57,6 +151,65 @@ export default function TrackPage() {
   const [query, setQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // 站內研究資料
+  const [latestEps2026, setLatestEps2026] = useState<Record<string, LatestEpsInfo>>({});
+  const [latestEps2027, setLatestEps2027] = useState<Record<string, LatestEpsInfo>>({});
+  const [annotationCounts, setAnnotationCounts] = useState<Record<string, number>>({});
+  const [annotationsMap, setAnnotationsMap] = useState<Record<string, Annotation[]>>({});
+  const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
+  const [loadingAnnotations, setLoadingAnnotations] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchLatestEps = async (year: number, setter: (v: Record<string, LatestEpsInfo>) => void) => {
+      try {
+        const res = await fetch(`/api/eps-forecasts?forecast_year=${year}&latest=1`);
+        const json = await res.json();
+        if (json.ok) {
+          const map: Record<string, LatestEpsInfo> = {};
+          for (const f of json.forecasts) {
+            map[f.ticker] = { eps: f.eps, article_date: f.dmao_articles?.article_date ?? null };
+          }
+          setter(map);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    const fetchCounts = async () => {
+      try {
+        const res = await fetch("/api/annotations?mode=counts");
+        const json = await res.json();
+        if (json.ok) setAnnotationCounts(json.counts);
+      } catch {
+        // ignore
+      }
+    };
+    fetchLatestEps(2026, setLatestEps2026);
+    fetchLatestEps(2027, setLatestEps2027);
+    fetchCounts();
+  }, []);
+
+  const toggleAnnotations = async (ticker: string) => {
+    if (expandedTicker === ticker) {
+      setExpandedTicker(null);
+      return;
+    }
+    setExpandedTicker(ticker);
+    if (annotationsMap[ticker]) return;
+    setLoadingAnnotations(ticker);
+    try {
+      const res = await fetch(`/api/annotations?ticker=${ticker}`);
+      const json = await res.json();
+      if (json.ok) {
+        setAnnotationsMap((prev) => ({ ...prev, [ticker]: json.annotations }));
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoadingAnnotations(null);
+    }
+  };
 
   // Load watchlist after mount (localStorage is client-only)
   useEffect(() => {
@@ -382,6 +535,13 @@ export default function TrackPage() {
             stock={stock}
             quote={quotes[stock.ticker]}
             onRemove={() => removeStock(stock.ticker)}
+            eps2026={latestEps2026[stock.ticker]}
+            eps2027={latestEps2027[stock.ticker]}
+            annotationCount={annotationCounts[stock.ticker] || 0}
+            isExpanded={expandedTicker === stock.ticker}
+            annotations={annotationsMap[stock.ticker]}
+            isLoadingAnnotations={loadingAnnotations === stock.ticker}
+            onToggleAnnotations={() => toggleAnnotations(stock.ticker)}
           />
         ))}
       </div>
@@ -399,10 +559,24 @@ function StockCard({
   stock,
   quote,
   onRemove,
+  eps2026,
+  eps2027,
+  annotationCount,
+  isExpanded,
+  annotations,
+  isLoadingAnnotations,
+  onToggleAnnotations,
 }: {
   stock: TrackedStock;
   quote: TrackQuote | undefined;
   onRemove: () => void;
+  eps2026: LatestEpsInfo | undefined;
+  eps2027: LatestEpsInfo | undefined;
+  annotationCount: number;
+  isExpanded: boolean;
+  annotations: Annotation[] | undefined;
+  isLoadingAnnotations: boolean;
+  onToggleAnnotations: () => void;
 }) {
   const change = quote?.change ?? null;
   const dir: "up" | "down" | "flat" | "none" =
@@ -455,7 +629,7 @@ function StockCard({
           <span style={{ fontSize: 13, color: "#9ca3af", flexShrink: 0 }}>{stock.ticker}</span>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
           <span style={{ fontSize: 26, fontWeight: 600, color: valueColor, lineHeight: 1 }}>
             {quote ? fmt(quote.price) : "-"}
           </span>
@@ -476,6 +650,9 @@ function StockCard({
               </>
             )}
           </span>
+          <span style={{ marginLeft: "auto" }}>
+            <Sparkline ticker={stock.ticker} />
+          </span>
         </div>
 
         <div style={{ display: "flex", gap: 10, fontSize: 12, color: "#6b7280", borderTop: "1px solid #f3f4f6", paddingTop: 8, flexWrap: "wrap" }}>
@@ -487,6 +664,114 @@ function StockCard({
           )}
         </div>
       </Link>
+
+      {/* 站內研究：EPS 財測、本益比、文章標記 */}
+      {(eps2026 || eps2027 || annotationCount > 0) && (
+        <div style={{ borderTop: "1px solid #f3f4f6", marginTop: 8, paddingTop: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 12 }}>
+            {[
+              { label: "26", info: eps2026 },
+              { label: "27", info: eps2027 },
+            ].map(({ label, info }) => {
+              if (!info) return null;
+              const pe = calcPE(quote?.price, info.eps);
+              return (
+                <span key={label} style={{ color: "#6b7280", whiteSpace: "nowrap" }}>
+                  {label}E <b style={{ color: "#b45309" }}>{info.eps}</b>
+                  {pe !== null && (
+                    <span style={{
+                      marginLeft: 4,
+                      fontSize: 11,
+                      fontWeight: "bold",
+                      color: "#fff",
+                      background: peColor(pe),
+                      padding: "1px 5px",
+                      borderRadius: 4,
+                    }}>
+                      {pe}x
+                    </span>
+                  )}
+                </span>
+              );
+            })}
+            {(() => {
+              const epsDate = eps2026?.article_date ?? eps2027?.article_date ?? null;
+              return epsDate ? (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#9ca3af", whiteSpace: "nowrap" }}>
+                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: dateAgeColor(epsDate), flexShrink: 0 }} />
+                  {formatShortDate(epsDate)}
+                </span>
+              ) : null;
+            })()}
+            {annotationCount > 0 && (
+              <button
+                onClick={onToggleAnnotations}
+                style={{
+                  marginLeft: "auto",
+                  padding: "2px 10px",
+                  fontSize: 12,
+                  fontWeight: "bold",
+                  border: "none",
+                  borderRadius: 10,
+                  background: isExpanded ? "#1a56db" : "#e0e7ff",
+                  color: isExpanded ? "#fff" : "#1a56db",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                標記 {annotationCount}
+              </button>
+            )}
+          </div>
+
+          {isExpanded && (
+            <div style={{
+              marginTop: 8,
+              maxHeight: 280,
+              overflowY: "auto",
+              background: "#f8fafc",
+              borderLeft: "3px solid #1a56db",
+              borderRadius: 4,
+              padding: "10px 12px",
+            }}>
+              {isLoadingAnnotations ? (
+                <div style={{ color: "#999", fontSize: 12 }}>載入中...</div>
+              ) : !annotations || annotations.length === 0 ? (
+                <div style={{ color: "#999", fontSize: 12 }}>尚無標記段落</div>
+              ) : (
+                annotations.map((ann, idx) => (
+                  <div
+                    key={ann.id}
+                    style={{
+                      marginBottom: idx < annotations.length - 1 ? 10 : 0,
+                      paddingBottom: idx < annotations.length - 1 ? 10 : 0,
+                      borderBottom: idx < annotations.length - 1 ? "1px solid #e5e7eb" : "none",
+                    }}
+                  >
+                    <div style={{ fontSize: 12, color: "#666", marginBottom: 3 }}>
+                      <strong>{ann.dmao_articles?.title || "無標題"}</strong>
+                      {ann.dmao_articles?.article_date && (
+                        <span style={{ marginLeft: 6, color: "#9ca3af" }}>
+                          {formatShortDate(ann.dmao_articles.article_date)}
+                        </span>
+                      )}
+                      <Link href={`/articles/${ann.article_id}`} style={{ marginLeft: 6, color: "#1a56db" }}>
+                        全文 →
+                      </Link>
+                    </div>
+                    <div style={{ fontSize: 12.5, color: "#333", lineHeight: 1.6 }}>
+                      {ann.is_summary && (
+                        <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 4, background: "#fef3c7", color: "#92400e", marginRight: 5 }}>AI 摘要</span>
+                      )}
+                      {highlightKeywords(ann.paragraph, [ann.stock_name, ann.ticker])}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

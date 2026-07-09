@@ -6,7 +6,7 @@ import { categories } from "@/lib/stock-list";
 import type { TrackQuote } from "@/app/api/track/route";
 import {
   ComposedChart, Bar, BarChart, Cell, AreaChart, Area, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, CartesianGrid,
+  ResponsiveContainer, CartesianGrid, ReferenceDot, ReferenceLine,
 } from "recharts";
 
 const nameMap: Record<string, string> = Object.fromEntries(
@@ -66,6 +66,36 @@ type CandleData = PricePoint & {
   isUp: boolean;
 };
 
+// ─── 文章事件圖釘 ─────────────────────────────────────────
+type ArticleEvent = { id: string; title: string; date: string };
+type ArticlePinGroup = { date: string; articles: ArticleEvent[] };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function ArticlePinShape(props: any) {
+  const { cx, cy, pin } = props as { cx?: number; cy?: number; pin: ArticlePinGroup };
+  if (cx == null || cy == null) return null;
+  return (
+    <g
+      style={{ cursor: "pointer" }}
+      onClick={() => { window.location.href = `/articles/${pin.articles[0].id}`; }}
+    >
+      <title>
+        {pin.articles.map((a) => `${formatDateFull(a.date)} ${a.title}`).join("\n")}
+      </title>
+      {/* 放大點擊範圍 */}
+      <circle cx={cx} cy={cy} r={11} fill="transparent" />
+      <circle cx={cx} cy={cy} r={6} fill="#1a56db" stroke="#fff" strokeWidth={1.5} />
+      {pin.articles.length > 1 ? (
+        <text x={cx} y={cy + 3} fontSize={8.5} fontWeight="bold" fill="#fff" textAnchor="middle">
+          {pin.articles.length}
+        </text>
+      ) : (
+        <circle cx={cx} cy={cy} r={2} fill="#fff" />
+      )}
+    </g>
+  );
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CandlestickShape(props: any) {
   const { x, y, width, height, payload } = props;
@@ -124,6 +154,30 @@ export default function StockDetailPage() {
   const [dateRange, setDateRange] = useState<DateRange>("1y");
   const [refreshing, setRefreshing] = useState(false);
   const [quote, setQuote] = useState<TrackQuote | null>(null);
+  const [articleEvents, setArticleEvents] = useState<ArticleEvent[]>([]);
+
+  // 該股被標記的文章（K 線圖事件圖釘用）
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/annotations?ticker=${ticker}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (cancelled || !json.ok) return;
+        const seen = new Map<string, ArticleEvent>();
+        for (const ann of json.annotations) {
+          const art = ann.dmao_articles;
+          if (!art?.article_date || seen.has(ann.article_id)) continue;
+          seen.set(ann.article_id, {
+            id: ann.article_id,
+            title: art.title || "無標題",
+            date: String(art.article_date).slice(0, 10),
+          });
+        }
+        setArticleEvents(Array.from(seen.values()));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [ticker]);
 
   // 今日即時報價（含當日漲跌）
   useEffect(() => {
@@ -194,6 +248,24 @@ export default function StockDetailPage() {
   const pad = (maxVal - minVal) * 0.06;
   const yMin = Math.floor((minVal - pad) / 5) * 5;
   const yMax = Math.ceil((maxVal + pad) / 5) * 5;
+
+  // 文章事件對齊到區間內最近的交易日
+  const pinGroups: ArticlePinGroup[] = (() => {
+    if (prices.length === 0 || articleEvents.length === 0) return [];
+    const firstDate = prices[0].date;
+    const lastDate = prices[prices.length - 1].date;
+    const groups = new Map<string, ArticleEvent[]>();
+    for (const ev of articleEvents) {
+      if (ev.date < firstDate || ev.date > lastDate) continue;
+      const snapped = prices.find((p) => p.date >= ev.date)?.date ?? lastDate;
+      if (!groups.has(snapped)) groups.set(snapped, []);
+      groups.get(snapped)!.push(ev);
+    }
+    return Array.from(groups, ([date, articles]) => ({
+      date,
+      articles: [...articles].sort((a, b) => b.date.localeCompare(a.date)),
+    }));
+  })();
 
   const volumeData = candleData.map((p) => ({
     date: p.date,
@@ -344,6 +416,17 @@ export default function StockDetailPage() {
                   <Tooltip content={<CandlestickTooltip />} />
                   <Bar dataKey="bodyLow" stackId="candle" fill="transparent" stroke="none" isAnimationActive={false} />
                   <Bar dataKey="candleBody" stackId="candle" shape={<CandlestickShape />} isAnimationActive={false} />
+                  {pinGroups.map((pin) => (
+                    <ReferenceLine key={`l-${pin.date}`} x={pin.date} stroke="#c7d2fe" strokeDasharray="3 3" />
+                  ))}
+                  {pinGroups.map((pin) => (
+                    <ReferenceDot
+                      key={`d-${pin.date}`}
+                      x={pin.date}
+                      y={yMax}
+                      shape={<ArticlePinShape pin={pin} />}
+                    />
+                  ))}
                 </ComposedChart>
               </ResponsiveContainer>
             ) : (
@@ -367,6 +450,17 @@ export default function StockDetailPage() {
                   />
                   <Area type="monotone" dataKey="close" stroke="#1a56db" strokeWidth={1.5}
                     fill="url(#grad)" dot={false} activeDot={{ r: 4 }} />
+                  {pinGroups.map((pin) => (
+                    <ReferenceLine key={`l-${pin.date}`} x={pin.date} stroke="#c7d2fe" strokeDasharray="3 3" />
+                  ))}
+                  {pinGroups.map((pin) => (
+                    <ReferenceDot
+                      key={`d-${pin.date}`}
+                      x={pin.date}
+                      y={yMax}
+                      shape={<ArticlePinShape pin={pin} />}
+                    />
+                  ))}
                 </AreaChart>
               </ResponsiveContainer>
             )}
@@ -393,8 +487,16 @@ export default function StockDetailPage() {
               </BarChart>
             </ResponsiveContainer>
 
-            <div style={{ textAlign: "right", fontSize: 12, color: "#9ca3af", marginTop: 8 }}>
-              共 {prices.length} 筆資料（{allPrices.length} 筆總計）
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: "#9ca3af", marginTop: 8 }}>
+              <span>
+                {pinGroups.length > 0 && (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                    <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#1a56db", display: "inline-block" }} />
+                    相關文章事件（滑過看標題、點擊開啟文章）
+                  </span>
+                )}
+              </span>
+              <span>共 {prices.length} 筆資料（{allPrices.length} 筆總計）</span>
             </div>
           </>
         )}
