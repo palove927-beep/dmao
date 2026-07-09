@@ -125,7 +125,7 @@ function Sparkline({ ticker }: { ticker: string }) {
 
   if (!points || points.length < 2) return null;
 
-  const w = 72, h = 30;
+  const w = 100, h = 30;
   const min = Math.min(...points);
   const max = Math.max(...points);
   const range = max - min || 1;
@@ -134,9 +134,22 @@ function Sparkline({ ticker }: { ticker: string }) {
     .join(" ");
 
   return (
-    <svg width={w} height={h} style={{ flexShrink: 0 }} aria-hidden="true">
+    <svg
+      viewBox={`0 0 ${w} ${h}`}
+      preserveAspectRatio="none"
+      style={{ display: "block", width: "100%", height: h }}
+      aria-hidden="true"
+    >
       <title>近一月走勢</title>
-      <polyline points={coords} fill="none" stroke="#94a3b8" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+      <polyline
+        points={coords}
+        fill="none"
+        stroke="#94a3b8"
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
     </svg>
   );
 }
@@ -593,6 +606,14 @@ function StockCard({
   const fmt = (n: number | null | undefined) =>
     n === null || n === undefined ? "-" : n.toFixed(2);
 
+  // 大數字去掉多餘小數，避免卡片內換行（台股 500 元以上跳動單位已是整數）
+  const fmtCompact = (n: number | null | undefined) => {
+    if (n === null || n === undefined) return "-";
+    if (n >= 1000) return n.toFixed(0);
+    if (n >= 100) return (Math.round(n * 10) / 10).toString();
+    return n.toFixed(2);
+  };
+
   const displayName = quote?.name || stock.name;
 
   return (
@@ -629,12 +650,12 @@ function StockCard({
           <span style={{ fontSize: 13, color: "#9ca3af", flexShrink: 0 }}>{stock.ticker}</span>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 26, fontWeight: 600, color: valueColor, lineHeight: 1 }}>
-            {quote ? fmt(quote.price) : "-"}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+          <span style={{ fontSize: 24, fontWeight: 600, color: valueColor, lineHeight: 1, whiteSpace: "nowrap" }}>
+            {quote ? fmtCompact(quote.price) : "-"}
           </span>
           <span style={{
-            fontSize: 13,
+            fontSize: 12.5,
             fontWeight: 600,
             color: pillColor,
             background: pillBg,
@@ -650,15 +671,16 @@ function StockCard({
               </>
             )}
           </span>
-          <span style={{ marginLeft: "auto" }}>
-            <Sparkline ticker={stock.ticker} />
-          </span>
         </div>
 
-        <div style={{ display: "flex", gap: 10, fontSize: 12, color: "#6b7280", borderTop: "1px solid #f3f4f6", paddingTop: 8, flexWrap: "wrap" }}>
-          <span>開 {fmt(quote?.open)}</span>
-          <span>高 {fmt(quote?.high)}</span>
-          <span>低 {fmt(quote?.low)}</span>
+        <div style={{ marginBottom: 8, height: 30 }}>
+          <Sparkline ticker={stock.ticker} />
+        </div>
+
+        <div style={{ display: "flex", gap: 8, fontSize: 11.5, color: "#6b7280", borderTop: "1px solid #f3f4f6", paddingTop: 8, whiteSpace: "nowrap" }}>
+          <span>開 {fmtCompact(quote?.open)}</span>
+          <span>高 {fmtCompact(quote?.high)}</span>
+          <span>低 {fmtCompact(quote?.low)}</span>
           {quote?.volume !== null && quote?.volume !== undefined && (
             <span style={{ marginLeft: "auto" }}>{quote.volume.toLocaleString()} 張</span>
           )}
@@ -668,7 +690,7 @@ function StockCard({
       {/* 站內研究：EPS 財測、本益比、文章標記 */}
       {(eps2026 || eps2027 || annotationCount > 0) && (
         <div style={{ borderTop: "1px solid #f3f4f6", marginTop: 8, paddingTop: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 11.5 }}>
             {[
               { label: "26", info: eps2026 },
               { label: "27", info: eps2027 },
