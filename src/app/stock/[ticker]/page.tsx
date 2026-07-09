@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { categories } from "@/lib/stock-list";
+import type { TrackQuote } from "@/app/api/track/route";
 import {
   ComposedChart, Bar, BarChart, Cell, AreaChart, Area, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
@@ -122,6 +123,25 @@ export default function StockDetailPage() {
   const [chartMode, setChartMode] = useState<ChartMode>("candlestick");
   const [dateRange, setDateRange] = useState<DateRange>("1y");
   const [refreshing, setRefreshing] = useState(false);
+  const [quote, setQuote] = useState<TrackQuote | null>(null);
+
+  // 今日即時報價（含當日漲跌）
+  useEffect(() => {
+    if (!/^\d{4,6}$/.test(ticker)) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/track?tickers=${ticker}`);
+        const json = await res.json();
+        if (!cancelled && json.ok && json.data[ticker]) setQuote(json.data[ticker]);
+      } catch {
+        // ignore
+      }
+    };
+    load();
+    const interval = setInterval(load, 30000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [ticker]);
 
   const fetchData = useCallback((refresh = false) => {
     if (refresh) setRefreshing(true); else setLoading(true);
@@ -225,11 +245,22 @@ export default function StockDetailPage() {
               <span style={{ fontSize: 15, color: "#6b7280" }}>{ticker}</span>
             </div>
 
-            {latest != null && (
-              <div style={{ display: "flex", alignItems: "baseline", gap: 12, margin: "10px 0 4px" }}>
-                <span style={{ fontSize: 32, fontWeight: "bold" }}>{latest.toFixed(2)}</span>
+            {(latest != null || quote?.price != null) && (
+              <div style={{ display: "flex", alignItems: "baseline", gap: 12, margin: "10px 0 4px", flexWrap: "wrap" }}>
+                <span style={{ fontSize: 32, fontWeight: "bold" }}>
+                  {(quote?.price ?? latest)!.toFixed(2)}
+                </span>
+                {quote?.change != null && quote?.changePercent != null && (
+                  <span style={{
+                    fontSize: 15,
+                    fontWeight: "bold",
+                    color: quote.change > 0 ? "#dc2626" : quote.change < 0 ? "#15803d" : "#6b7280",
+                  }}>
+                    {quote.change > 0 ? "▲" : quote.change < 0 ? "▼" : "—"} {quote.change > 0 ? "+" : ""}{quote.change.toFixed(2)}（{quote.changePercent > 0 ? "+" : ""}{quote.changePercent}%）今日
+                  </span>
+                )}
                 {change != null && changePct != null && (
-                  <span style={{ fontSize: 15, fontWeight: "bold", color: isUp ? "#dc2626" : "#16a34a" }}>
+                  <span style={{ fontSize: 14, fontWeight: "bold", color: isUp ? "#dc2626" : "#15803d" }}>
                     {isUp ? "▲" : "▼"} {Math.abs(change).toFixed(2)} ({Math.abs(changePct).toFixed(1)}%) {rangeLabel}
                   </span>
                 )}
