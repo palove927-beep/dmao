@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { categories } from "@/lib/stock-list";
 import type { TrackQuote } from "@/app/api/track/route";
@@ -67,23 +67,29 @@ type CandleData = PricePoint & {
 };
 
 // ─── 文章事件圖釘 ─────────────────────────────────────────
-type ArticleEvent = { id: string; title: string; date: string };
+type ArticleParagraph = { text: string; is_summary: boolean };
+type ArticleEvent = { id: string; title: string; date: string; paragraphs: ArticleParagraph[] };
 type ArticlePinGroup = { date: string; articles: ArticleEvent[] };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ArticlePinShape(props: any) {
-  const { cx, cy, pin } = props as { cx?: number; cy?: number; pin: ArticlePinGroup };
+  const { cx, cy, pin, onHover, onLeave } = props as {
+    cx?: number;
+    cy?: number;
+    pin: ArticlePinGroup;
+    onHover: (pin: ArticlePinGroup, x: number, y: number) => void;
+    onLeave: () => void;
+  };
   if (cx == null || cy == null) return null;
   return (
     <g
       style={{ cursor: "pointer" }}
       onClick={() => { window.location.href = `/articles/${pin.articles[0].id}`; }}
+      onMouseEnter={() => onHover(pin, cx, cy)}
+      onMouseLeave={onLeave}
     >
-      <title>
-        {pin.articles.map((a) => `${formatDateFull(a.date)} ${a.title}`).join("\n")}
-      </title>
-      {/* 放大點擊範圍 */}
-      <circle cx={cx} cy={cy} r={11} fill="transparent" />
+      {/* 放大 hover/點擊範圍 */}
+      <circle cx={cx} cy={cy} r={12} fill="transparent" />
       <circle cx={cx} cy={cy} r={6} fill="#1a56db" stroke="#fff" strokeWidth={1.5} />
       {pin.articles.length > 1 ? (
         <text x={cx} y={cy + 3} fontSize={8.5} fontWeight="bold" fill="#fff" textAnchor="middle">
@@ -155,6 +161,23 @@ export default function StockDetailPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [quote, setQuote] = useState<TrackQuote | null>(null);
   const [articleEvents, setArticleEvents] = useState<ArticleEvent[]>([]);
+  const [hoverPin, setHoverPin] = useState<{ pin: ArticlePinGroup; x: number; y: number } | null>(null);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chartWrapRef = useRef<HTMLDivElement>(null);
+
+  const showPinPopup = useCallback((pin: ArticlePinGroup, x: number, y: number) => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    setHoverPin({ pin, x, y });
+  }, []);
+
+  const hidePinPopupSoon = useCallback(() => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => setHoverPin(null), 200);
+  }, []);
+
+  const cancelPinPopupHide = useCallback(() => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+  }, []);
 
   // 該股被標記的文章（K 線圖事件圖釘用）
   useEffect(() => {
@@ -166,12 +189,22 @@ export default function StockDetailPage() {
         const seen = new Map<string, ArticleEvent>();
         for (const ann of json.annotations) {
           const art = ann.dmao_articles;
-          if (!art?.article_date || seen.has(ann.article_id)) continue;
-          seen.set(ann.article_id, {
-            id: ann.article_id,
-            title: art.title || "無標題",
-            date: String(art.article_date).slice(0, 10),
-          });
+          if (!art?.article_date) continue;
+          let ev = seen.get(ann.article_id);
+          if (!ev) {
+            ev = {
+              id: ann.article_id,
+              title: art.title || "無標題",
+              date: String(art.article_date).slice(0, 10),
+              paragraphs: [],
+            };
+            seen.set(ann.article_id, ev);
+          }
+          if (ann.paragraph) {
+            // AI 摘要排最前面
+            if (ann.is_summary) ev.paragraphs.unshift({ text: ann.paragraph, is_summary: true });
+            else ev.paragraphs.push({ text: ann.paragraph, is_summary: false });
+          }
         }
         setArticleEvents(Array.from(seen.values()));
       })
@@ -403,6 +436,7 @@ export default function StockDetailPage() {
               </div>
             </div>
 
+            <div ref={chartWrapRef} style={{ position: "relative" }}>
             {chartMode === "candlestick" && hasOhlc ? (
               <ResponsiveContainer width="100%" height={300}>
                 <ComposedChart data={candleData} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}
@@ -424,7 +458,7 @@ export default function StockDetailPage() {
                       key={`d-${pin.date}`}
                       x={pin.date}
                       y={yMax}
-                      shape={<ArticlePinShape pin={pin} />}
+                      shape={<ArticlePinShape pin={pin} onHover={showPinPopup} onLeave={hidePinPopupSoon} />}
                     />
                   ))}
                 </ComposedChart>
@@ -458,12 +492,72 @@ export default function StockDetailPage() {
                       key={`d-${pin.date}`}
                       x={pin.date}
                       y={yMax}
-                      shape={<ArticlePinShape pin={pin} />}
+                      shape={<ArticlePinShape pin={pin} onHover={showPinPopup} onLeave={hidePinPopupSoon} />}
                     />
                   ))}
                 </AreaChart>
               </ResponsiveContainer>
             )}
+
+            {/* 圖釘 hover：顯示文章的標記段落 */}
+            {hoverPin && (() => {
+              const wrapW = chartWrapRef.current?.clientWidth ?? 800;
+              const popupW = Math.min(340, wrapW - 8);
+              const left = Math.min(Math.max(hoverPin.x - popupW / 2, 4), wrapW - popupW - 4);
+              return (
+                <div
+                  onMouseEnter={cancelPinPopupHide}
+                  onMouseLeave={hidePinPopupSoon}
+                  style={{
+                    position: "absolute",
+                    left,
+                    top: hoverPin.y + 14,
+                    width: popupW,
+                    maxHeight: 320,
+                    overflowY: "auto",
+                    background: "#fff",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 8,
+                    boxShadow: "0 6px 20px rgba(0,0,0,0.15)",
+                    padding: "12px 14px",
+                    zIndex: 50,
+                    fontSize: 13,
+                  }}
+                >
+                  {hoverPin.pin.articles.map((a, ai) => (
+                    <div
+                      key={a.id}
+                      style={{
+                        marginBottom: ai < hoverPin.pin.articles.length - 1 ? 10 : 0,
+                        paddingBottom: ai < hoverPin.pin.articles.length - 1 ? 10 : 0,
+                        borderBottom: ai < hoverPin.pin.articles.length - 1 ? "1px solid #f3f4f6" : "none",
+                      }}
+                    >
+                      <div style={{ marginBottom: 4 }}>
+                        <a href={`/articles/${a.id}`} style={{ color: "#1a56db", fontWeight: "bold", textDecoration: "none" }}>
+                          {a.title}
+                        </a>
+                        <span style={{ marginLeft: 6, color: "#9ca3af", fontSize: 12 }}>{formatDateFull(a.date)}</span>
+                      </div>
+                      {a.paragraphs.slice(0, 3).map((p, pi) => (
+                        <div key={pi} style={{ fontSize: 12.5, color: "#333", lineHeight: 1.6, marginTop: pi > 0 ? 6 : 0 }}>
+                          {p.is_summary && (
+                            <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 4, background: "#fef3c7", color: "#92400e", marginRight: 5 }}>AI 摘要</span>
+                          )}
+                          {p.text}
+                        </div>
+                      ))}
+                      {a.paragraphs.length > 3 && (
+                        <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>
+                          還有 {a.paragraphs.length - 3} 段，<a href={`/articles/${a.id}`} style={{ color: "#1a56db" }}>查看全文 →</a>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+            </div>
 
             {/* Volume chart */}
             <ResponsiveContainer width="100%" height={100}>
@@ -492,7 +586,7 @@ export default function StockDetailPage() {
                 {pinGroups.length > 0 && (
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                     <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#1a56db", display: "inline-block" }} />
-                    相關文章事件（滑過看標題、點擊開啟文章）
+                    相關文章事件（滑過看標記段落、點擊開啟文章）
                   </span>
                 )}
               </span>
