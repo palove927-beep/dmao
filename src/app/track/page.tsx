@@ -866,15 +866,18 @@ function StockCard({
         ×
       </button>
 
-      <Link
-        href={`/stock/${stock.ticker}`}
-        style={{ textDecoration: "none", color: "inherit", display: "block" }}
-      >
+      <div>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8, paddingRight: 20 }}>
           <span style={{ fontSize: 15, fontWeight: "bold", color: "#222", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {displayName}
           </span>
-          <span style={{ fontSize: 13, color: "#9ca3af", flexShrink: 0 }}>{stock.ticker}</span>
+          <Link
+            href={`/stock/${stock.ticker}`}
+            title={`${displayName} 詳細頁`}
+            style={{ fontSize: 13, color: "#1a56db", flexShrink: 0, textDecoration: "none" }}
+          >
+            {stock.ticker}
+          </Link>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
@@ -912,7 +915,7 @@ function StockCard({
             <span style={{ marginLeft: "auto" }}>{quote.volume.toLocaleString()} 張</span>
           )}
         </div>
-      </Link>
+      </div>
 
       {/* 站內研究：EPS 財測、本益比、文章標記 */}
       {(eps2026 || eps2027 || annotationCount > 0) && (
