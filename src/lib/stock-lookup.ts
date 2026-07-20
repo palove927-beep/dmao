@@ -181,9 +181,11 @@ export const scanStocks: ScanStock[] = [
   { ticker: "3485",       name: "敘豐" },
   { ticker: "4749",       name: "新應材" },
   { ticker: "4768",       name: "晶呈科技",              aliases: ["晶呈科"] },
+  { ticker: "6820",       name: "連訊" },
   { ticker: "6983",       name: "華洋精機" },
   { ticker: "7795",       name: "長廣" },
   { ticker: "7828",       name: "創新服務" },
+  { ticker: "7928",       name: "合聖科技",              aliases: ["合聖"] },
   // ─── 中國 A 股 ──────────────────────────────────────────
   { ticker: "000636.SZ",  name: "風華高科" },
   { ticker: "002138.SZ",  name: "順絡電子",                aliases: ["順絡"] },
