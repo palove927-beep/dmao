@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const MAX_TICKERS = 30;
+const MAX_TICKERS = 100;
+// TWSE MIS API 單次請求的代碼數上限（過長的 ex_ch 會被忽略），分批查詢
+const CHUNK_SIZE = 20;
 
 export type TrackQuote = {
   ticker: string;
@@ -136,26 +138,24 @@ export async function GET(req: NextRequest) {
     const map = new Map<string, TrackQuote>();
 
     // 同時以上市/上櫃前綴查詢，API 會忽略不存在的代碼
-    const tseExCh = codes.map((c) => `tse_${c}.tw`).join("|");
-    const otcExCh = codes.map((c) => `otc_${c}.tw`).join("|");
+    const chunks: string[][] = [];
+    for (let i = 0; i < codes.length; i += CHUNK_SIZE) {
+      chunks.push(codes.slice(i, i + CHUNK_SIZE));
+    }
 
-    const [tseRes, otcRes] = await Promise.all([
-      fetchWithRetry(`https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${tseExCh}`),
-      fetchWithRetry(`https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${otcExCh}`),
+    const misUrl = (chunk: string[], prefix: "tse" | "otc") =>
+      `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${chunk.map((c) => `${prefix}_${c}.tw`).join("|")}`;
+
+    const [tseResList, otcResList] = await Promise.all([
+      Promise.all(chunks.map((chunk) => fetchWithRetry(misUrl(chunk, "tse")))),
+      Promise.all(chunks.map((chunk) => fetchWithRetry(misUrl(chunk, "otc")))),
     ]);
 
     // OTC first, then TSE overwrites (TSE takes priority for dual-listed)
-    if (otcRes) {
+    for (const res of [...otcResList, ...tseResList]) {
+      if (!res) continue;
       try {
-        const data = await otcRes.json();
-        if (data.msgArray) parseMsgArray(data.msgArray, map);
-      } catch {
-        // parse error
-      }
-    }
-    if (tseRes) {
-      try {
-        const data = await tseRes.json();
+        const data = await res.json();
         if (data.msgArray) parseMsgArray(data.msgArray, map);
       } catch {
         // parse error
