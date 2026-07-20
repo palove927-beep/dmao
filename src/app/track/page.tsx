@@ -47,6 +47,17 @@ const isTwTicker = (t: string) => /^\d{4,6}$/.test(t);
 
 type SortMode = "custom" | "gainers" | "losers";
 
+type TimeRange = "all" | "1w" | "1m" | "3m";
+
+function getSinceDate(range: TimeRange): string | null {
+  if (range === "all") return null;
+  const now = new Date();
+  if (range === "1w") now.setDate(now.getDate() - 7);
+  else if (range === "1m") now.setMonth(now.getMonth() - 1);
+  else if (range === "3m") now.setMonth(now.getMonth() - 3);
+  return now.toISOString().slice(0, 10);
+}
+
 // ─── 站內研究資料（EPS 財測、文章標記）────────────────────
 type Annotation = {
   id: string;
@@ -215,6 +226,7 @@ export default function TrackPage() {
   const [annotationsMap, setAnnotationsMap] = useState<Record<string, Annotation[]>>({});
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
   const [loadingAnnotations, setLoadingAnnotations] = useState<string | null>(null);
+  const [timeRange, setTimeRange] = useState<TimeRange>("all");
 
   useEffect(() => {
     const fetchLatestEps = async (year: number, setter: (v: Record<string, LatestEpsInfo>) => void) => {
@@ -232,19 +244,26 @@ export default function TrackPage() {
         // ignore
       }
     };
+    fetchLatestEps(2026, setLatestEps2026);
+    fetchLatestEps(2027, setLatestEps2027);
+  }, []);
+
+  useEffect(() => {
     const fetchCounts = async () => {
       try {
-        const res = await fetch("/api/annotations?mode=counts");
+        const since = getSinceDate(timeRange);
+        const url = since
+          ? `/api/annotations?mode=counts&since=${since}`
+          : "/api/annotations?mode=counts";
+        const res = await fetch(url);
         const json = await res.json();
         if (json.ok) setAnnotationCounts(json.counts);
       } catch {
         // ignore
       }
     };
-    fetchLatestEps(2026, setLatestEps2026);
-    fetchLatestEps(2027, setLatestEps2027);
     fetchCounts();
-  }, []);
+  }, [timeRange]);
 
   const toggleAnnotations = async (ticker: string) => {
     if (expandedTicker === ticker) {
@@ -413,6 +432,13 @@ export default function TrackPage() {
     { key: "custom", label: "自訂順序" },
     { key: "gainers", label: "漲幅排序" },
     { key: "losers", label: "跌幅排序" },
+  ];
+
+  const timeRanges: { key: TimeRange; label: string }[] = [
+    { key: "all", label: "全部" },
+    { key: "1w", label: "一周" },
+    { key: "1m", label: "一個月" },
+    { key: "3m", label: "三個月" },
   ];
 
   return (
@@ -597,6 +623,29 @@ export default function TrackPage() {
             )}
           </div>
         )}
+      </div>
+
+      {/* 標記區間 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, fontSize: 14 }}>
+        <span style={{ color: "#666" }}>標記區間：</span>
+        {timeRanges.map((r) => (
+          <button
+            key={r.key}
+            onClick={() => setTimeRange(r.key)}
+            style={{
+              padding: "5px 14px",
+              fontSize: 14,
+              border: "1px solid #1a56db",
+              borderRadius: 16,
+              background: timeRange === r.key ? "#1a56db" : "#fff",
+              color: timeRange === r.key ? "#fff" : "#1a56db",
+              cursor: "pointer",
+              fontWeight: timeRange === r.key ? "bold" : "normal",
+            }}
+          >
+            {r.label}
+          </button>
+        ))}
       </div>
 
       {/* Cards */}
