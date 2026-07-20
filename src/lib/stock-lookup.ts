@@ -179,6 +179,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "7712",       name: "博盛半導體" },
   { ticker: "3055",       name: "蔚華科" },
   { ticker: "3485",       name: "敘豐" },
+  { ticker: "4749",       name: "新應材" },
   { ticker: "4768",       name: "晶呈科技",              aliases: ["晶呈科"] },
   { ticker: "6983",       name: "華洋精機" },
   { ticker: "7795",       name: "長廣" },
@@ -202,6 +203,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "4004.T",     name: "昭和電工(Resonac)",         aliases: ["昭和電工", "Resonac"] },
   { ticker: "4182.T",     name: "三菱瓦斯化學(MGC)",         aliases: ["三菱瓦斯化學", "MGC"] },
   { ticker: "285A.T",     name: "鎧俠(Kioxia)",             aliases: ["鎧俠", "Kioxia"] },
+  { ticker: "6383.T",     name: "大福(Daifuku)",             aliases: ["大福", "Daifuku"] },
   { ticker: "6976.T",     name: "太陽誘電(Taiyo Yuden)",     aliases: ["太陽誘電", "Taiyo Yuden"] },
   { ticker: "6997.T",     name: "佳美工(Chemi-Con)",         aliases: ["佳美工", "Chemi-Con", "ChemiCon"] },
   // ─── 韓股 ────────────────────────────────────────────────
