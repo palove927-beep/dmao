@@ -177,10 +177,23 @@ export default function TrackPage() {
     try {
       const saved = localStorage.getItem("dmao_track_view");
       if (saved === "list" || saved === "card") setViewMode(saved);
+      const savedSort = localStorage.getItem("dmao_track_sort");
+      if (savedSort === "custom" || savedSort === "gainers" || savedSort === "losers") {
+        setSortMode(savedSort);
+      }
     } catch {
       // ignore
     }
   }, []);
+
+  const changeSortMode = (mode: SortMode) => {
+    setSortMode(mode);
+    try {
+      localStorage.setItem("dmao_track_sort", mode);
+    } catch {
+      // ignore
+    }
+  };
 
   const changeViewMode = (mode: "card" | "list") => {
     setViewMode(mode);
@@ -528,7 +541,7 @@ export default function TrackPage() {
           {sortModes.map((m) => (
             <button
               key={m.key}
-              onClick={() => setSortMode(m.key)}
+              onClick={() => changeSortMode(m.key)}
               style={{
                 padding: "5px 14px",
                 fontSize: 13,
