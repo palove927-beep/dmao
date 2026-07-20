@@ -34,9 +34,10 @@ export const categories: Category[] = [
     id: "C",
     label: "半導體封測",
     stocks: [
-      { code: "C1", ticker: "3711", name: "日月光" },
-      { code: "C2", ticker: "6239", name: "力成" },
-      { code: "C3", ticker: "6257", name: "矽格" },
+      { code: "C1", ticker: "2441", name: "超豐" },
+      { code: "C2", ticker: "3711", name: "日月光" },
+      { code: "C3", ticker: "6239", name: "力成" },
+      { code: "C4", ticker: "6257", name: "矽格" },
     ],
   },
   {
