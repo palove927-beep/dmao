@@ -14,8 +14,10 @@ const GROUPS_KEY = "dmao_track_groups";
 const ACTIVE_GROUP_KEY = "dmao_track_active_group";
 
 // 群組頁籤的特殊值（非真實群組名）
-const ALL_GROUP = "__all__";
 const UNCATEGORIZED = "__uncat__";
+
+// 首次使用（尚未設定過群組）時的預設群組
+const DEFAULT_GROUPS = ["群組1", "群組2"];
 
 const DEFAULT_LIST: TrackedStock[] = [
   { ticker: "2330", name: "台積電" },
@@ -60,7 +62,8 @@ function saveList(list: TrackedStock[]) {
 function loadGroups(): string[] {
   try {
     const raw = localStorage.getItem(GROUPS_KEY);
-    if (!raw) return [];
+    // 從未設定過（key 不存在）→ 種子預設兩組；已設定過（含空陣列）→ 尊重使用者現狀
+    if (raw === null) return [...DEFAULT_GROUPS];
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
       return parsed.filter((g): g is string => typeof g === "string");
@@ -163,8 +166,13 @@ function highlightKeywords(text: string, keywords: string[]) {
 }
 
 // ─── Sparkline（近一月收盤走勢）──────────────────────────
+// 滑鼠移過去會顯示該日的「日期 + 收盤價」
+type SparkPoint = { date: string; close: number };
+
 function Sparkline({ ticker }: { ticker: string }) {
-  const [points, setPoints] = useState<number[] | null>(null);
+  const [points, setPoints] = useState<SparkPoint[] | null>(null);
+  const [hover, setHover] = useState<number | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -172,11 +180,11 @@ function Sparkline({ ticker }: { ticker: string }) {
       .then((r) => r.json())
       .then((json) => {
         if (cancelled || !json.ok || !Array.isArray(json.prices)) return;
-        const closes = json.prices
+        const pts: SparkPoint[] = json.prices
           .slice(-22)
-          .map((p: { close: number }) => p.close)
-          .filter((c: unknown): c is number => typeof c === "number");
-        setPoints(closes);
+          .map((p: { date: string; close: number }) => ({ date: p.date, close: p.close }))
+          .filter((p: SparkPoint) => typeof p.close === "number" && !!p.date);
+        setPoints(pts);
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -185,31 +193,92 @@ function Sparkline({ ticker }: { ticker: string }) {
   if (!points || points.length < 2) return null;
 
   const w = 100, h = 30;
-  const min = Math.min(...points);
-  const max = Math.max(...points);
+  const closes = points.map((p) => p.close);
+  const min = Math.min(...closes);
+  const max = Math.max(...closes);
   const range = max - min || 1;
-  const coords = points
-    .map((c, i) => `${((i / (points.length - 1)) * w).toFixed(1)},${(h - 3 - ((c - min) / range) * (h - 6)).toFixed(1)}`)
-    .join(" ");
+  const xAt = (i: number) => (i / (points.length - 1)) * w;
+  const yAt = (i: number) => h - 3 - ((points[i].close - min) / range) * (h - 6);
+  const coords = points.map((_, i) => `${xAt(i).toFixed(1)},${yAt(i).toFixed(1)}`).join(" ");
+
+  const handleMove = (e: React.MouseEvent) => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width === 0) return;
+    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    setHover(Math.round(ratio * (points.length - 1)));
+  };
+
+  const hoverPt = hover !== null ? points[hover] : null;
+  const hoverLeftPct = hover !== null ? (hover / (points.length - 1)) * 100 : 0;
+  const hoverTopPct = hover !== null ? (yAt(hover) / h) * 100 : 0;
 
   return (
-    <svg
-      viewBox={`0 0 ${w} ${h}`}
-      preserveAspectRatio="none"
-      style={{ display: "block", width: "100%", height: h }}
-      aria-hidden="true"
+    <div
+      ref={wrapRef}
+      style={{ position: "relative", width: "100%", height: h }}
+      onMouseMove={handleMove}
+      onMouseLeave={() => setHover(null)}
     >
-      <title>近一月走勢</title>
-      <polyline
-        points={coords}
-        fill="none"
-        stroke="#94a3b8"
-        strokeWidth={1.5}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        preserveAspectRatio="none"
+        style={{ display: "block", width: "100%", height: h }}
+        aria-hidden="true"
+      >
+        <polyline
+          points={coords}
+          fill="none"
+          stroke="#94a3b8"
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
+        {hover !== null && (
+          <line
+            x1={xAt(hover)} y1={0} x2={xAt(hover)} y2={h}
+            stroke="#cbd5e1" strokeWidth={1} vectorEffect="non-scaling-stroke"
+          />
+        )}
+      </svg>
+      {hover !== null && (
+        <div
+          style={{
+            position: "absolute",
+            left: `${hoverLeftPct}%`,
+            top: `${hoverTopPct}%`,
+            width: 6, height: 6, marginLeft: -3, marginTop: -3,
+            borderRadius: "50%", background: "#475569",
+            pointerEvents: "none",
+          }}
+        />
+      )}
+      {hoverPt && (
+        <div
+          style={{
+            position: "absolute",
+            left: `${hoverLeftPct}%`,
+            bottom: "100%",
+            marginBottom: 4,
+            transform: hoverLeftPct > 60 ? "translateX(-100%)" : "translateX(-50%)",
+            background: "#1e293b",
+            color: "#fff",
+            fontSize: 11,
+            lineHeight: 1.4,
+            padding: "3px 7px",
+            borderRadius: 5,
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+            zIndex: 30,
+            boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+          }}
+        >
+          {formatShortDate(hoverPt.date)}　<b>{fmtCompact(hoverPt.close)}</b>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -223,7 +292,7 @@ export default function TrackPage() {
 
   // ─── 群組（標籤模型）───
   const [groups, setGroups] = useState<string[]>([]);
-  const [activeGroup, setActiveGroup] = useState<string>(ALL_GROUP);
+  const [activeGroup, setActiveGroup] = useState<string>("");
   const [groupEditTicker, setGroupEditTicker] = useState<string | null>(null);
   const [showGroupInput, setShowGroupInput] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
@@ -239,11 +308,11 @@ export default function TrackPage() {
       const g = loadGroups();
       setGroups(g);
       const savedActive = localStorage.getItem(ACTIVE_GROUP_KEY);
-      if (
-        savedActive &&
-        (savedActive === ALL_GROUP || savedActive === UNCATEGORIZED || g.includes(savedActive))
-      ) {
+      if (savedActive && (savedActive === UNCATEGORIZED || g.includes(savedActive))) {
         setActiveGroup(savedActive);
+      } else {
+        // 預設停在第一個群組；若無群組則落在未分類
+        setActiveGroup(g[0] ?? UNCATEGORIZED);
       }
     } catch {
       // ignore
@@ -310,7 +379,8 @@ export default function TrackPage() {
   };
 
   const deleteGroup = (name: string) => {
-    persistGroups(groups.filter((g) => g !== name));
+    const remaining = groups.filter((g) => g !== name);
+    persistGroups(remaining);
     setList((prev) => {
       if (!prev) return prev;
       const next = prev.map((s) =>
@@ -321,7 +391,7 @@ export default function TrackPage() {
       saveList(next);
       return next;
     });
-    if (activeGroup === name) changeActiveGroup(ALL_GROUP);
+    if (activeGroup === name) changeActiveGroup(remaining[0] ?? UNCATEGORIZED);
   };
 
   const changeSortMode = (mode: SortMode) => {
@@ -482,8 +552,7 @@ export default function TrackPage() {
 
   const addStock = (stock: TrackedStock) => {
     if (!list) return;
-    const activeReal =
-      activeGroup !== ALL_GROUP && activeGroup !== UNCATEGORIZED ? activeGroup : null;
+    const activeReal = groups.includes(activeGroup) ? activeGroup : null;
     const existing = list.find((s) => s.ticker === stock.ticker);
     if (existing) {
       // 已在追蹤：若目前在某群組頁籤，補掛該群組標籤
@@ -542,7 +611,6 @@ export default function TrackPage() {
   // ─── 依群組篩選 ───
   const groupFilteredList = useMemo(() => {
     if (!list) return [];
-    if (activeGroup === ALL_GROUP) return list;
     if (activeGroup === UNCATEGORIZED) {
       return list.filter((s) => !s.groups || s.groups.length === 0);
     }
@@ -614,7 +682,7 @@ export default function TrackPage() {
     </button>
   );
 
-  const activeIsRealGroup = activeGroup !== ALL_GROUP && activeGroup !== UNCATEGORIZED;
+  const activeIsRealGroup = groups.includes(activeGroup);
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
@@ -800,93 +868,95 @@ export default function TrackPage() {
         )}
       </div>
 
-      {/* 標記區間 */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, fontSize: 14 }}>
-        <span style={{ color: "#666" }}>標記區間：</span>
-        {timeRanges.map((r) => (
-          <button
-            key={r.key}
-            onClick={() => setTimeRange(r.key)}
-            style={{
-              padding: "5px 14px",
-              fontSize: 14,
-              border: "1px solid #1a56db",
-              borderRadius: 16,
-              background: timeRange === r.key ? "#1a56db" : "#fff",
-              color: timeRange === r.key ? "#fff" : "#1a56db",
-              cursor: "pointer",
-              fontWeight: timeRange === r.key ? "bold" : "normal",
-            }}
-          >
-            {r.label}
-          </button>
-        ))}
-      </div>
+      {/* 群組（左） + 標記區間（右）同一行 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, fontSize: 14, flexWrap: "wrap" }}>
+        {/* 群組 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ color: "#666" }}>群組：</span>
+          {groups.map((g) => groupTab(g, g))}
+          {hasUncategorized && groupTab(UNCATEGORIZED, "未分類")}
 
-      {/* 群組 */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, fontSize: 14, flexWrap: "wrap" }}>
-        <span style={{ color: "#666" }}>群組：</span>
-        {groupTab(ALL_GROUP, "全部")}
-        {groups.map((g) => groupTab(g, g))}
-        {hasUncategorized && groups.length > 0 && groupTab(UNCATEGORIZED, "未分類")}
+          {showGroupInput ? (
+            <input
+              autoFocus
+              value={newGroupName}
+              onChange={(e) => setNewGroupName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") createGroupFromBar();
+                if (e.key === "Escape") { setNewGroupName(""); setShowGroupInput(false); }
+              }}
+              onBlur={createGroupFromBar}
+              placeholder="群組名稱，Enter 建立"
+              style={{
+                padding: "5px 10px",
+                fontSize: 13,
+                border: "1px solid #7c3aed",
+                borderRadius: 16,
+                outline: "none",
+                width: 150,
+              }}
+            />
+          ) : (
+            <button
+              onClick={() => setShowGroupInput(true)}
+              style={{
+                padding: "5px 12px",
+                fontSize: 13,
+                border: "1px dashed #a78bfa",
+                borderRadius: 16,
+                background: "#fff",
+                color: "#7c3aed",
+                cursor: "pointer",
+              }}
+            >
+              ＋ 新增群組
+            </button>
+          )}
 
-        {showGroupInput ? (
-          <input
-            autoFocus
-            value={newGroupName}
-            onChange={(e) => setNewGroupName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") createGroupFromBar();
-              if (e.key === "Escape") { setNewGroupName(""); setShowGroupInput(false); }
-            }}
-            onBlur={createGroupFromBar}
-            placeholder="群組名稱，Enter 建立"
-            style={{
-              padding: "5px 10px",
-              fontSize: 13,
-              border: "1px solid #7c3aed",
-              borderRadius: 16,
-              outline: "none",
-              width: 150,
-            }}
-          />
-        ) : (
-          <button
-            onClick={() => setShowGroupInput(true)}
-            style={{
-              padding: "5px 12px",
-              fontSize: 13,
-              border: "1px dashed #a78bfa",
-              borderRadius: 16,
-              background: "#fff",
-              color: "#7c3aed",
-              cursor: "pointer",
-            }}
-          >
-            ＋ 新增群組
-          </button>
-        )}
+          {activeIsRealGroup && (
+            <button
+              onClick={() => {
+                if (window.confirm(`確定刪除群組「${activeGroup}」？股票仍會保留在追蹤清單中。`)) {
+                  deleteGroup(activeGroup);
+                }
+              }}
+              style={{
+                padding: "5px 12px",
+                fontSize: 13,
+                border: "1px solid #e5e7eb",
+                borderRadius: 16,
+                background: "#fff",
+                color: "#9ca3af",
+                cursor: "pointer",
+              }}
+            >
+              刪除「{activeGroup}」群組
+            </button>
+          )}
+        </div>
 
-        {activeIsRealGroup && (
-          <button
-            onClick={() => {
-              if (window.confirm(`確定刪除群組「${activeGroup}」？股票仍會保留在追蹤清單中。`)) {
-                deleteGroup(activeGroup);
-              }
-            }}
-            style={{
-              padding: "5px 12px",
-              fontSize: 13,
-              border: "1px solid #e5e7eb",
-              borderRadius: 16,
-              background: "#fff",
-              color: "#9ca3af",
-              cursor: "pointer",
-            }}
-          >
-            刪除「{activeGroup}」群組
-          </button>
-        )}
+        {/* 標記區間（靠右） */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto", flexWrap: "wrap" }}>
+          <span style={{ color: "#666" }}>標記區間：</span>
+          {timeRanges.map((r) => (
+            <button
+              key={r.key}
+              onClick={() => setTimeRange(r.key)}
+              style={{
+                padding: "5px 14px",
+                fontSize: 14,
+                border: "1px solid #1a56db",
+                borderRadius: 16,
+                background: timeRange === r.key ? "#1a56db" : "#fff",
+                color: timeRange === r.key ? "#fff" : "#1a56db",
+                cursor: "pointer",
+                fontWeight: timeRange === r.key ? "bold" : "normal",
+              }}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Cards */}
@@ -899,7 +969,7 @@ export default function TrackPage() {
       {list !== null && list.length > 0 && sortedList.length === 0 && (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#999", fontSize: 14 }}>
           {activeIsRealGroup
-            ? `「${activeGroup}」群組尚無股票，切到「全部」後可用各股票的「群組」按鈕加入`
+            ? `「${activeGroup}」群組尚無股票，用搜尋框新增，或到其他群組用股票的「＋群組」按鈕加入`
             : "此分類沒有股票"}
         </div>
       )}
