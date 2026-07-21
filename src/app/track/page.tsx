@@ -13,17 +13,16 @@ const STORAGE_KEY = "dmao_track_list";
 const GROUPS_KEY = "dmao_track_groups";
 const ACTIVE_GROUP_KEY = "dmao_track_active_group";
 
-// 群組頁籤的特殊值（非真實群組名）
-const UNCATEGORIZED = "__uncat__";
-
-// 首次使用（尚未設定過群組）時的預設群組
-const DEFAULT_GROUPS = ["群組1", "群組2"];
+// 首次使用（尚未設定過群組）時的預設群組。
+// 第一個群組視為「home」：未分到任何群組的股票會顯示在這裡，故無需「未分類」頁籤。
+const DEFAULT_GROUP = "群組1";
+const DEFAULT_GROUPS = [DEFAULT_GROUP];
 
 const DEFAULT_LIST: TrackedStock[] = [
-  { ticker: "2330", name: "台積電" },
-  { ticker: "2454", name: "聯發科" },
-  { ticker: "2317", name: "鴻海" },
-  { ticker: "2308", name: "台達電" },
+  { ticker: "2330", name: "台積電", groups: [DEFAULT_GROUP] },
+  { ticker: "2454", name: "聯發科", groups: [DEFAULT_GROUP] },
+  { ticker: "2317", name: "鴻海", groups: [DEFAULT_GROUP] },
+  { ticker: "2308", name: "台達電", groups: [DEFAULT_GROUP] },
 ];
 
 function loadList(): TrackedStock[] {
@@ -297,6 +296,11 @@ export default function TrackPage() {
   const [showGroupInput, setShowGroupInput] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
 
+  // ─── 編輯模式（新增/刪除股票、群組皆先改草稿，按儲存才生效）───
+  const [editMode, setEditMode] = useState(false);
+  const [draftList, setDraftList] = useState<TrackedStock[]>([]);
+  const [draftGroups, setDraftGroups] = useState<string[]>([]);
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem("dmao_track_view");
@@ -308,11 +312,11 @@ export default function TrackPage() {
       const g = loadGroups();
       setGroups(g);
       const savedActive = localStorage.getItem(ACTIVE_GROUP_KEY);
-      if (savedActive && (savedActive === UNCATEGORIZED || g.includes(savedActive))) {
+      if (savedActive && g.includes(savedActive)) {
         setActiveGroup(savedActive);
       } else {
-        // 預設停在第一個群組；若無群組則落在未分類
-        setActiveGroup(g[0] ?? UNCATEGORIZED);
+        // 預設停在第一個群組（home）
+        setActiveGroup(g[0] ?? "");
       }
     } catch {
       // ignore
@@ -328,70 +332,86 @@ export default function TrackPage() {
     }
   };
 
-  const persistGroups = (next: string[]) => {
-    setGroups(next);
-    saveGroups(next);
+  // 以下編輯操作皆只改「草稿」，按「儲存」才寫回 list/groups 與 localStorage。
+  // 進入編輯：把目前 list / groups 複製一份為草稿
+  const enterEdit = () => {
+    setDraftList(
+      list ? list.map((s) => ({ ...s, groups: s.groups ? [...s.groups] : undefined })) : [],
+    );
+    setDraftGroups([...groups]);
+    setEditMode(true);
   };
 
-  // 切換某支股票是否屬於某群組（加入 / 移出）
+  const cancelEdit = () => {
+    setEditMode(false);
+    setGroupEditTicker(null);
+    setShowGroupInput(false);
+    setNewGroupName("");
+    setQuery("");
+    // active 群組若指向草稿新建、未儲存的群組 → 校正回已提交的群組
+    if (!groups.includes(activeGroup)) changeActiveGroup(groups[0] ?? "");
+  };
+
+  const saveEdit = () => {
+    setList(draftList);
+    saveList(draftList);
+    setGroups(draftGroups);
+    saveGroups(draftGroups);
+    setEditMode(false);
+    setGroupEditTicker(null);
+    setShowGroupInput(false);
+    setNewGroupName("");
+    setQuery("");
+    if (!draftGroups.includes(activeGroup)) changeActiveGroup(draftGroups[0] ?? "");
+  };
+
+  // 切換某支股票是否屬於某群組（加入 / 移出）— 草稿
   const toggleStockGroup = (ticker: string, group: string) => {
-    setList((prev) => {
-      if (!prev) return prev;
-      const next = prev.map((s) => {
+    setDraftList((prev) =>
+      prev.map((s) => {
         if (s.ticker !== ticker) return s;
         const cur = s.groups ?? [];
-        const nextGroups = cur.includes(group)
-          ? cur.filter((x) => x !== group)
-          : [...cur, group];
-        return { ...s, groups: nextGroups };
-      });
-      saveList(next);
-      return next;
-    });
+        return {
+          ...s,
+          groups: cur.includes(group) ? cur.filter((x) => x !== group) : [...cur, group],
+        };
+      }),
+    );
   };
 
-  // 在群組頁籤上新增群組並切換過去
+  // 在群組頁籤上新增群組並切換過去 — 草稿
   const createGroupFromBar = () => {
     const n = newGroupName.trim();
-    if (n && !groups.includes(n)) {
-      persistGroups([...groups, n]);
+    if (n && !draftGroups.includes(n)) {
+      setDraftGroups((prev) => [...prev, n]);
       changeActiveGroup(n);
     }
     setNewGroupName("");
     setShowGroupInput(false);
   };
 
-  // 在股票的群組編輯彈窗中新增群組，並直接掛到該股票
+  // 在股票的群組編輯彈窗中新增群組，並直接掛到該股票 — 草稿
   const createGroupForStock = (ticker: string, name: string) => {
     const n = name.trim();
     if (!n) return;
-    if (!groups.includes(n)) persistGroups([...groups, n]);
-    setList((prev) => {
-      if (!prev) return prev;
-      const next = prev.map((s) => {
+    setDraftGroups((prev) => (prev.includes(n) ? prev : [...prev, n]));
+    setDraftList((prev) =>
+      prev.map((s) => {
         if (s.ticker !== ticker) return s;
         const cur = s.groups ?? [];
         return cur.includes(n) ? s : { ...s, groups: [...cur, n] };
-      });
-      saveList(next);
-      return next;
-    });
+      }),
+    );
   };
 
   const deleteGroup = (name: string) => {
-    const remaining = groups.filter((g) => g !== name);
-    persistGroups(remaining);
-    setList((prev) => {
-      if (!prev) return prev;
-      const next = prev.map((s) =>
-        s.groups?.includes(name)
-          ? { ...s, groups: s.groups.filter((g) => g !== name) }
-          : s,
-      );
-      saveList(next);
-      return next;
-    });
-    if (activeGroup === name) changeActiveGroup(remaining[0] ?? UNCATEGORIZED);
+    setDraftGroups((prev) => prev.filter((g) => g !== name));
+    setDraftList((prev) =>
+      prev.map((s) =>
+        s.groups?.includes(name) ? { ...s, groups: s.groups.filter((g) => g !== name) } : s,
+      ),
+    );
+    if (activeGroup === name) changeActiveGroup(draftGroups.filter((g) => g !== name)[0] ?? "");
   };
 
   const changeSortMode = (mode: SortMode) => {
@@ -550,39 +570,39 @@ export default function TrackPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // 新增股票 — 草稿（只在編輯模式可觸發）
   const addStock = (stock: TrackedStock) => {
-    if (!list) return;
-    const activeReal = groups.includes(activeGroup) ? activeGroup : null;
-    const existing = list.find((s) => s.ticker === stock.ticker);
-    if (existing) {
-      // 已在追蹤：若目前在某群組頁籤，補掛該群組標籤
-      if (activeReal && !(existing.groups ?? []).includes(activeReal)) {
-        toggleStockGroup(stock.ticker, activeReal);
+    const activeReal = draftGroups.includes(activeGroup) ? activeGroup : null;
+    setDraftList((prev) => {
+      const existing = prev.find((s) => s.ticker === stock.ticker);
+      if (existing) {
+        // 已在追蹤：若目前在某群組頁籤，補掛該群組標籤
+        if (activeReal && !(existing.groups ?? []).includes(activeReal)) {
+          return prev.map((s) =>
+            s.ticker === stock.ticker
+              ? { ...s, groups: [...(s.groups ?? []), activeReal] }
+              : s,
+          );
+        }
+        return prev;
       }
-      setQuery("");
-      setShowSuggestions(false);
-      return;
-    }
-    const newStock: TrackedStock = activeReal ? { ...stock, groups: [activeReal] } : stock;
-    const next = [...list, newStock];
-    setList(next);
-    saveList(next);
+      const newStock: TrackedStock = activeReal ? { ...stock, groups: [activeReal] } : stock;
+      return [...prev, newStock];
+    });
     setQuery("");
     setShowSuggestions(false);
   };
 
+  // 刪除股票 — 草稿
   const removeStock = (ticker: string) => {
-    if (!list) return;
-    const next = list.filter((s) => s.ticker !== ticker);
-    setList(next);
-    saveList(next);
+    setDraftList((prev) => prev.filter((s) => s.ticker !== ticker));
   };
 
-  // ─── Search suggestions ───
+  // ─── Search suggestions（編輯模式的新增股票用；比對草稿清單）───
   const suggestions = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    const added = new Set((list ?? []).map((s) => s.ticker));
+    const added = new Set(draftList.map((s) => s.ticker));
     return scanStocks
       .filter((s) => isTwTicker(s.ticker) && !added.has(s.ticker))
       .filter(
@@ -592,11 +612,11 @@ export default function TrackPage() {
           s.aliases?.some((a) => a.toLowerCase().includes(q)),
       )
       .slice(0, 8);
-  }, [query, list]);
+  }, [query, draftList]);
 
   const rawCodeAddable =
     isTwTicker(query.trim()) &&
-    !(list ?? []).some((s) => s.ticker === query.trim()) &&
+    !draftList.some((s) => s.ticker === query.trim()) &&
     !suggestions.some((s) => s.ticker === query.trim());
 
   const handleEnter = () => {
@@ -608,19 +628,25 @@ export default function TrackPage() {
     }
   };
 
-  // ─── 依群組篩選 ───
-  const groupFilteredList = useMemo(() => {
-    if (!list) return [];
-    if (activeGroup === UNCATEGORIZED) {
-      return list.filter((s) => !s.groups || s.groups.length === 0);
-    }
-    return list.filter((s) => (s.groups ?? []).includes(activeGroup));
-  }, [list, activeGroup]);
+  // 編輯模式下，畫面一律反映「草稿」；一般模式反映已提交資料
+  const displayList = editMode ? draftList : list;
+  const displayGroups = editMode ? draftGroups : groups;
 
-  const hasUncategorized = useMemo(
-    () => (list ?? []).some((s) => !s.groups || s.groups.length === 0),
-    [list],
-  );
+  // ─── 依群組篩選 ───
+  // 第一個群組（home）額外涵蓋未分到任何群組的股票，故不需要「未分類」頁籤；
+  // 完全沒有群組時（使用者刪光）則顯示全部，避免股票被隱藏。
+  const groupFilteredList = useMemo(() => {
+    if (!displayList) return [];
+    if (displayGroups.length === 0) return displayList;
+    const homeGroup = displayGroups[0];
+    if (activeGroup === homeGroup) {
+      return displayList.filter((s) => {
+        const g = s.groups ?? [];
+        return g.length === 0 || g.includes(homeGroup);
+      });
+    }
+    return displayList.filter((s) => (s.groups ?? []).includes(activeGroup));
+  }, [displayList, activeGroup, displayGroups]);
 
   // ─── Sorting ───
   const sortedList = useMemo(() => {
@@ -682,7 +708,7 @@ export default function TrackPage() {
     </button>
   );
 
-  const activeIsRealGroup = groups.includes(activeGroup);
+  const activeIsRealGroup = displayGroups.includes(activeGroup);
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
@@ -743,69 +769,8 @@ export default function TrackPage() {
         </div>
       </div>
 
-      {/* Search + sort toolbar */}
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginBottom: 16 }}>
-        <div ref={searchRef} style={{ position: "relative", flex: "1 1 260px", maxWidth: 360 }}>
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => { setQuery(e.target.value); setShowSuggestions(true); }}
-            onFocus={() => setShowSuggestions(true)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleEnter();
-              if (e.key === "Escape") setShowSuggestions(false);
-            }}
-            placeholder="輸入代碼或名稱新增追蹤（如 2330、台積電）"
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              fontSize: 14,
-              border: "1px solid #d1d5db",
-              borderRadius: 8,
-              outline: "none",
-              boxSizing: "border-box",
-            }}
-          />
-          {showSuggestions && (suggestions.length > 0 || rawCodeAddable) && (
-            <div style={{
-              position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
-              background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8,
-              boxShadow: "0 4px 12px rgba(0,0,0,0.1)", zIndex: 100, overflow: "hidden",
-            }}>
-              {suggestions.map((s) => (
-                <button
-                  key={s.ticker}
-                  onClick={() => addStock({ ticker: s.ticker, name: s.name })}
-                  style={{
-                    display: "flex", width: "100%", alignItems: "center", gap: 10,
-                    padding: "8px 12px", fontSize: 14, border: "none",
-                    background: "none", cursor: "pointer", textAlign: "left",
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "#f0f4f8"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "none"; }}
-                >
-                  <span style={{ fontWeight: 600, color: "#1a56db", minWidth: 52 }}>{s.ticker}</span>
-                  <span>{s.name}</span>
-                </button>
-              ))}
-              {rawCodeAddable && (
-                <button
-                  onClick={() => addStock({ ticker: query.trim(), name: query.trim() })}
-                  style={{
-                    display: "block", width: "100%", padding: "8px 12px", fontSize: 14,
-                    border: "none", borderTop: suggestions.length > 0 ? "1px solid #f3f4f6" : "none",
-                    background: "none", cursor: "pointer", textAlign: "left", color: "#6b7280",
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "#f0f4f8"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "none"; }}
-                >
-                  直接加入代碼「{query.trim()}」
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
+      {/* Row 1：排序 + 檢視（左） ... 標記區間（右） */}
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginBottom: 16 }}>
         <div style={{ display: "flex", gap: 6 }}>
           {sortModes.map((m) => (
             <button
@@ -853,88 +818,6 @@ export default function TrackPage() {
           ))}
         </div>
 
-        {(summary.up > 0 || summary.down > 0 || summary.flat > 0) && (
-          <div style={{ fontSize: 13, color: "#666", marginLeft: "auto" }}>
-            <span style={{ color: "#dc2626", fontWeight: 600 }}>▲ {summary.up} 檔上漲</span>
-            <span style={{ margin: "0 8px", color: "#d1d5db" }}>·</span>
-            <span style={{ color: "#15803d", fontWeight: 600 }}>▼ {summary.down} 檔下跌</span>
-            {summary.flat > 0 && (
-              <>
-                <span style={{ margin: "0 8px", color: "#d1d5db" }}>·</span>
-                <span>{summary.flat} 檔平盤</span>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* 群組（左） + 標記區間（右）同一行 */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, fontSize: 14, flexWrap: "wrap" }}>
-        {/* 群組 */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ color: "#666" }}>群組：</span>
-          {groups.map((g) => groupTab(g, g))}
-          {hasUncategorized && groupTab(UNCATEGORIZED, "未分類")}
-
-          {showGroupInput ? (
-            <input
-              autoFocus
-              value={newGroupName}
-              onChange={(e) => setNewGroupName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") createGroupFromBar();
-                if (e.key === "Escape") { setNewGroupName(""); setShowGroupInput(false); }
-              }}
-              onBlur={createGroupFromBar}
-              placeholder="群組名稱，Enter 建立"
-              style={{
-                padding: "5px 10px",
-                fontSize: 13,
-                border: "1px solid #7c3aed",
-                borderRadius: 16,
-                outline: "none",
-                width: 150,
-              }}
-            />
-          ) : (
-            <button
-              onClick={() => setShowGroupInput(true)}
-              style={{
-                padding: "5px 12px",
-                fontSize: 13,
-                border: "1px dashed #a78bfa",
-                borderRadius: 16,
-                background: "#fff",
-                color: "#7c3aed",
-                cursor: "pointer",
-              }}
-            >
-              ＋ 新增群組
-            </button>
-          )}
-
-          {activeIsRealGroup && (
-            <button
-              onClick={() => {
-                if (window.confirm(`確定刪除群組「${activeGroup}」？股票仍會保留在追蹤清單中。`)) {
-                  deleteGroup(activeGroup);
-                }
-              }}
-              style={{
-                padding: "5px 12px",
-                fontSize: 13,
-                border: "1px solid #e5e7eb",
-                borderRadius: 16,
-                background: "#fff",
-                color: "#9ca3af",
-                cursor: "pointer",
-              }}
-            >
-              刪除「{activeGroup}」群組
-            </button>
-          )}
-        </div>
-
         {/* 標記區間（靠右） */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto", flexWrap: "wrap" }}>
           <span style={{ color: "#666" }}>標記區間：</span>
@@ -959,17 +842,222 @@ export default function TrackPage() {
         </div>
       </div>
 
-      {/* Cards */}
-      {list !== null && list.length === 0 && (
-        <div style={{ textAlign: "center", padding: "60px 20px", color: "#999", fontSize: 14 }}>
-          尚未追蹤任何股票，使用上方搜尋框加入
+      {/* Row 2：群組頁籤 + 編輯/儲存/取消 ; 漲跌家數靠右 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: editMode ? 8 : 16, fontSize: 14, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ color: "#666" }}>群組：</span>
+          {displayGroups.map((g) => groupTab(g, g))}
+
+          {/* 編輯模式：新增群組 / 刪除群組 */}
+          {editMode && (
+            showGroupInput ? (
+              <input
+                autoFocus
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") createGroupFromBar();
+                  if (e.key === "Escape") { setNewGroupName(""); setShowGroupInput(false); }
+                }}
+                onBlur={createGroupFromBar}
+                placeholder="群組名稱，Enter 建立"
+                style={{
+                  padding: "5px 10px",
+                  fontSize: 13,
+                  border: "1px solid #7c3aed",
+                  borderRadius: 16,
+                  outline: "none",
+                  width: 150,
+                }}
+              />
+            ) : (
+              <button
+                onClick={() => setShowGroupInput(true)}
+                style={{
+                  padding: "5px 12px",
+                  fontSize: 13,
+                  border: "1px dashed #a78bfa",
+                  borderRadius: 16,
+                  background: "#fff",
+                  color: "#7c3aed",
+                  cursor: "pointer",
+                }}
+              >
+                ＋ 新增群組
+              </button>
+            )
+          )}
+
+          {editMode && activeIsRealGroup && (
+            <button
+              onClick={() => {
+                if (window.confirm(`確定刪除群組「${activeGroup}」？股票仍會保留在追蹤清單中。`)) {
+                  deleteGroup(activeGroup);
+                }
+              }}
+              style={{
+                padding: "5px 12px",
+                fontSize: 13,
+                border: "1px solid #e5e7eb",
+                borderRadius: 16,
+                background: "#fff",
+                color: "#9ca3af",
+                cursor: "pointer",
+              }}
+            >
+              刪除「{activeGroup}」群組
+            </button>
+          )}
+
+          {/* 編輯 / 儲存 / 取消 */}
+          {!editMode ? (
+            <button
+              onClick={enterEdit}
+              style={{
+                marginLeft: 4,
+                padding: "5px 14px",
+                fontSize: 13,
+                border: "1px solid #374151",
+                borderRadius: 16,
+                background: "#fff",
+                color: "#374151",
+                cursor: "pointer",
+              }}
+            >
+              ✎ 編輯
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={saveEdit}
+                style={{
+                  marginLeft: 4,
+                  padding: "5px 16px",
+                  fontSize: 13,
+                  fontWeight: "bold",
+                  border: "none",
+                  borderRadius: 16,
+                  background: "#16a34a",
+                  color: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                儲存
+              </button>
+              <button
+                onClick={cancelEdit}
+                style={{
+                  padding: "5px 14px",
+                  fontSize: 13,
+                  border: "1px solid #d1d5db",
+                  borderRadius: 16,
+                  background: "#fff",
+                  color: "#6b7280",
+                  cursor: "pointer",
+                }}
+              >
+                取消
+              </button>
+            </>
+          )}
+        </div>
+
+        {(summary.up > 0 || summary.down > 0 || summary.flat > 0) && (
+          <div style={{ fontSize: 13, color: "#666", marginLeft: "auto" }}>
+            <span style={{ color: "#dc2626", fontWeight: 600 }}>▲ {summary.up} 檔上漲</span>
+            <span style={{ margin: "0 8px", color: "#d1d5db" }}>·</span>
+            <span style={{ color: "#15803d", fontWeight: 600 }}>▼ {summary.down} 檔下跌</span>
+            {summary.flat > 0 && (
+              <>
+                <span style={{ margin: "0 8px", color: "#d1d5db" }}>·</span>
+                <span>{summary.flat} 檔平盤</span>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Row 3（編輯模式才出現）：新增股票 */}
+      {editMode && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+          <span style={{ color: "#666", fontSize: 14 }}>新增股票：</span>
+          <div ref={searchRef} style={{ position: "relative", flex: "1 1 260px", maxWidth: 360 }}>
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setShowSuggestions(true); }}
+              onFocus={() => setShowSuggestions(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleEnter();
+                if (e.key === "Escape") setShowSuggestions(false);
+              }}
+              placeholder={`輸入代碼或名稱加入「${activeIsRealGroup ? activeGroup : "追蹤"}」（如 2330、台積電）`}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                fontSize: 14,
+                border: "1px solid #d1d5db",
+                borderRadius: 8,
+                outline: "none",
+                boxSizing: "border-box",
+              }}
+            />
+            {showSuggestions && (suggestions.length > 0 || rawCodeAddable) && (
+              <div style={{
+                position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
+                background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8,
+                boxShadow: "0 4px 12px rgba(0,0,0,0.1)", zIndex: 100, overflow: "hidden",
+              }}>
+                {suggestions.map((s) => (
+                  <button
+                    key={s.ticker}
+                    onClick={() => addStock({ ticker: s.ticker, name: s.name })}
+                    style={{
+                      display: "flex", width: "100%", alignItems: "center", gap: 10,
+                      padding: "8px 12px", fontSize: 14, border: "none",
+                      background: "none", cursor: "pointer", textAlign: "left",
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "#f0f4f8"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "none"; }}
+                  >
+                    <span style={{ fontWeight: 600, color: "#1a56db", minWidth: 52 }}>{s.ticker}</span>
+                    <span>{s.name}</span>
+                  </button>
+                ))}
+                {rawCodeAddable && (
+                  <button
+                    onClick={() => addStock({ ticker: query.trim(), name: query.trim() })}
+                    style={{
+                      display: "block", width: "100%", padding: "8px 12px", fontSize: 14,
+                      border: "none", borderTop: suggestions.length > 0 ? "1px solid #f3f4f6" : "none",
+                      background: "none", cursor: "pointer", textAlign: "left", color: "#6b7280",
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "#f0f4f8"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "none"; }}
+                  >
+                    直接加入代碼「{query.trim()}」
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          <span style={{ color: "#9ca3af", fontSize: 12 }}>新增/刪除股票按「儲存」才生效</span>
         </div>
       )}
 
-      {list !== null && list.length > 0 && sortedList.length === 0 && (
+      {/* Cards */}
+      {list !== null && (displayList?.length ?? 0) === 0 && (
+        <div style={{ textAlign: "center", padding: "60px 20px", color: "#999", fontSize: 14 }}>
+          {editMode ? "使用上方「新增股票」加入" : "尚未追蹤任何股票，按「✎ 編輯」新增"}
+        </div>
+      )}
+
+      {list !== null && (displayList?.length ?? 0) > 0 && sortedList.length === 0 && (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#999", fontSize: 14 }}>
           {activeIsRealGroup
-            ? `「${activeGroup}」群組尚無股票，用搜尋框新增，或到其他群組用股票的「＋群組」按鈕加入`
+            ? (editMode
+                ? `「${activeGroup}」群組尚無股票，用上方「新增股票」加入`
+                : `「${activeGroup}」群組尚無股票，按「✎ 編輯」後可新增或分配股票`)
             : "此分類沒有股票"}
         </div>
       )}
@@ -993,7 +1081,8 @@ export default function TrackPage() {
               annotations={annotationsMap[stock.ticker]}
               isLoadingAnnotations={loadingAnnotations === stock.ticker}
               onToggleAnnotations={() => toggleAnnotations(stock.ticker)}
-              allGroups={groups}
+              editable={editMode}
+              allGroups={displayGroups}
               isGroupEditOpen={groupEditTicker === stock.ticker}
               onToggleGroupEdit={() =>
                 setGroupEditTicker((prev) => (prev === stock.ticker ? null : stock.ticker))
@@ -1073,7 +1162,8 @@ export default function TrackPage() {
                         <div style={{ marginTop: 4 }}>
                           <GroupControl
                             stock={stock}
-                            allGroups={groups}
+                            editable={editMode}
+                            allGroups={displayGroups}
                             isOpen={groupEditTicker === stock.ticker}
                             onToggleOpen={() =>
                               setGroupEditTicker((prev) => (prev === stock.ticker ? null : stock.ticker))
@@ -1123,16 +1213,18 @@ export default function TrackPage() {
                         )}
                       </td>
                       <td style={{ ...listTdStyle, textAlign: "center" }}>
-                        <button
-                          onClick={() => removeStock(stock.ticker)}
-                          title={`移除 ${q?.name || stock.name}`}
-                          style={{
-                            border: "none", background: "none", cursor: "pointer",
-                            color: "#c4c9d1", fontSize: 16, lineHeight: 1, padding: 4,
-                          }}
-                        >
-                          ×
-                        </button>
+                        {editMode && (
+                          <button
+                            onClick={() => removeStock(stock.ticker)}
+                            title={`刪除 ${q?.name || stock.name}`}
+                            style={{
+                              border: "none", background: "none", cursor: "pointer",
+                              color: "#c4c9d1", fontSize: 16, lineHeight: 1, padding: 4,
+                            }}
+                          >
+                            ×
+                          </button>
+                        )}
                       </td>
                     </tr>
                     {isExpanded && (
@@ -1209,6 +1301,7 @@ const listTdStyle: React.CSSProperties = {
 // ＋群組 按鈕開啟勾選彈窗以加入 / 移出，或新增群組。
 function GroupControl({
   stock,
+  editable,
   allGroups,
   isOpen,
   onToggleOpen,
@@ -1216,6 +1309,7 @@ function GroupControl({
   onCreateGroup,
 }: {
   stock: TrackedStock;
+  editable: boolean;
   allGroups: string[];
   isOpen: boolean;
   onToggleOpen: () => void;
@@ -1224,6 +1318,26 @@ function GroupControl({
 }) {
   const [newName, setNewName] = useState("");
   const current = stock.groups ?? [];
+
+  // 非編輯模式：只讀顯示所屬群組標籤（無 ×、無新增），未分組則不顯示
+  if (!editable) {
+    if (current.length === 0) return null;
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+        {current.map((g) => (
+          <span
+            key={g}
+            style={{
+              fontSize: 11, color: "#6d28d9", background: "#f3e8ff",
+              borderRadius: 10, padding: "1px 8px",
+            }}
+          >
+            {g}
+          </span>
+        ))}
+      </span>
+    );
+  }
 
   return (
     <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
@@ -1316,6 +1430,7 @@ function StockCard({
   annotations,
   isLoadingAnnotations,
   onToggleAnnotations,
+  editable,
   allGroups,
   isGroupEditOpen,
   onToggleGroupEdit,
@@ -1332,6 +1447,7 @@ function StockCard({
   annotations: Annotation[] | undefined;
   isLoadingAnnotations: boolean;
   onToggleAnnotations: () => void;
+  editable: boolean;
   allGroups: string[];
   isGroupEditOpen: boolean;
   onToggleGroupEdit: () => void;
@@ -1363,19 +1479,21 @@ function StockCard({
       background: "#fff",
       boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
     }}>
-      <button
-        onClick={onRemove}
-        title={`移除 ${displayName}`}
-        style={{
-          position: "absolute", top: 8, right: 8,
-          border: "none", background: "none", cursor: "pointer",
-          color: "#c4c9d1", fontSize: 16, lineHeight: 1, padding: 4,
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.color = "#6b7280"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.color = "#c4c9d1"; }}
-      >
-        ×
-      </button>
+      {editable && (
+        <button
+          onClick={onRemove}
+          title={`刪除 ${displayName}`}
+          style={{
+            position: "absolute", top: 8, right: 8,
+            border: "none", background: "none", cursor: "pointer",
+            color: "#c4c9d1", fontSize: 16, lineHeight: 1, padding: 4,
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = "#6b7280"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = "#c4c9d1"; }}
+        >
+          ×
+        </button>
+      )}
 
       <div>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8, paddingRight: 20 }}>
@@ -1428,17 +1546,20 @@ function StockCard({
         </div>
       </div>
 
-      {/* 群組標籤 */}
-      <div style={{ borderTop: "1px solid #f3f4f6", marginTop: 8, paddingTop: 8 }}>
-        <GroupControl
-          stock={stock}
-          allGroups={allGroups}
-          isOpen={isGroupEditOpen}
-          onToggleOpen={onToggleGroupEdit}
-          onToggleGroup={onToggleGroup}
-          onCreateGroup={onCreateGroup}
-        />
-      </div>
+      {/* 群組標籤（編輯模式一定顯示；一般模式只有在有群組標籤時顯示） */}
+      {(editable || (stock.groups?.length ?? 0) > 0) && (
+        <div style={{ borderTop: "1px solid #f3f4f6", marginTop: 8, paddingTop: 8 }}>
+          <GroupControl
+            stock={stock}
+            editable={editable}
+            allGroups={allGroups}
+            isOpen={isGroupEditOpen}
+            onToggleOpen={onToggleGroupEdit}
+            onToggleGroup={onToggleGroup}
+            onCreateGroup={onCreateGroup}
+          />
+        </div>
+      )}
 
       {/* 站內研究：EPS 財測、本益比、文章標記 */}
       {(eps2026 || eps2027 || annotationCount > 0) && (
