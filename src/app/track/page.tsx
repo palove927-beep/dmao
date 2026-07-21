@@ -1159,19 +1159,21 @@ export default function TrackPage() {
                             {q?.name || stock.name}
                           </Link>
                         </div>
-                        <div style={{ marginTop: 4 }}>
-                          <GroupControl
-                            stock={stock}
-                            editable={editMode}
-                            allGroups={displayGroups}
-                            isOpen={groupEditTicker === stock.ticker}
-                            onToggleOpen={() =>
-                              setGroupEditTicker((prev) => (prev === stock.ticker ? null : stock.ticker))
-                            }
-                            onToggleGroup={(g) => toggleStockGroup(stock.ticker, g)}
-                            onCreateGroup={(name) => createGroupForStock(stock.ticker, name)}
-                          />
-                        </div>
+                        {editMode && (
+                          <div style={{ marginTop: 4 }}>
+                            <GroupControl
+                              stock={stock}
+                              editable={editMode}
+                              allGroups={displayGroups}
+                              isOpen={groupEditTicker === stock.ticker}
+                              onToggleOpen={() =>
+                                setGroupEditTicker((prev) => (prev === stock.ticker ? null : stock.ticker))
+                              }
+                              onToggleGroup={(g) => toggleStockGroup(stock.ticker, g)}
+                              onCreateGroup={(name) => createGroupForStock(stock.ticker, name)}
+                            />
+                          </div>
+                        )}
                       </td>
                       <td style={{ ...listTdStyle, padding: "4px 10px" }}>
                         <Sparkline ticker={stock.ticker} />
@@ -1319,47 +1321,12 @@ function GroupControl({
   const [newName, setNewName] = useState("");
   const current = stock.groups ?? [];
 
-  // 非編輯模式：只讀顯示所屬群組標籤（無 ×、無新增），未分組則不顯示
-  if (!editable) {
-    if (current.length === 0) return null;
-    return (
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
-        {current.map((g) => (
-          <span
-            key={g}
-            style={{
-              fontSize: 11, color: "#6d28d9", background: "#f3e8ff",
-              borderRadius: 10, padding: "1px 8px",
-            }}
-          >
-            {g}
-          </span>
-        ))}
-      </span>
-    );
-  }
+  // 一般模式不顯示任何群組標註
+  if (!editable) return null;
 
+  // 編輯模式：僅提供「＋群組」按鈕（以彈窗勾選加入 / 移出），不顯示群組標籤
   return (
     <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
-      {current.map((g) => (
-        <span
-          key={g}
-          style={{
-            display: "inline-flex", alignItems: "center", gap: 2,
-            fontSize: 11, color: "#6d28d9", background: "#f3e8ff",
-            borderRadius: 10, padding: "1px 3px 1px 8px",
-          }}
-        >
-          {g}
-          <button
-            onClick={() => onToggleGroup(g)}
-            title={`從「${g}」移出`}
-            style={{ border: "none", background: "none", cursor: "pointer", color: "#a78bfa", fontSize: 13, lineHeight: 1, padding: "0 2px" }}
-          >
-            ×
-          </button>
-        </span>
-      ))}
       <button
         onClick={onToggleOpen}
         title="編輯所屬群組"
@@ -1546,8 +1513,8 @@ function StockCard({
         </div>
       </div>
 
-      {/* 群組標籤（編輯模式一定顯示；一般模式只有在有群組標籤時顯示） */}
-      {(editable || (stock.groups?.length ?? 0) > 0) && (
+      {/* 群組分配（僅編輯模式顯示 ＋群組 按鈕） */}
+      {editable && (
         <div style={{ borderTop: "1px solid #f3f4f6", marginTop: 8, paddingTop: 8 }}>
           <GroupControl
             stock={stock}
