@@ -6,9 +6,16 @@ import { scanStocks } from "@/lib/stock-lookup";
 import type { TrackQuote } from "@/app/api/track/route";
 
 // ─── Watchlist persistence (localStorage) ────────────────
-type TrackedStock = { ticker: string; name: string };
+// groups 為標籤陣列：一支股票可同時屬於多個群組（未列於任何群組 = 未分類）
+type TrackedStock = { ticker: string; name: string; groups?: string[] };
 
 const STORAGE_KEY = "dmao_track_list";
+const GROUPS_KEY = "dmao_track_groups";
+const ACTIVE_GROUP_KEY = "dmao_track_active_group";
+
+// 群組頁籤的特殊值（非真實群組名）
+const ALL_GROUP = "__all__";
+const UNCATEGORIZED = "__uncat__";
 
 const DEFAULT_LIST: TrackedStock[] = [
   { ticker: "2330", name: "台積電" },
@@ -23,10 +30,18 @@ function loadList(): TrackedStock[] {
     if (!raw) return DEFAULT_LIST;
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
-      return parsed.filter(
-        (s): s is TrackedStock =>
-          s && typeof s.ticker === "string" && typeof s.name === "string",
-      );
+      return parsed
+        .filter(
+          (s): s is TrackedStock =>
+            s && typeof s.ticker === "string" && typeof s.name === "string",
+        )
+        .map((s) => ({
+          ticker: s.ticker,
+          name: s.name,
+          groups: Array.isArray(s.groups)
+            ? s.groups.filter((g): g is string => typeof g === "string")
+            : undefined,
+        }));
     }
   } catch {
     // fall through
@@ -39,6 +54,28 @@ function saveList(list: TrackedStock[]) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
   } catch {
     // ignore (private mode etc.)
+  }
+}
+
+function loadGroups(): string[] {
+  try {
+    const raw = localStorage.getItem(GROUPS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((g): g is string => typeof g === "string");
+    }
+  } catch {
+    // fall through
+  }
+  return [];
+}
+
+function saveGroups(groups: string[]) {
+  try {
+    localStorage.setItem(GROUPS_KEY, JSON.stringify(groups));
+  } catch {
+    // ignore
   }
 }
 
@@ -184,6 +221,13 @@ export default function TrackPage() {
   const [sortMode, setSortMode] = useState<SortMode>("custom");
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
 
+  // ─── 群組（標籤模型）───
+  const [groups, setGroups] = useState<string[]>([]);
+  const [activeGroup, setActiveGroup] = useState<string>(ALL_GROUP);
+  const [groupEditTicker, setGroupEditTicker] = useState<string | null>(null);
+  const [showGroupInput, setShowGroupInput] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem("dmao_track_view");
@@ -192,10 +236,93 @@ export default function TrackPage() {
       if (savedSort === "custom" || savedSort === "gainers" || savedSort === "losers") {
         setSortMode(savedSort);
       }
+      const g = loadGroups();
+      setGroups(g);
+      const savedActive = localStorage.getItem(ACTIVE_GROUP_KEY);
+      if (
+        savedActive &&
+        (savedActive === ALL_GROUP || savedActive === UNCATEGORIZED || g.includes(savedActive))
+      ) {
+        setActiveGroup(savedActive);
+      }
     } catch {
       // ignore
     }
   }, []);
+
+  const changeActiveGroup = (g: string) => {
+    setActiveGroup(g);
+    try {
+      localStorage.setItem(ACTIVE_GROUP_KEY, g);
+    } catch {
+      // ignore
+    }
+  };
+
+  const persistGroups = (next: string[]) => {
+    setGroups(next);
+    saveGroups(next);
+  };
+
+  // 切換某支股票是否屬於某群組（加入 / 移出）
+  const toggleStockGroup = (ticker: string, group: string) => {
+    setList((prev) => {
+      if (!prev) return prev;
+      const next = prev.map((s) => {
+        if (s.ticker !== ticker) return s;
+        const cur = s.groups ?? [];
+        const nextGroups = cur.includes(group)
+          ? cur.filter((x) => x !== group)
+          : [...cur, group];
+        return { ...s, groups: nextGroups };
+      });
+      saveList(next);
+      return next;
+    });
+  };
+
+  // 在群組頁籤上新增群組並切換過去
+  const createGroupFromBar = () => {
+    const n = newGroupName.trim();
+    if (n && !groups.includes(n)) {
+      persistGroups([...groups, n]);
+      changeActiveGroup(n);
+    }
+    setNewGroupName("");
+    setShowGroupInput(false);
+  };
+
+  // 在股票的群組編輯彈窗中新增群組，並直接掛到該股票
+  const createGroupForStock = (ticker: string, name: string) => {
+    const n = name.trim();
+    if (!n) return;
+    if (!groups.includes(n)) persistGroups([...groups, n]);
+    setList((prev) => {
+      if (!prev) return prev;
+      const next = prev.map((s) => {
+        if (s.ticker !== ticker) return s;
+        const cur = s.groups ?? [];
+        return cur.includes(n) ? s : { ...s, groups: [...cur, n] };
+      });
+      saveList(next);
+      return next;
+    });
+  };
+
+  const deleteGroup = (name: string) => {
+    persistGroups(groups.filter((g) => g !== name));
+    setList((prev) => {
+      if (!prev) return prev;
+      const next = prev.map((s) =>
+        s.groups?.includes(name)
+          ? { ...s, groups: s.groups.filter((g) => g !== name) }
+          : s,
+      );
+      saveList(next);
+      return next;
+    });
+    if (activeGroup === name) changeActiveGroup(ALL_GROUP);
+  };
 
   const changeSortMode = (mode: SortMode) => {
     setSortMode(mode);
@@ -355,8 +482,20 @@ export default function TrackPage() {
 
   const addStock = (stock: TrackedStock) => {
     if (!list) return;
-    if (list.some((s) => s.ticker === stock.ticker)) return;
-    const next = [...list, stock];
+    const activeReal =
+      activeGroup !== ALL_GROUP && activeGroup !== UNCATEGORIZED ? activeGroup : null;
+    const existing = list.find((s) => s.ticker === stock.ticker);
+    if (existing) {
+      // 已在追蹤：若目前在某群組頁籤，補掛該群組標籤
+      if (activeReal && !(existing.groups ?? []).includes(activeReal)) {
+        toggleStockGroup(stock.ticker, activeReal);
+      }
+      setQuery("");
+      setShowSuggestions(false);
+      return;
+    }
+    const newStock: TrackedStock = activeReal ? { ...stock, groups: [activeReal] } : stock;
+    const next = [...list, newStock];
     setList(next);
     saveList(next);
     setQuery("");
@@ -400,12 +539,26 @@ export default function TrackPage() {
     }
   };
 
+  // ─── 依群組篩選 ───
+  const groupFilteredList = useMemo(() => {
+    if (!list) return [];
+    if (activeGroup === ALL_GROUP) return list;
+    if (activeGroup === UNCATEGORIZED) {
+      return list.filter((s) => !s.groups || s.groups.length === 0);
+    }
+    return list.filter((s) => (s.groups ?? []).includes(activeGroup));
+  }, [list, activeGroup]);
+
+  const hasUncategorized = useMemo(
+    () => (list ?? []).some((s) => !s.groups || s.groups.length === 0),
+    [list],
+  );
+
   // ─── Sorting ───
   const sortedList = useMemo(() => {
-    if (!list) return [];
-    if (sortMode === "custom") return list;
+    if (sortMode === "custom") return groupFilteredList;
     const pct = (s: TrackedStock) => quotes[s.ticker]?.changePercent ?? null;
-    return [...list].sort((a, b) => {
+    return [...groupFilteredList].sort((a, b) => {
       const pa = pct(a);
       const pb = pct(b);
       if (pa === null && pb === null) return 0;
@@ -413,20 +566,21 @@ export default function TrackPage() {
       if (pb === null) return -1;
       return sortMode === "gainers" ? pb - pa : pa - pb;
     });
-  }, [list, sortMode, quotes]);
+  }, [groupFilteredList, sortMode, quotes]);
 
-  // ─── Summary counts ───
+  // ─── Summary counts（依目前群組篩選後的股票統計）───
   const summary = useMemo(() => {
     let up = 0, down = 0, flat = 0;
-    for (const t of tickers) {
-      const c = quotes[t]?.change;
+    for (const s of groupFilteredList) {
+      if (!isTwTicker(s.ticker)) continue;
+      const c = quotes[s.ticker]?.change;
       if (c === null || c === undefined) continue;
       if (c > 0) up++;
       else if (c < 0) down++;
       else flat++;
     }
     return { up, down, flat };
-  }, [tickers, quotes]);
+  }, [groupFilteredList, quotes]);
 
   const sortModes: { key: SortMode; label: string }[] = [
     { key: "custom", label: "自訂順序" },
@@ -440,6 +594,27 @@ export default function TrackPage() {
     { key: "1m", label: "一個月" },
     { key: "3m", label: "三個月" },
   ];
+
+  const groupTab = (key: string, label: string) => (
+    <button
+      key={key}
+      onClick={() => changeActiveGroup(key)}
+      style={{
+        padding: "5px 14px",
+        fontSize: 14,
+        border: "1px solid #7c3aed",
+        borderRadius: 16,
+        background: activeGroup === key ? "#7c3aed" : "#fff",
+        color: activeGroup === key ? "#fff" : "#7c3aed",
+        cursor: "pointer",
+        fontWeight: activeGroup === key ? "bold" : "normal",
+      }}
+    >
+      {label}
+    </button>
+  );
+
+  const activeIsRealGroup = activeGroup !== ALL_GROUP && activeGroup !== UNCATEGORIZED;
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
@@ -648,10 +823,84 @@ export default function TrackPage() {
         ))}
       </div>
 
+      {/* 群組 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, fontSize: 14, flexWrap: "wrap" }}>
+        <span style={{ color: "#666" }}>群組：</span>
+        {groupTab(ALL_GROUP, "全部")}
+        {groups.map((g) => groupTab(g, g))}
+        {hasUncategorized && groups.length > 0 && groupTab(UNCATEGORIZED, "未分類")}
+
+        {showGroupInput ? (
+          <input
+            autoFocus
+            value={newGroupName}
+            onChange={(e) => setNewGroupName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") createGroupFromBar();
+              if (e.key === "Escape") { setNewGroupName(""); setShowGroupInput(false); }
+            }}
+            onBlur={createGroupFromBar}
+            placeholder="群組名稱，Enter 建立"
+            style={{
+              padding: "5px 10px",
+              fontSize: 13,
+              border: "1px solid #7c3aed",
+              borderRadius: 16,
+              outline: "none",
+              width: 150,
+            }}
+          />
+        ) : (
+          <button
+            onClick={() => setShowGroupInput(true)}
+            style={{
+              padding: "5px 12px",
+              fontSize: 13,
+              border: "1px dashed #a78bfa",
+              borderRadius: 16,
+              background: "#fff",
+              color: "#7c3aed",
+              cursor: "pointer",
+            }}
+          >
+            ＋ 新增群組
+          </button>
+        )}
+
+        {activeIsRealGroup && (
+          <button
+            onClick={() => {
+              if (window.confirm(`確定刪除群組「${activeGroup}」？股票仍會保留在追蹤清單中。`)) {
+                deleteGroup(activeGroup);
+              }
+            }}
+            style={{
+              padding: "5px 12px",
+              fontSize: 13,
+              border: "1px solid #e5e7eb",
+              borderRadius: 16,
+              background: "#fff",
+              color: "#9ca3af",
+              cursor: "pointer",
+            }}
+          >
+            刪除「{activeGroup}」群組
+          </button>
+        )}
+      </div>
+
       {/* Cards */}
       {list !== null && list.length === 0 && (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#999", fontSize: 14 }}>
           尚未追蹤任何股票，使用上方搜尋框加入
+        </div>
+      )}
+
+      {list !== null && list.length > 0 && sortedList.length === 0 && (
+        <div style={{ textAlign: "center", padding: "60px 20px", color: "#999", fontSize: 14 }}>
+          {activeIsRealGroup
+            ? `「${activeGroup}」群組尚無股票，切到「全部」後可用各股票的「群組」按鈕加入`
+            : "此分類沒有股票"}
         </div>
       )}
 
@@ -674,6 +923,13 @@ export default function TrackPage() {
               annotations={annotationsMap[stock.ticker]}
               isLoadingAnnotations={loadingAnnotations === stock.ticker}
               onToggleAnnotations={() => toggleAnnotations(stock.ticker)}
+              allGroups={groups}
+              isGroupEditOpen={groupEditTicker === stock.ticker}
+              onToggleGroupEdit={() =>
+                setGroupEditTicker((prev) => (prev === stock.ticker ? null : stock.ticker))
+              }
+              onToggleGroup={(g) => toggleStockGroup(stock.ticker, g)}
+              onCreateGroup={(name) => createGroupForStock(stock.ticker, name)}
             />
           ))}
         </div>
@@ -736,12 +992,26 @@ export default function TrackPage() {
                   <React.Fragment key={stock.ticker}>
                     <tr style={{ background: i % 2 === 0 ? "#fff" : "#f9fafb", borderBottom: "1px solid #eee" }}>
                       <td style={listTdStyle}>
-                        <Link href={`/stock/${stock.ticker}`} style={{ color: "#1a56db", textDecoration: "none", fontWeight: 500 }}>
-                          {stock.ticker}
-                        </Link>
-                        <Link href={`/stock/${stock.ticker}`} style={{ marginLeft: 8, color: "inherit", textDecoration: "none" }}>
-                          {q?.name || stock.name}
-                        </Link>
+                        <div>
+                          <Link href={`/stock/${stock.ticker}`} style={{ color: "#1a56db", textDecoration: "none", fontWeight: 500 }}>
+                            {stock.ticker}
+                          </Link>
+                          <Link href={`/stock/${stock.ticker}`} style={{ marginLeft: 8, color: "inherit", textDecoration: "none" }}>
+                            {q?.name || stock.name}
+                          </Link>
+                        </div>
+                        <div style={{ marginTop: 4 }}>
+                          <GroupControl
+                            stock={stock}
+                            allGroups={groups}
+                            isOpen={groupEditTicker === stock.ticker}
+                            onToggleOpen={() =>
+                              setGroupEditTicker((prev) => (prev === stock.ticker ? null : stock.ticker))
+                            }
+                            onToggleGroup={(g) => toggleStockGroup(stock.ticker, g)}
+                            onCreateGroup={(name) => createGroupForStock(stock.ticker, name)}
+                          />
+                        </div>
                       </td>
                       <td style={{ ...listTdStyle, padding: "4px 10px" }}>
                         <Sparkline ticker={stock.ticker} />
@@ -864,6 +1134,105 @@ const listTdStyle: React.CSSProperties = {
   color: "#222",
 };
 
+// ─── 群組編輯（標籤）───────────────────────────────────────
+// 顯示所屬群組小標籤（× = 移出此群組，不影響追蹤），
+// ＋群組 按鈕開啟勾選彈窗以加入 / 移出，或新增群組。
+function GroupControl({
+  stock,
+  allGroups,
+  isOpen,
+  onToggleOpen,
+  onToggleGroup,
+  onCreateGroup,
+}: {
+  stock: TrackedStock;
+  allGroups: string[];
+  isOpen: boolean;
+  onToggleOpen: () => void;
+  onToggleGroup: (group: string) => void;
+  onCreateGroup: (name: string) => void;
+}) {
+  const [newName, setNewName] = useState("");
+  const current = stock.groups ?? [];
+
+  return (
+    <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+      {current.map((g) => (
+        <span
+          key={g}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 2,
+            fontSize: 11, color: "#6d28d9", background: "#f3e8ff",
+            borderRadius: 10, padding: "1px 3px 1px 8px",
+          }}
+        >
+          {g}
+          <button
+            onClick={() => onToggleGroup(g)}
+            title={`從「${g}」移出`}
+            style={{ border: "none", background: "none", cursor: "pointer", color: "#a78bfa", fontSize: 13, lineHeight: 1, padding: "0 2px" }}
+          >
+            ×
+          </button>
+        </span>
+      ))}
+      <button
+        onClick={onToggleOpen}
+        title="編輯所屬群組"
+        style={{
+          fontSize: 11, color: "#7c3aed", background: "none",
+          border: "1px dashed #c4b5fd", borderRadius: 10,
+          padding: "1px 8px", cursor: "pointer", whiteSpace: "nowrap",
+        }}
+      >
+        ＋群組
+      </button>
+      {isOpen && (
+        <>
+          <div onClick={onToggleOpen} style={{ position: "fixed", inset: 0, zIndex: 200 }} />
+          <div
+            style={{
+              position: "absolute", top: "calc(100% + 4px)", left: 0,
+              minWidth: 168, maxWidth: 220, background: "#fff",
+              border: "1px solid #e5e7eb", borderRadius: 8,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.12)", zIndex: 201,
+              padding: 8, textAlign: "left",
+            }}
+          >
+            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>加入 / 移出群組</div>
+            {allGroups.length === 0 && (
+              <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 6 }}>尚未建立群組</div>
+            )}
+            {allGroups.map((g) => (
+              <label
+                key={g}
+                style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, padding: "3px 2px", cursor: "pointer" }}
+              >
+                <input type="checkbox" checked={current.includes(g)} onChange={() => onToggleGroup(g)} />
+                {g}
+              </label>
+            ))}
+            <div style={{ borderTop: "1px solid #f3f4f6", marginTop: 6, paddingTop: 6 }}>
+              <input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newName.trim()) {
+                    onCreateGroup(newName.trim());
+                    setNewName("");
+                  }
+                }}
+                placeholder="新增群組，Enter"
+                style={{ width: "100%", boxSizing: "border-box", fontSize: 13, padding: "4px 8px", border: "1px solid #d1d5db", borderRadius: 6, outline: "none" }}
+              />
+            </div>
+          </div>
+        </>
+      )}
+    </span>
+  );
+}
+
 // ─── Stat card ───────────────────────────────────────────
 // 台股慣例：紅漲綠跌；方向另以 ▲/▼ 符號標示，不只靠顏色
 function StockCard({
@@ -877,6 +1246,11 @@ function StockCard({
   annotations,
   isLoadingAnnotations,
   onToggleAnnotations,
+  allGroups,
+  isGroupEditOpen,
+  onToggleGroupEdit,
+  onToggleGroup,
+  onCreateGroup,
 }: {
   stock: TrackedStock;
   quote: TrackQuote | undefined;
@@ -888,6 +1262,11 @@ function StockCard({
   annotations: Annotation[] | undefined;
   isLoadingAnnotations: boolean;
   onToggleAnnotations: () => void;
+  allGroups: string[];
+  isGroupEditOpen: boolean;
+  onToggleGroupEdit: () => void;
+  onToggleGroup: (group: string) => void;
+  onCreateGroup: (name: string) => void;
 }) {
   const change = quote?.change ?? null;
   const dir: "up" | "down" | "flat" | "none" =
@@ -977,6 +1356,18 @@ function StockCard({
             <span style={{ marginLeft: "auto" }}>{quote.volume.toLocaleString()} 張</span>
           )}
         </div>
+      </div>
+
+      {/* 群組標籤 */}
+      <div style={{ borderTop: "1px solid #f3f4f6", marginTop: 8, paddingTop: 8 }}>
+        <GroupControl
+          stock={stock}
+          allGroups={allGroups}
+          isOpen={isGroupEditOpen}
+          onToggleOpen={onToggleGroupEdit}
+          onToggleGroup={onToggleGroup}
+          onCreateGroup={onCreateGroup}
+        />
       </div>
 
       {/* 站內研究：EPS 財測、本益比、文章標記 */}
