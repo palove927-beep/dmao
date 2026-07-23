@@ -813,9 +813,15 @@ export default function TrackPage() {
               background: "#fff",
               color: "#374151",
               cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
             }}
           >
-            ✎ 編輯
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="15" height="15">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+            </svg>
+            編輯
           </button>
         </div>
 
@@ -837,14 +843,14 @@ export default function TrackPage() {
       {/* Cards */}
       {groupsData !== null && groupNames.length === 0 && (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#999", fontSize: 14 }}>
-          尚無群組，按「✎ 編輯」新增群組與股票
+          尚無群組，按「編輯」新增群組與股票
         </div>
       )}
 
       {groupsData !== null && groupNames.length > 0 && sortedList.length === 0 && (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#999", fontSize: 14 }}>
           {activeIsRealGroup
-            ? `「${activeGroup}」群組尚無股票，按「✎ 編輯」加入`
+            ? `「${activeGroup}」群組尚無股票，按「編輯」加入`
             : "此分類沒有股票"}
         </div>
       )}
@@ -874,14 +880,14 @@ export default function TrackPage() {
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", minWidth: 780, tableLayout: "fixed", borderCollapse: "collapse", fontSize: 14 }}>
             <colgroup>
-              <col style={{ width: "17%" }} />
-              <col style={{ width: "12%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "12%" }} />
+              <col style={{ width: "18%" }} />
               <col style={{ width: "13%" }} />
-              <col style={{ width: "13%" }} />
-              <col style={{ width: "8%" }} />
               <col style={{ width: "11%" }} />
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "10%" }} />
             </colgroup>
             <thead>
               <tr style={{ background: "#1e3a5f", color: "#fff" }}>
