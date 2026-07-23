@@ -292,7 +292,6 @@ export default function TrackPage() {
   // ─── 群組（標籤模型）───
   const [groups, setGroups] = useState<string[]>([]);
   const [activeGroup, setActiveGroup] = useState<string>("");
-  const [groupEditTicker, setGroupEditTicker] = useState<string | null>(null);
   const [showGroupInput, setShowGroupInput] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
 
@@ -344,7 +343,6 @@ export default function TrackPage() {
 
   const cancelEdit = () => {
     setEditMode(false);
-    setGroupEditTicker(null);
     setShowGroupInput(false);
     setNewGroupName("");
     setQuery("");
@@ -358,25 +356,10 @@ export default function TrackPage() {
     setGroups(draftGroups);
     saveGroups(draftGroups);
     setEditMode(false);
-    setGroupEditTicker(null);
     setShowGroupInput(false);
     setNewGroupName("");
     setQuery("");
     if (!draftGroups.includes(activeGroup)) changeActiveGroup(draftGroups[0] ?? "");
-  };
-
-  // 切換某支股票是否屬於某群組（加入 / 移出）— 草稿
-  const toggleStockGroup = (ticker: string, group: string) => {
-    setDraftList((prev) =>
-      prev.map((s) => {
-        if (s.ticker !== ticker) return s;
-        const cur = s.groups ?? [];
-        return {
-          ...s,
-          groups: cur.includes(group) ? cur.filter((x) => x !== group) : [...cur, group],
-        };
-      }),
-    );
   };
 
   // 在群組頁籤上新增群組並切換過去 — 草稿
@@ -388,20 +371,6 @@ export default function TrackPage() {
     }
     setNewGroupName("");
     setShowGroupInput(false);
-  };
-
-  // 在股票的群組編輯彈窗中新增群組，並直接掛到該股票 — 草稿
-  const createGroupForStock = (ticker: string, name: string) => {
-    const n = name.trim();
-    if (!n) return;
-    setDraftGroups((prev) => (prev.includes(n) ? prev : [...prev, n]));
-    setDraftList((prev) =>
-      prev.map((s) => {
-        if (s.ticker !== ticker) return s;
-        const cur = s.groups ?? [];
-        return cur.includes(n) ? s : { ...s, groups: [...cur, n] };
-      }),
-    );
   };
 
   const deleteGroup = (name: string) => {
@@ -1057,7 +1026,7 @@ export default function TrackPage() {
           {activeIsRealGroup
             ? (editMode
                 ? `「${activeGroup}」群組尚無股票，用上方「新增股票」加入`
-                : `「${activeGroup}」群組尚無股票，按「✎ 編輯」後可新增或分配股票`)
+                : `「${activeGroup}」群組尚無股票，按「✎ 編輯」後用「新增股票」加入`)
             : "此分類沒有股票"}
         </div>
       )}
@@ -1082,13 +1051,6 @@ export default function TrackPage() {
               isLoadingAnnotations={loadingAnnotations === stock.ticker}
               onToggleAnnotations={() => toggleAnnotations(stock.ticker)}
               editable={editMode}
-              allGroups={displayGroups}
-              isGroupEditOpen={groupEditTicker === stock.ticker}
-              onToggleGroupEdit={() =>
-                setGroupEditTicker((prev) => (prev === stock.ticker ? null : stock.ticker))
-              }
-              onToggleGroup={(g) => toggleStockGroup(stock.ticker, g)}
-              onCreateGroup={(name) => createGroupForStock(stock.ticker, name)}
             />
           ))}
         </div>
@@ -1159,21 +1121,6 @@ export default function TrackPage() {
                             {q?.name || stock.name}
                           </Link>
                         </div>
-                        {editMode && (
-                          <div style={{ marginTop: 4 }}>
-                            <GroupControl
-                              stock={stock}
-                              editable={editMode}
-                              allGroups={displayGroups}
-                              isOpen={groupEditTicker === stock.ticker}
-                              onToggleOpen={() =>
-                                setGroupEditTicker((prev) => (prev === stock.ticker ? null : stock.ticker))
-                              }
-                              onToggleGroup={(g) => toggleStockGroup(stock.ticker, g)}
-                              onCreateGroup={(name) => createGroupForStock(stock.ticker, name)}
-                            />
-                          </div>
-                        )}
                       </td>
                       <td style={{ ...listTdStyle, padding: "4px 10px" }}>
                         <Sparkline ticker={stock.ticker} />
@@ -1298,92 +1245,6 @@ const listTdStyle: React.CSSProperties = {
   color: "#222",
 };
 
-// ─── 群組編輯（標籤）───────────────────────────────────────
-// 顯示所屬群組小標籤（× = 移出此群組，不影響追蹤），
-// ＋群組 按鈕開啟勾選彈窗以加入 / 移出，或新增群組。
-function GroupControl({
-  stock,
-  editable,
-  allGroups,
-  isOpen,
-  onToggleOpen,
-  onToggleGroup,
-  onCreateGroup,
-}: {
-  stock: TrackedStock;
-  editable: boolean;
-  allGroups: string[];
-  isOpen: boolean;
-  onToggleOpen: () => void;
-  onToggleGroup: (group: string) => void;
-  onCreateGroup: (name: string) => void;
-}) {
-  const [newName, setNewName] = useState("");
-  const current = stock.groups ?? [];
-
-  // 一般模式不顯示任何群組標註
-  if (!editable) return null;
-
-  // 編輯模式：僅提供「＋群組」按鈕（以彈窗勾選加入 / 移出），不顯示群組標籤
-  return (
-    <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
-      <button
-        onClick={onToggleOpen}
-        title="編輯所屬群組"
-        style={{
-          fontSize: 11, color: "#7c3aed", background: "none",
-          border: "1px dashed #c4b5fd", borderRadius: 10,
-          padding: "1px 8px", cursor: "pointer", whiteSpace: "nowrap",
-        }}
-      >
-        ＋群組
-      </button>
-      {isOpen && (
-        <>
-          <div onClick={onToggleOpen} style={{ position: "fixed", inset: 0, zIndex: 200 }} />
-          <div
-            style={{
-              position: "absolute", top: "calc(100% + 4px)", left: 0,
-              minWidth: 168, maxWidth: 220, background: "#fff",
-              border: "1px solid #e5e7eb", borderRadius: 8,
-              boxShadow: "0 4px 12px rgba(0,0,0,0.12)", zIndex: 201,
-              padding: 8, textAlign: "left",
-            }}
-          >
-            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>加入 / 移出群組</div>
-            {allGroups.length === 0 && (
-              <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 6 }}>尚未建立群組</div>
-            )}
-            {allGroups.map((g) => (
-              <label
-                key={g}
-                style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, padding: "3px 2px", cursor: "pointer" }}
-              >
-                <input type="checkbox" checked={current.includes(g)} onChange={() => onToggleGroup(g)} />
-                {g}
-              </label>
-            ))}
-            <div style={{ borderTop: "1px solid #f3f4f6", marginTop: 6, paddingTop: 6 }}>
-              <input
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && newName.trim()) {
-                    onCreateGroup(newName.trim());
-                    setNewName("");
-                  }
-                }}
-                placeholder="新增群組，Enter"
-                style={{ width: "100%", boxSizing: "border-box", fontSize: 13, padding: "4px 8px", border: "1px solid #d1d5db", borderRadius: 6, outline: "none" }}
-              />
-            </div>
-          </div>
-        </>
-      )}
-    </span>
-  );
-}
-
 // ─── Stat card ───────────────────────────────────────────
 // 台股慣例：紅漲綠跌；方向另以 ▲/▼ 符號標示，不只靠顏色
 function StockCard({
@@ -1398,11 +1259,6 @@ function StockCard({
   isLoadingAnnotations,
   onToggleAnnotations,
   editable,
-  allGroups,
-  isGroupEditOpen,
-  onToggleGroupEdit,
-  onToggleGroup,
-  onCreateGroup,
 }: {
   stock: TrackedStock;
   quote: TrackQuote | undefined;
@@ -1415,11 +1271,6 @@ function StockCard({
   isLoadingAnnotations: boolean;
   onToggleAnnotations: () => void;
   editable: boolean;
-  allGroups: string[];
-  isGroupEditOpen: boolean;
-  onToggleGroupEdit: () => void;
-  onToggleGroup: (group: string) => void;
-  onCreateGroup: (name: string) => void;
 }) {
   const change = quote?.change ?? null;
   const dir: "up" | "down" | "flat" | "none" =
@@ -1513,20 +1364,6 @@ function StockCard({
         </div>
       </div>
 
-      {/* 群組分配（僅編輯模式顯示 ＋群組 按鈕） */}
-      {editable && (
-        <div style={{ borderTop: "1px solid #f3f4f6", marginTop: 8, paddingTop: 8 }}>
-          <GroupControl
-            stock={stock}
-            editable={editable}
-            allGroups={allGroups}
-            isOpen={isGroupEditOpen}
-            onToggleOpen={onToggleGroupEdit}
-            onToggleGroup={onToggleGroup}
-            onCreateGroup={onCreateGroup}
-          />
-        </div>
-      )}
 
       {/* 站內研究：EPS 財測、本益比、文章標記 */}
       {(eps2026 || eps2027 || annotationCount > 0) && (
