@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
-import { House, RefreshCw, SquarePen, Trash2 } from "lucide-react";
+import { House, RefreshCw, SquarePen, Trash2, Copy, Check, Import } from "lucide-react";
 import { scanStocks } from "@/lib/stock-lookup";
 import type { TrackQuote } from "@/app/api/track/route";
 
@@ -65,6 +65,37 @@ function saveGroups(groups: Group[]) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
   } catch {
     // ignore
+  }
+}
+
+// ─── 群組分享（複製為分享碼／從分享碼匯入）───
+const SHARE_PREFIX = "DMAO1-";
+
+function encodeGroup(g: Group): string {
+  const payload = { v: 1, name: g.name, s: g.stocks.map((x) => [x.ticker, x.name]) };
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  const b64 = btoa(String.fromCharCode(...bytes));
+  return SHARE_PREFIX + b64;
+}
+
+function decodeGroup(code: string): Group | null {
+  try {
+    const raw = code.trim().replace(/^DMAO1-/, "");
+    if (!raw) return null;
+    const bytes = Uint8Array.from(atob(raw), (c) => c.charCodeAt(0));
+    const p = JSON.parse(new TextDecoder().decode(bytes));
+    if (!p || typeof p.name !== "string" || !Array.isArray(p.s)) return null;
+    const seen = new Set<string>();
+    const stocks: Stock[] = [];
+    for (const it of p.s) {
+      if (Array.isArray(it) && typeof it[0] === "string" && typeof it[1] === "string" && !seen.has(it[0])) {
+        seen.add(it[0]);
+        stocks.push({ ticker: it[0], name: it[1] });
+      }
+    }
+    return { name: String(p.name).slice(0, 40) || "匯入群組", stocks };
+  } catch {
+    return null;
   }
 }
 
@@ -286,6 +317,10 @@ export default function TrackPage() {
   const [draftGroups, setDraftGroups] = useState<Group[]>([]);
   const [modalGroup, setModalGroup] = useState<string>(""); // 彈窗內目前選取的群組
   const [confirmDeleteGroup, setConfirmDeleteGroup] = useState<string | null>(null); // 待確認刪除的群組名
+  const [copied, setCopied] = useState(false); // 複製分享碼的短暫回饋
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importError, setImportError] = useState(false);
 
   useEffect(() => {
     try {
@@ -336,6 +371,10 @@ export default function TrackPage() {
     setShowGroupInput(false);
     setNewGroupName("");
     setQuery("");
+    setCopied(false);
+    setShowImport(false);
+    setImportText("");
+    setImportError(false);
     setEditMode(true);
   };
 
@@ -345,6 +384,43 @@ export default function TrackPage() {
     setNewGroupName("");
     setQuery("");
     setConfirmDeleteGroup(null);
+    setShowImport(false);
+    setImportText("");
+    setImportError(false);
+  };
+
+  // 複製目前群組為分享碼
+  const copyGroup = async () => {
+    const g = draftGroups.find((x) => x.name === modalGroup);
+    if (!g) return;
+    const code = encodeGroup(g);
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      // 剪貼簿不可用（權限/舊瀏覽器）→ 放到匯入框讓使用者手動複製
+      setShowImport(true);
+      setImportText(code);
+    }
+  };
+
+  // 從分享碼匯入為新群組
+  const importGroup = () => {
+    const g = decodeGroup(importText);
+    if (!g) { setImportError(true); return; }
+    const names = draftGroups.map((x) => x.name);
+    let name = g.name;
+    if (names.includes(name)) {
+      let i = 2;
+      while (names.includes(`${g.name} (${i})`)) i++;
+      name = `${g.name} (${i})`;
+    }
+    setDraftGroups((prev) => [...prev, { name, stocks: g.stocks }]);
+    setModalGroup(name);
+    setImportText("");
+    setShowImport(false);
+    setImportError(false);
   };
 
   const saveEdit = () => {
@@ -355,6 +431,9 @@ export default function TrackPage() {
     setNewGroupName("");
     setQuery("");
     setConfirmDeleteGroup(null);
+    setShowImport(false);
+    setImportText("");
+    setImportError(false);
     // 主畫面所選群組若已被刪除 → 校正回第一個群組
     const names = draftGroups.map((g) => g.name);
     if (!names.includes(activeGroup)) changeActiveGroup(names[0] ?? "");
@@ -1158,6 +1237,63 @@ export default function TrackPage() {
                   </div>
                 )}
               </div>
+
+              {/* 分享：複製此群組 / 匯入群組 */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                <button
+                  onClick={copyGroup}
+                  disabled={!modalActiveIsRealGroup}
+                  title="複製此群組為分享碼"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                    padding: "4px 12px", fontSize: 13, borderRadius: 16,
+                    border: "1px solid #d1d5db", background: "#fff",
+                    color: copied ? "#16a34a" : "#374151",
+                    cursor: modalActiveIsRealGroup ? "pointer" : "not-allowed",
+                    opacity: modalActiveIsRealGroup ? 1 : 0.5,
+                  }}
+                >
+                  {copied ? <Check size={14} strokeWidth={2} /> : <Copy size={14} strokeWidth={1.75} />}
+                  {copied ? "已複製" : "複製此群組"}
+                </button>
+                <button
+                  onClick={() => { setShowImport((v) => !v); setImportError(false); }}
+                  title="從分享碼匯入群組"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                    padding: "4px 12px", fontSize: 13, borderRadius: 16,
+                    border: "1px solid #d1d5db", background: showImport ? "#f3f4f6" : "#fff",
+                    color: "#374151", cursor: "pointer",
+                  }}
+                >
+                  <Import size={14} strokeWidth={1.75} />
+                  匯入群組
+                </button>
+              </div>
+
+              {showImport && (
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      autoFocus
+                      value={importText}
+                      onChange={(e) => { setImportText(e.target.value); setImportError(false); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") importGroup(); }}
+                      placeholder="貼上分享碼，按「匯入」"
+                      style={{ flex: 1, padding: "7px 10px", fontSize: 13, border: `1px solid ${importError ? "#fca5a5" : "#d1d5db"}`, borderRadius: 8, outline: "none", boxSizing: "border-box" }}
+                    />
+                    <button
+                      onClick={importGroup}
+                      style={{ padding: "7px 16px", fontSize: 13, fontWeight: "bold", border: "none", borderRadius: 8, background: "#1a56db", color: "#fff", cursor: "pointer", whiteSpace: "nowrap" }}
+                    >
+                      匯入
+                    </button>
+                  </div>
+                  {importError && (
+                    <div style={{ color: "#dc2626", fontSize: 12, marginTop: 4 }}>分享碼無效，請確認完整貼上</div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* 股票清單（可捲動；固定高度避免切換群組時跳動）*/}
