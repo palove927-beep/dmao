@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
+import { House, RefreshCw, SquarePen, Trash2 } from "lucide-react";
 import { scanStocks } from "@/lib/stock-lookup";
 import type { TrackQuote } from "@/app/api/track/route";
 
@@ -672,9 +673,7 @@ export default function TrackPage() {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "16px 0 20px" }}>
         <Link href="/" style={{ color: "#1a56db", textDecoration: "none", display: "flex", alignItems: "center" }} title="首頁">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="20" height="20">
-            <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-          </svg>
+          <House size={20} strokeWidth={1.75} />
         </Link>
         <div style={{ flex: 1, textAlign: "center" }}>
           <h1 style={{ fontSize: 24, fontWeight: "bold", margin: 0, display: "inline" }}>
@@ -717,9 +716,7 @@ export default function TrackPage() {
               color: "#333",
             }}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="18" height="18" style={loading ? { animation: "spin 1s linear infinite" } : undefined}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182M21.015 4.356v4.992" />
-            </svg>
+            <RefreshCw size={18} strokeWidth={1.75} style={loading ? { animation: "spin 1s linear infinite" } : undefined} />
           </button>
         </div>
       </div>
@@ -818,9 +815,7 @@ export default function TrackPage() {
               gap: 5,
             }}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="15" height="15">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-            </svg>
+            <SquarePen size={15} strokeWidth={1.75} />
             編輯
           </button>
         </div>
@@ -1050,20 +1045,20 @@ export default function TrackPage() {
             onClick={(e) => e.stopPropagation()}
             style={{
               background: "#fff", borderRadius: 12, width: "100%", maxWidth: 560,
-              maxHeight: "85vh", display: "flex", flexDirection: "column",
+              height: "80vh", maxHeight: 600, display: "flex", flexDirection: "column",
               boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
             }}
           >
             {/* header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid #eee" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid #eee", flexShrink: 0 }}>
               <span style={{ fontSize: 16, fontWeight: "bold" }}>編輯追蹤清單</span>
               <button onClick={cancelEdit} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 22, color: "#9ca3af", lineHeight: 1 }}>×</button>
             </div>
 
-            {/* body */}
-            <div style={{ padding: "14px 20px", overflowY: "auto", flex: 1 }}>
+            {/* 控制區（固定，不隨清單捲動）*/}
+            <div style={{ padding: "14px 20px 12px", borderBottom: "1px solid #f1f5f9", flexShrink: 0 }}>
               {/* 群組選擇 */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
                 <span style={{ color: "#666", fontSize: 13 }}>群組：</span>
                 {draftGroups.map((g) => (
                   <button
@@ -1104,19 +1099,23 @@ export default function TrackPage() {
                 {modalActiveIsRealGroup && (
                   <button
                     onClick={() => {
-                      if (window.confirm(`確定刪除群組「${modalGroup}」？股票仍會保留在追蹤清單中。`)) {
+                      if (window.confirm(`確定刪除群組「${modalGroup}」？`)) {
                         deleteGroup(modalGroup);
                       }
                     }}
-                    style={{ padding: "4px 12px", fontSize: 13, border: "1px solid #e5e7eb", borderRadius: 16, background: "#fff", color: "#9ca3af", cursor: "pointer" }}
+                    title={`刪除群組「${modalGroup}」`}
+                    aria-label={`刪除群組「${modalGroup}」`}
+                    style={{ marginLeft: "auto", display: "flex", alignItems: "center", border: "none", background: "none", cursor: "pointer", color: "#9ca3af", padding: 4 }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = "#dc2626"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = "#9ca3af"; }}
                   >
-                    刪除此群組
+                    <Trash2 size={18} strokeWidth={1.75} />
                   </button>
                 )}
               </div>
 
               {/* 新增股票 */}
-              <div ref={searchRef} style={{ position: "relative", marginBottom: 14 }}>
+              <div ref={searchRef} style={{ position: "relative" }}>
                 <input
                   type="text"
                   value={query}
@@ -1160,8 +1159,10 @@ export default function TrackPage() {
                   </div>
                 )}
               </div>
+            </div>
 
-              {/* 股票清單（依目前選取群組） */}
+            {/* 股票清單（可捲動；固定高度避免切換群組時跳動）*/}
+            <div style={{ flex: 1, overflowY: "auto", padding: "10px 20px 14px" }}>
               <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 6 }}>
                 「{modalActiveIsRealGroup ? modalGroup : "全部"}」的股票（{modalFilteredList.length}）
               </div>
@@ -1182,9 +1183,7 @@ export default function TrackPage() {
                       onMouseEnter={(e) => { e.currentTarget.style.color = "#dc2626"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.color = "#c4c9d1"; }}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.6} stroke="currentColor" width="18" height="18">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                      </svg>
+                      <Trash2 size={17} strokeWidth={1.75} />
                     </button>
                   </div>
                 ))

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { House } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { splitParagraphs } from "@/lib/paragraphs";
 import { lookupStock, scanStocks } from "@/lib/stock-lookup";
@@ -656,9 +657,7 @@ export default function DmaoPage() {
     >
       <div style={{ display: "flex", alignItems: "center", margin: "16px 0 20px" }}>
         <a href="/stock" style={{ color: "#1a56db", textDecoration: "none", display: "flex", alignItems: "center" }} title="股票報價">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="20" height="20">
-            <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-          </svg>
+          <House size={20} strokeWidth={1.75} />
         </a>
         <h1 style={{ fontSize: 24, fontWeight: "bold", margin: 0, flex: 1, textAlign: "center" }}>
           {step === 1 ? "貼上文章" : "審核標記"}
