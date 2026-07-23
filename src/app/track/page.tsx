@@ -1237,9 +1237,37 @@ export default function TrackPage() {
                   </div>
                 )}
               </div>
+            </div>
 
-              {/* 分享：複製此群組 / 匯入群組 */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+            {/* 股票清單（可捲動；固定高度避免切換群組時跳動）*/}
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px 20px 14px" }}>
+              {modalFilteredList.length === 0 ? (
+                <div style={{ color: "#9ca3af", fontSize: 13, padding: "20px 0", textAlign: "center" }}>
+                  此群組尚無股票，用上方搜尋加入
+                </div>
+              ) : (
+                modalFilteredList.map((s) => (
+                  <div key={s.ticker} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 2px", borderBottom: "1px solid #f3f4f6" }}>
+                    <span style={{ fontWeight: 600, color: "#1a56db", minWidth: 52 }}>{s.ticker}</span>
+                    <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
+                    <button
+                      onClick={() => removeStockFromGroup(s.ticker, modalGroup)}
+                      title={`從「${modalGroup}」刪除`}
+                      aria-label={`從「${modalGroup}」刪除 ${s.name}`}
+                      style={{ display: "flex", alignItems: "center", border: "none", background: "none", cursor: "pointer", color: "#c4c9d1", padding: 4 }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = "#dc2626"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = "#c4c9d1"; }}
+                    >
+                      <Trash2 size={17} strokeWidth={1.75} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* 分享：複製此群組 / 匯入群組（固定於底部）*/}
+            <div style={{ padding: "10px 20px", borderTop: "1px solid #f1f5f9", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <button
                   onClick={copyGroup}
                   disabled={!modalActiveIsRealGroup}
@@ -1293,35 +1321,6 @@ export default function TrackPage() {
                     <div style={{ color: "#dc2626", fontSize: 12, marginTop: 4 }}>分享碼無效，請確認完整貼上</div>
                   )}
                 </div>
-              )}
-            </div>
-
-            {/* 股票清單（可捲動；固定高度避免切換群組時跳動）*/}
-            <div style={{ flex: 1, overflowY: "auto", padding: "10px 20px 14px" }}>
-              <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 6 }}>
-                「{modalActiveIsRealGroup ? modalGroup : "全部"}」的股票（{modalFilteredList.length}）
-              </div>
-              {modalFilteredList.length === 0 ? (
-                <div style={{ color: "#9ca3af", fontSize: 13, padding: "20px 0", textAlign: "center" }}>
-                  此群組尚無股票，用上方搜尋加入
-                </div>
-              ) : (
-                modalFilteredList.map((s) => (
-                  <div key={s.ticker} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 2px", borderBottom: "1px solid #f3f4f6" }}>
-                    <span style={{ fontWeight: 600, color: "#1a56db", minWidth: 52 }}>{s.ticker}</span>
-                    <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
-                    <button
-                      onClick={() => removeStockFromGroup(s.ticker, modalGroup)}
-                      title={`從「${modalGroup}」刪除`}
-                      aria-label={`從「${modalGroup}」刪除 ${s.name}`}
-                      style={{ display: "flex", alignItems: "center", border: "none", background: "none", cursor: "pointer", color: "#c4c9d1", padding: 4 }}
-                      onMouseEnter={(e) => { e.currentTarget.style.color = "#dc2626"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.color = "#c4c9d1"; }}
-                    >
-                      <Trash2 size={17} strokeWidth={1.75} />
-                    </button>
-                  </div>
-                ))
               )}
             </div>
 
