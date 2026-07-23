@@ -285,6 +285,7 @@ export default function TrackPage() {
   const [editMode, setEditMode] = useState(false); // = 編輯彈窗是否開啟
   const [draftGroups, setDraftGroups] = useState<Group[]>([]);
   const [modalGroup, setModalGroup] = useState<string>(""); // 彈窗內目前選取的群組
+  const [confirmDeleteGroup, setConfirmDeleteGroup] = useState<string | null>(null); // 待確認刪除的群組名
 
   useEffect(() => {
     try {
@@ -343,6 +344,7 @@ export default function TrackPage() {
     setShowGroupInput(false);
     setNewGroupName("");
     setQuery("");
+    setConfirmDeleteGroup(null);
   };
 
   const saveEdit = () => {
@@ -352,6 +354,7 @@ export default function TrackPage() {
     setShowGroupInput(false);
     setNewGroupName("");
     setQuery("");
+    setConfirmDeleteGroup(null);
     // 主畫面所選群組若已被刪除 → 校正回第一個群組
     const names = draftGroups.map((g) => g.name);
     if (!names.includes(activeGroup)) changeActiveGroup(names[0] ?? "");
@@ -1098,11 +1101,7 @@ export default function TrackPage() {
                 )}
                 {modalActiveIsRealGroup && (
                   <button
-                    onClick={() => {
-                      if (window.confirm(`確定刪除群組「${modalGroup}」？`)) {
-                        deleteGroup(modalGroup);
-                      }
-                    }}
+                    onClick={() => setConfirmDeleteGroup(modalGroup)}
                     title={`刪除群組「${modalGroup}」`}
                     aria-label={`刪除群組「${modalGroup}」`}
                     style={{ marginLeft: "auto", display: "flex", alignItems: "center", border: "none", background: "none", cursor: "pointer", color: "#9ca3af", padding: 4 }}
@@ -1204,6 +1203,53 @@ export default function TrackPage() {
                 style={{ padding: "7px 20px", fontSize: 14, fontWeight: "bold", border: "none", borderRadius: 8, background: "#16a34a", color: "#fff", cursor: "pointer" }}
               >
                 儲存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── 刪除群組確認 ─── */}
+      {confirmDeleteGroup !== null && (
+        <div
+          onClick={() => setConfirmDeleteGroup(null)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 1200, padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#fff", borderRadius: 12, width: "100%", maxWidth: 360,
+              padding: "20px 22px", boxShadow: "0 10px 34px rgba(0,0,0,0.28)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: "50%", background: "#fee2e2", color: "#dc2626", flexShrink: 0 }}>
+                <Trash2 size={18} strokeWidth={1.75} />
+              </span>
+              <span style={{ fontSize: 16, fontWeight: "bold", color: "#111827" }}>刪除群組</span>
+            </div>
+            <div style={{ fontSize: 14, color: "#4b5563", lineHeight: 1.6, marginBottom: 20 }}>
+              確定刪除群組「<b>{confirmDeleteGroup}</b>」？
+              <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>
+                群組內的股票若也在其他群組，仍會保留。
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button
+                onClick={() => setConfirmDeleteGroup(null)}
+                style={{ padding: "7px 18px", fontSize: 14, border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", color: "#6b7280", cursor: "pointer" }}
+              >
+                取消
+              </button>
+              <button
+                onClick={() => { deleteGroup(confirmDeleteGroup); setConfirmDeleteGroup(null); }}
+                style={{ padding: "7px 20px", fontSize: 14, fontWeight: "bold", border: "none", borderRadius: 8, background: "#dc2626", color: "#fff", cursor: "pointer" }}
+              >
+                刪除
               </button>
             </div>
           </div>
