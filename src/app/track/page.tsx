@@ -6,76 +6,62 @@ import { scanStocks } from "@/lib/stock-lookup";
 import type { TrackQuote } from "@/app/api/track/route";
 
 // ─── Watchlist persistence (localStorage) ────────────────
-// groups 為標籤陣列：一支股票可同時屬於多個群組（未列於任何群組 = 未分類）
-type TrackedStock = { ticker: string; name: string; groups?: string[] };
+// 群組為主的結構：每個群組各自持有一份股票清單（同一支股票若跨群組，會分別存於各群組）
+type Stock = { ticker: string; name: string };
+type Group = { name: string; stocks: Stock[] };
 
-const STORAGE_KEY = "dmao_track_list";
-const GROUPS_KEY = "dmao_track_groups";
+const STORAGE_KEY = "dmao_track_groups_v2";
 const ACTIVE_GROUP_KEY = "dmao_track_active_group";
 
-// 首次使用（尚未設定過群組）時的預設群組。
-// 第一個群組視為「home」：未分到任何群組的股票會顯示在這裡，故無需「未分類」頁籤。
 const DEFAULT_GROUP = "群組1";
-const DEFAULT_GROUPS = [DEFAULT_GROUP];
 
-const DEFAULT_LIST: TrackedStock[] = [
-  { ticker: "2330", name: "台積電", groups: [DEFAULT_GROUP] },
-  { ticker: "2454", name: "聯發科", groups: [DEFAULT_GROUP] },
-  { ticker: "2317", name: "鴻海", groups: [DEFAULT_GROUP] },
-  { ticker: "2308", name: "台達電", groups: [DEFAULT_GROUP] },
-];
+function defaultGroups(): Group[] {
+  return [
+    {
+      name: DEFAULT_GROUP,
+      stocks: [
+        { ticker: "2330", name: "台積電" },
+        { ticker: "2454", name: "聯發科" },
+        { ticker: "2317", name: "鴻海" },
+        { ticker: "2308", name: "台達電" },
+      ],
+    },
+  ];
+}
 
-function loadList(): TrackedStock[] {
+function sanitizeStocks(arr: unknown): Stock[] {
+  if (!Array.isArray(arr)) return [];
+  const seen = new Set<string>();
+  const out: Stock[] = [];
+  for (const s of arr) {
+    if (s && typeof s.ticker === "string" && typeof s.name === "string" && !seen.has(s.ticker)) {
+      seen.add(s.ticker);
+      out.push({ ticker: s.ticker, name: s.name });
+    }
+  }
+  return out;
+}
+
+function loadGroups(): Group[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_LIST;
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      return parsed
-        .filter(
-          (s): s is TrackedStock =>
-            s && typeof s.ticker === "string" && typeof s.name === "string",
-        )
-        .map((s) => ({
-          ticker: s.ticker,
-          name: s.name,
-          groups: Array.isArray(s.groups)
-            ? s.groups.filter((g): g is string => typeof g === "string")
-            : undefined,
-        }));
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter((g) => g && typeof g.name === "string")
+          .map((g) => ({ name: g.name, stocks: sanitizeStocks(g.stocks) }));
+      }
     }
   } catch {
     // fall through
   }
-  return DEFAULT_LIST;
+  return defaultGroups();
 }
 
-function saveList(list: TrackedStock[]) {
+function saveGroups(groups: Group[]) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-  } catch {
-    // ignore (private mode etc.)
-  }
-}
-
-function loadGroups(): string[] {
-  try {
-    const raw = localStorage.getItem(GROUPS_KEY);
-    // 從未設定過（key 不存在）→ 種子預設兩組；已設定過（含空陣列）→ 尊重使用者現狀
-    if (raw === null) return [...DEFAULT_GROUPS];
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      return parsed.filter((g): g is string => typeof g === "string");
-    }
-  } catch {
-    // fall through
-  }
-  return [];
-}
-
-function saveGroups(groups: string[]) {
-  try {
-    localStorage.setItem(GROUPS_KEY, JSON.stringify(groups));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
   } catch {
     // ignore
   }
@@ -282,23 +268,21 @@ function Sparkline({ ticker }: { ticker: string }) {
 }
 
 export default function TrackPage() {
-  const [list, setList] = useState<TrackedStock[] | null>(null);
+  const [groupsData, setGroupsData] = useState<Group[] | null>(null);
   const [quotes, setQuotes] = useState<Record<string, TrackQuote>>({});
   const [loading, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<string>("");
   const [sortMode, setSortMode] = useState<SortMode>("custom");
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
 
-  // ─── 群組（標籤模型）───
-  const [groups, setGroups] = useState<string[]>([]);
+  // ─── 群組（群組為主）───
   const [activeGroup, setActiveGroup] = useState<string>("");
   const [showGroupInput, setShowGroupInput] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
 
-  // ─── 編輯模式（彈窗；新增/刪除股票、群組皆先改草稿，按儲存才生效）───
+  // ─── 編輯彈窗（新增/刪除股票、群組皆先改草稿，按儲存才生效）───
   const [editMode, setEditMode] = useState(false); // = 編輯彈窗是否開啟
-  const [draftList, setDraftList] = useState<TrackedStock[]>([]);
-  const [draftGroups, setDraftGroups] = useState<string[]>([]);
+  const [draftGroups, setDraftGroups] = useState<Group[]>([]);
   const [modalGroup, setModalGroup] = useState<string>(""); // 彈窗內目前選取的群組
 
   useEffect(() => {
@@ -308,15 +292,6 @@ export default function TrackPage() {
       const savedSort = localStorage.getItem("dmao_track_sort");
       if (savedSort === "custom" || savedSort === "gainers" || savedSort === "losers") {
         setSortMode(savedSort);
-      }
-      const g = loadGroups();
-      setGroups(g);
-      const savedActive = localStorage.getItem(ACTIVE_GROUP_KEY);
-      if (savedActive && g.includes(savedActive)) {
-        setActiveGroup(savedActive);
-      } else {
-        // 預設停在第一個群組（home）
-        setActiveGroup(g[0] ?? "");
       }
     } catch {
       // ignore
@@ -332,14 +307,30 @@ export default function TrackPage() {
     }
   };
 
-  // 以下編輯操作皆只改「草稿」，按「儲存」才寫回 list/groups 與 localStorage。
-  // 開啟編輯彈窗：把目前 list / groups 複製一份為草稿
+  // 載入群組資料（localStorage 為 client-only）
+  useEffect(() => {
+    const g = loadGroups();
+    setGroupsData(g);
+    const names = g.map((x) => x.name);
+    let active = "";
+    try {
+      const savedActive = localStorage.getItem(ACTIVE_GROUP_KEY);
+      if (savedActive && names.includes(savedActive)) active = savedActive;
+    } catch {
+      // ignore
+    }
+    setActiveGroup(active || names[0] || "");
+  }, []);
+
+  const cloneGroups = (gs: Group[]): Group[] =>
+    gs.map((g) => ({ name: g.name, stocks: g.stocks.map((s) => ({ ...s })) }));
+
+  // 以下編輯操作皆只改「草稿」，按「儲存」才寫回 groupsData 與 localStorage。
   const enterEdit = () => {
-    setDraftList(
-      list ? list.map((s) => ({ ...s, groups: s.groups ? [...s.groups] : undefined })) : [],
-    );
-    setDraftGroups([...groups]);
-    setModalGroup(groups.includes(activeGroup) ? activeGroup : (groups[0] ?? ""));
+    const src = groupsData ?? [];
+    setDraftGroups(cloneGroups(src));
+    const names = src.map((g) => g.name);
+    setModalGroup(names.includes(activeGroup) ? activeGroup : (names[0] ?? ""));
     setShowGroupInput(false);
     setNewGroupName("");
     setQuery("");
@@ -354,23 +345,22 @@ export default function TrackPage() {
   };
 
   const saveEdit = () => {
-    setList(draftList);
-    saveList(draftList);
-    setGroups(draftGroups);
+    setGroupsData(draftGroups);
     saveGroups(draftGroups);
     setEditMode(false);
     setShowGroupInput(false);
     setNewGroupName("");
     setQuery("");
     // 主畫面所選群組若已被刪除 → 校正回第一個群組
-    if (!draftGroups.includes(activeGroup)) changeActiveGroup(draftGroups[0] ?? "");
+    const names = draftGroups.map((g) => g.name);
+    if (!names.includes(activeGroup)) changeActiveGroup(names[0] ?? "");
   };
 
   // 在彈窗內新增群組並切換過去 — 草稿
   const createGroupFromBar = () => {
     const n = newGroupName.trim();
-    if (n && !draftGroups.includes(n)) {
-      setDraftGroups((prev) => [...prev, n]);
+    if (n && !draftGroups.some((g) => g.name === n)) {
+      setDraftGroups((prev) => [...prev, { name: n, stocks: [] }]);
       setModalGroup(n);
     }
     setNewGroupName("");
@@ -378,23 +368,25 @@ export default function TrackPage() {
   };
 
   const deleteGroup = (name: string) => {
-    setDraftGroups((prev) => prev.filter((g) => g !== name));
-    setDraftList((prev) =>
-      prev.map((s) =>
-        s.groups?.includes(name) ? { ...s, groups: s.groups.filter((g) => g !== name) } : s,
-      ),
-    );
-    if (modalGroup === name) setModalGroup(draftGroups.filter((g) => g !== name)[0] ?? "");
+    setDraftGroups((prev) => prev.filter((g) => g.name !== name));
+    if (modalGroup === name) {
+      setModalGroup(draftGroups.filter((g) => g.name !== name)[0]?.name ?? "");
+    }
   };
 
-  // 將股票移出目前彈窗所選群組（保留追蹤）— 草稿
+  // 移出目前群組（只從該群組移除，其他群組不受影響）— 草稿
   const removeStockFromGroup = (ticker: string, group: string) => {
-    setDraftList((prev) =>
-      prev.map((s) =>
-        s.ticker === ticker
-          ? { ...s, groups: (s.groups ?? []).filter((g) => g !== group) }
-          : s,
+    setDraftGroups((prev) =>
+      prev.map((g) =>
+        g.name === group ? { ...g, stocks: g.stocks.filter((s) => s.ticker !== ticker) } : g,
       ),
+    );
+  };
+
+  // 從所有群組刪除（完全移出追蹤）— 草稿
+  const removeStockEverywhere = (ticker: string) => {
+    setDraftGroups((prev) =>
+      prev.map((g) => ({ ...g, stocks: g.stocks.filter((s) => s.ticker !== ticker) })),
     );
   };
 
@@ -487,15 +479,16 @@ export default function TrackPage() {
     }
   };
 
-  // Load watchlist after mount (localStorage is client-only)
-  useEffect(() => {
-    setList(loadList());
-  }, []);
-
-  const tickers = useMemo(
-    () => (list ?? []).map((s) => s.ticker).filter(isTwTicker),
-    [list],
-  );
+  // 所有群組的股票代碼（去重）— 供報價查詢
+  const tickers = useMemo(() => {
+    const set = new Set<string>();
+    for (const g of groupsData ?? []) {
+      for (const s of g.stocks) {
+        if (isTwTicker(s.ticker)) set.add(s.ticker);
+      }
+    }
+    return [...set];
+  }, [groupsData]);
 
   const fetchQuotes = useCallback(async () => {
     if (tickers.length === 0) {
@@ -519,29 +512,32 @@ export default function TrackPage() {
   }, [tickers]);
 
   useEffect(() => {
-    if (list === null) return;
+    if (groupsData === null) return;
     fetchQuotes();
     const interval = setInterval(fetchQuotes, 30000);
     return () => clearInterval(interval);
-  }, [list, fetchQuotes]);
+  }, [groupsData, fetchQuotes]);
 
-  // 報價回來後，把佔位名稱（=代碼）換成真實股名
+  // 報價回來後，把佔位名稱（=代碼）換成真實股名（於所有群組內更新）
   useEffect(() => {
-    if (!list) return;
+    if (!groupsData) return;
     let changed = false;
-    const next = list.map((s) => {
-      const q = quotes[s.ticker];
-      if (q?.name && s.name === s.ticker) {
-        changed = true;
-        return { ...s, name: q.name };
-      }
-      return s;
-    });
+    const next = groupsData.map((g) => ({
+      ...g,
+      stocks: g.stocks.map((s) => {
+        const q = quotes[s.ticker];
+        if (q?.name && s.name === s.ticker) {
+          changed = true;
+          return { ...s, name: q.name };
+        }
+        return s;
+      }),
+    }));
     if (changed) {
-      setList(next);
-      saveList(next);
+      setGroupsData(next);
+      saveGroups(next);
     }
-  }, [quotes, list]);
+  }, [quotes, groupsData]);
 
   // Close suggestions on outside click
   useEffect(() => {
@@ -554,39 +550,29 @@ export default function TrackPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // 新增股票 — 草稿（彈窗內操作，歸入目前選取的群組）
-  const addStock = (stock: TrackedStock) => {
-    const activeReal = draftGroups.includes(modalGroup) ? modalGroup : null;
-    setDraftList((prev) => {
-      const existing = prev.find((s) => s.ticker === stock.ticker);
-      if (existing) {
-        // 已在追蹤：若目前選了某群組，補掛該群組標籤
-        if (activeReal && !(existing.groups ?? []).includes(activeReal)) {
-          return prev.map((s) =>
-            s.ticker === stock.ticker
-              ? { ...s, groups: [...(s.groups ?? []), activeReal] }
-              : s,
-          );
-        }
-        return prev;
-      }
-      const newStock: TrackedStock = activeReal ? { ...stock, groups: [activeReal] } : stock;
-      return [...prev, newStock];
-    });
+  // 新增股票 — 草稿（加入彈窗目前選取的群組；同群組去重）
+  const addStock = (stock: Stock) => {
+    setDraftGroups((prev) =>
+      prev.map((g) => {
+        if (g.name !== modalGroup) return g;
+        if (g.stocks.some((s) => s.ticker === stock.ticker)) return g;
+        return { ...g, stocks: [...g.stocks, { ticker: stock.ticker, name: stock.name }] };
+      }),
+    );
     setQuery("");
     setShowSuggestions(false);
   };
 
-  // 刪除股票 — 草稿
-  const removeStock = (ticker: string) => {
-    setDraftList((prev) => prev.filter((s) => s.ticker !== ticker));
-  };
+  // ─── Search suggestions（彈窗新增股票用；排除目前群組已有的股票）───
+  const modalGroupStocks = useMemo(
+    () => draftGroups.find((g) => g.name === modalGroup)?.stocks ?? [],
+    [draftGroups, modalGroup],
+  );
 
-  // ─── Search suggestions（編輯模式的新增股票用；比對草稿清單）───
   const suggestions = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    const added = new Set(draftList.map((s) => s.ticker));
+    const added = new Set(modalGroupStocks.map((s) => s.ticker));
     return scanStocks
       .filter((s) => isTwTicker(s.ticker) && !added.has(s.ticker))
       .filter(
@@ -596,11 +582,11 @@ export default function TrackPage() {
           s.aliases?.some((a) => a.toLowerCase().includes(q)),
       )
       .slice(0, 8);
-  }, [query, draftList]);
+  }, [query, modalGroupStocks]);
 
   const rawCodeAddable =
     isTwTicker(query.trim()) &&
-    !draftList.some((s) => s.ticker === query.trim()) &&
+    !modalGroupStocks.some((s) => s.ticker === query.trim()) &&
     !suggestions.some((s) => s.ticker === query.trim());
 
   const handleEnter = () => {
@@ -612,45 +598,22 @@ export default function TrackPage() {
     }
   };
 
-  // 主畫面（背景）一律顯示「已提交」資料；編輯在彈窗中操作草稿，儲存後才反映
-  const displayList = list;
-  const displayGroups = groups;
+  const groupNames = useMemo(() => (groupsData ?? []).map((g) => g.name), [groupsData]);
 
-  // ─── 依群組篩選 ───
-  // 第一個群組（home）額外涵蓋未分到任何群組的股票，故不需要「未分類」頁籤；
-  // 完全沒有群組時（使用者刪光）則顯示全部，避免股票被隱藏。
-  const groupFilteredList = useMemo(() => {
-    if (!displayList) return [];
-    if (displayGroups.length === 0) return displayList;
-    const homeGroup = displayGroups[0];
-    if (activeGroup === homeGroup) {
-      return displayList.filter((s) => {
-        const g = s.groups ?? [];
-        return g.length === 0 || g.includes(homeGroup);
-      });
-    }
-    return displayList.filter((s) => (s.groups ?? []).includes(activeGroup));
-  }, [displayList, activeGroup, displayGroups]);
+  // ─── 主畫面：目前所選群組的股票 ───
+  const groupFilteredList = useMemo(
+    () => (groupsData ?? []).find((g) => g.name === activeGroup)?.stocks ?? [],
+    [groupsData, activeGroup],
+  );
 
-  // 彈窗內：草稿清單依「彈窗所選群組」篩選（同樣以第一個群組為 home）
-  const modalFilteredList = useMemo(() => {
-    if (draftGroups.length === 0) return draftList;
-    const homeGroup = draftGroups[0];
-    if (modalGroup === homeGroup) {
-      return draftList.filter((s) => {
-        const g = s.groups ?? [];
-        return g.length === 0 || g.includes(homeGroup);
-      });
-    }
-    return draftList.filter((s) => (s.groups ?? []).includes(modalGroup));
-  }, [draftList, draftGroups, modalGroup]);
-
-  const modalActiveIsRealGroup = draftGroups.includes(modalGroup);
+  // 彈窗內：目前選取群組的草稿股票
+  const modalFilteredList = modalGroupStocks;
+  const modalActiveIsRealGroup = draftGroups.some((g) => g.name === modalGroup);
 
   // ─── Sorting ───
   const sortedList = useMemo(() => {
     if (sortMode === "custom") return groupFilteredList;
-    const pct = (s: TrackedStock) => quotes[s.ticker]?.changePercent ?? null;
+    const pct = (s: Stock) => quotes[s.ticker]?.changePercent ?? null;
     return [...groupFilteredList].sort((a, b) => {
       const pa = pct(a);
       const pb = pct(b);
@@ -707,7 +670,7 @@ export default function TrackPage() {
     </button>
   );
 
-  const activeIsRealGroup = displayGroups.includes(activeGroup);
+  const activeIsRealGroup = groupNames.includes(activeGroup);
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
@@ -845,7 +808,7 @@ export default function TrackPage() {
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, fontSize: 14, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ color: "#666" }}>群組：</span>
-          {displayGroups.map((g) => groupTab(g, g))}
+          {groupNames.map((g) => groupTab(g, g))}
           <button
             onClick={enterEdit}
             style={{
@@ -879,13 +842,13 @@ export default function TrackPage() {
       </div>
 
       {/* Cards */}
-      {list !== null && (displayList?.length ?? 0) === 0 && (
+      {groupsData !== null && groupNames.length === 0 && (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#999", fontSize: 14 }}>
-          尚未追蹤任何股票，按「✎ 編輯」新增
+          尚無群組，按「✎ 編輯」新增群組與股票
         </div>
       )}
 
-      {list !== null && (displayList?.length ?? 0) > 0 && sortedList.length === 0 && (
+      {groupsData !== null && groupNames.length > 0 && sortedList.length === 0 && (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#999", fontSize: 14 }}>
           {activeIsRealGroup
             ? `「${activeGroup}」群組尚無股票，按「✎ 編輯」加入`
@@ -1070,7 +1033,7 @@ export default function TrackPage() {
         </div>
       )}
 
-      {list === null && (
+      {groupsData === null && (
         <div style={{ textAlign: "center", padding: 40, color: "#999" }}>載入中...</div>
       )}
 
@@ -1105,17 +1068,17 @@ export default function TrackPage() {
                 <span style={{ color: "#666", fontSize: 13 }}>群組：</span>
                 {draftGroups.map((g) => (
                   <button
-                    key={g}
-                    onClick={() => setModalGroup(g)}
+                    key={g.name}
+                    onClick={() => setModalGroup(g.name)}
                     style={{
                       padding: "4px 12px", fontSize: 13, borderRadius: 16,
                       border: "1px solid #7c3aed", cursor: "pointer",
-                      background: modalGroup === g ? "#7c3aed" : "#fff",
-                      color: modalGroup === g ? "#fff" : "#7c3aed",
-                      fontWeight: modalGroup === g ? "bold" : "normal",
+                      background: modalGroup === g.name ? "#7c3aed" : "#fff",
+                      color: modalGroup === g.name ? "#fff" : "#7c3aed",
+                      fontWeight: modalGroup === g.name ? "bold" : "normal",
                     }}
                   >
-                    {g}
+                    {g.name}
                   </button>
                 ))}
                 {showGroupInput ? (
@@ -1208,31 +1171,26 @@ export default function TrackPage() {
                   此群組尚無股票，用上方搜尋加入
                 </div>
               ) : (
-                modalFilteredList.map((s) => {
-                  const inThisGroup = (s.groups ?? []).includes(modalGroup);
-                  return (
-                    <div key={s.ticker} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 2px", borderBottom: "1px solid #f3f4f6" }}>
-                      <span style={{ fontWeight: 600, color: "#1a56db", minWidth: 52 }}>{s.ticker}</span>
-                      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
-                      {modalActiveIsRealGroup && inThisGroup && (
-                        <button
-                          onClick={() => removeStockFromGroup(s.ticker, modalGroup)}
-                          title={`從「${modalGroup}」移出（保留追蹤）`}
-                          style={{ padding: "3px 10px", fontSize: 12, border: "1px solid #e5e7eb", borderRadius: 14, background: "#fff", color: "#6b7280", cursor: "pointer", whiteSpace: "nowrap" }}
-                        >
-                          移出此群組
-                        </button>
-                      )}
-                      <button
-                        onClick={() => removeStock(s.ticker)}
-                        title="從追蹤清單刪除"
-                        style={{ padding: "3px 10px", fontSize: 12, border: "1px solid #fecaca", borderRadius: 14, background: "#fff", color: "#dc2626", cursor: "pointer", whiteSpace: "nowrap" }}
-                      >
-                        刪除
-                      </button>
-                    </div>
-                  );
-                })
+                modalFilteredList.map((s) => (
+                  <div key={s.ticker} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 2px", borderBottom: "1px solid #f3f4f6" }}>
+                    <span style={{ fontWeight: 600, color: "#1a56db", minWidth: 52 }}>{s.ticker}</span>
+                    <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
+                    <button
+                      onClick={() => removeStockFromGroup(s.ticker, modalGroup)}
+                      title={`從「${modalGroup}」移出（其他群組不受影響）`}
+                      style={{ padding: "3px 10px", fontSize: 12, border: "1px solid #e5e7eb", borderRadius: 14, background: "#fff", color: "#6b7280", cursor: "pointer", whiteSpace: "nowrap" }}
+                    >
+                      移出此群組
+                    </button>
+                    <button
+                      onClick={() => removeStockEverywhere(s.ticker)}
+                      title="從所有群組刪除"
+                      style={{ padding: "3px 10px", fontSize: 12, border: "1px solid #fecaca", borderRadius: 14, background: "#fff", color: "#dc2626", cursor: "pointer", whiteSpace: "nowrap" }}
+                    >
+                      刪除
+                    </button>
+                  </div>
+                ))
               )}
             </div>
 
@@ -1284,7 +1242,7 @@ function StockCard({
   isLoadingAnnotations,
   onToggleAnnotations,
 }: {
-  stock: TrackedStock;
+  stock: Stock;
   quote: TrackQuote | undefined;
   eps2026: LatestEpsInfo | undefined;
   eps2027: LatestEpsInfo | undefined;
