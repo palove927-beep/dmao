@@ -8,8 +8,9 @@ import type { TrackQuote } from "@/app/api/track/route";
 
 // ─── Watchlist persistence (localStorage) ────────────────
 // 群組為主的結構：每個群組各自持有一份股票清單（同一支股票若跨群組，會分別存於各群組）
-type Stock = { ticker: string; name: string };
-type Group = { name: string; stocks: Stock[] };
+// shares：持倉群組每檔的股數；holding：此群組是否為持倉（會顯示股數/市值）
+type Stock = { ticker: string; name: string; shares?: number };
+type Group = { name: string; holding?: boolean; stocks: Stock[] };
 
 const STORAGE_KEY = "dmao_track_groups_v2";
 const ACTIVE_GROUP_KEY = "dmao_track_active_group";
@@ -37,7 +38,8 @@ function sanitizeStocks(arr: unknown): Stock[] {
   for (const s of arr) {
     if (s && typeof s.ticker === "string" && typeof s.name === "string" && !seen.has(s.ticker)) {
       seen.add(s.ticker);
-      out.push({ ticker: s.ticker, name: s.name });
+      const shares = typeof s.shares === "number" && isFinite(s.shares) && s.shares > 0 ? s.shares : undefined;
+      out.push({ ticker: s.ticker, name: s.name, shares });
     }
   }
   return out;
@@ -51,7 +53,7 @@ function loadGroups(): Group[] {
       if (Array.isArray(parsed)) {
         return parsed
           .filter((g) => g && typeof g.name === "string")
-          .map((g) => ({ name: g.name, stocks: sanitizeStocks(g.stocks) }));
+          .map((g) => ({ name: g.name, holding: !!g.holding, stocks: sanitizeStocks(g.stocks) }));
       }
     }
   } catch {
@@ -72,7 +74,12 @@ function saveGroups(groups: Group[]) {
 const SHARE_PREFIX = "DMAO1-";
 
 function encodeGroup(g: Group): string {
-  const payload = { v: 1, name: g.name, s: g.stocks.map((x) => [x.ticker, x.name]) };
+  const payload = {
+    v: 1,
+    name: g.name,
+    h: g.holding ? 1 : 0,
+    s: g.stocks.map((x) => (x.shares != null ? [x.ticker, x.name, x.shares] : [x.ticker, x.name])),
+  };
   const bytes = new TextEncoder().encode(JSON.stringify(payload));
   const b64 = btoa(String.fromCharCode(...bytes));
   return SHARE_PREFIX + b64;
@@ -90,10 +97,11 @@ function decodeGroup(code: string): Group | null {
     for (const it of p.s) {
       if (Array.isArray(it) && typeof it[0] === "string" && typeof it[1] === "string" && !seen.has(it[0])) {
         seen.add(it[0]);
-        stocks.push({ ticker: it[0], name: it[1] });
+        const shares = typeof it[2] === "number" && isFinite(it[2]) && it[2] > 0 ? it[2] : undefined;
+        stocks.push({ ticker: it[0], name: it[1], shares });
       }
     }
-    return { name: String(p.name).slice(0, 40) || "匯入群組", stocks };
+    return { name: String(p.name).slice(0, 40) || "匯入群組", holding: !!p.h, stocks };
   } catch {
     return null;
   }
@@ -360,7 +368,7 @@ export default function TrackPage() {
   }, []);
 
   const cloneGroups = (gs: Group[]): Group[] =>
-    gs.map((g) => ({ name: g.name, stocks: g.stocks.map((s) => ({ ...s })) }));
+    gs.map((g) => ({ name: g.name, holding: g.holding, stocks: g.stocks.map((s) => ({ ...s })) }));
 
   // 以下編輯操作皆只改「草稿」，按「儲存」才寫回 groupsData 與 localStorage。
   const enterEdit = () => {
@@ -416,7 +424,7 @@ export default function TrackPage() {
       while (names.includes(`${g.name} (${i})`)) i++;
       name = `${g.name} (${i})`;
     }
-    setDraftGroups((prev) => [...prev, { name, stocks: g.stocks }]);
+    setDraftGroups((prev) => [...prev, { name, holding: g.holding, stocks: g.stocks }]);
     setModalGroup(name);
     setImportText("");
     setShowImport(false);
@@ -464,6 +472,26 @@ export default function TrackPage() {
     setDraftGroups((prev) =>
       prev.map((g) =>
         g.name === group ? { ...g, stocks: g.stocks.filter((s) => s.ticker !== ticker) } : g,
+      ),
+    );
+  };
+
+  // 切換群組是否為「持倉」— 草稿
+  const toggleGroupHolding = (group: string) => {
+    setDraftGroups((prev) =>
+      prev.map((g) => (g.name === group ? { ...g, holding: !g.holding } : g)),
+    );
+  };
+
+  // 設定某檔在某群組的股數（空值 = 清除）— 草稿
+  const setStockShares = (ticker: string, group: string, raw: string) => {
+    const n = Math.floor(Number(raw.replace(/[^\d]/g, "")));
+    const shares = raw.trim() !== "" && isFinite(n) && n > 0 ? n : undefined;
+    setDraftGroups((prev) =>
+      prev.map((g) =>
+        g.name === group
+          ? { ...g, stocks: g.stocks.map((s) => (s.ticker === ticker ? { ...s, shares } : s)) }
+          : g,
       ),
     );
   };
@@ -678,15 +706,30 @@ export default function TrackPage() {
 
   const groupNames = useMemo(() => (groupsData ?? []).map((g) => g.name), [groupsData]);
 
-  // ─── 主畫面：目前所選群組的股票 ───
-  const groupFilteredList = useMemo(
-    () => (groupsData ?? []).find((g) => g.name === activeGroup)?.stocks ?? [],
+  // ─── 主畫面：目前所選群組（及其股票） ───
+  const activeGroupObj = useMemo(
+    () => (groupsData ?? []).find((g) => g.name === activeGroup) ?? null,
     [groupsData, activeGroup],
   );
+  const groupFilteredList = useMemo(() => activeGroupObj?.stocks ?? [], [activeGroupObj]);
+  const activeIsHolding = !!activeGroupObj?.holding;
+
+  // 持倉群組：總市值（各檔股數 × 現價）
+  const groupMarketValue = useMemo(() => {
+    if (!activeIsHolding) return null;
+    let total = 0;
+    let any = false;
+    for (const s of groupFilteredList) {
+      const price = quotes[s.ticker]?.price;
+      if (s.shares && price != null) { total += s.shares * price; any = true; }
+    }
+    return any ? total : null;
+  }, [activeIsHolding, groupFilteredList, quotes]);
 
   // 彈窗內：目前選取群組的草稿股票
   const modalFilteredList = modalGroupStocks;
   const modalActiveIsRealGroup = draftGroups.some((g) => g.name === modalGroup);
+  const modalGroupIsHolding = !!draftGroups.find((g) => g.name === modalGroup)?.holding;
 
   // ─── Sorting ───
   const sortedList = useMemo(() => {
@@ -904,16 +947,23 @@ export default function TrackPage() {
           </button>
         </div>
 
-        {(summary.up > 0 || summary.down > 0 || summary.flat > 0) && (
-          <div style={{ fontSize: 13, color: "#666", marginLeft: "auto" }}>
-            <span style={{ color: "#dc2626", fontWeight: 600 }}>▲ {summary.up} 檔上漲</span>
-            <span style={{ margin: "0 8px", color: "#d1d5db" }}>·</span>
-            <span style={{ color: "#15803d", fontWeight: 600 }}>▼ {summary.down} 檔下跌</span>
-            {summary.flat > 0 && (
-              <>
+        {((activeIsHolding && groupMarketValue != null) || summary.up > 0 || summary.down > 0 || summary.flat > 0) && (
+          <div style={{ fontSize: 13, color: "#666", marginLeft: "auto", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            {activeIsHolding && groupMarketValue != null && (
+              <span>總市值 <b style={{ color: "#111827" }}>${Math.round(groupMarketValue).toLocaleString()}</b></span>
+            )}
+            {(summary.up > 0 || summary.down > 0 || summary.flat > 0) && (
+              <span>
+                <span style={{ color: "#dc2626", fontWeight: 600 }}>▲ {summary.up} 檔上漲</span>
                 <span style={{ margin: "0 8px", color: "#d1d5db" }}>·</span>
-                <span>{summary.flat} 檔平盤</span>
-              </>
+                <span style={{ color: "#15803d", fontWeight: 600 }}>▼ {summary.down} 檔下跌</span>
+                {summary.flat > 0 && (
+                  <>
+                    <span style={{ margin: "0 8px", color: "#d1d5db" }}>·</span>
+                    <span>{summary.flat} 檔平盤</span>
+                  </>
+                )}
+              </span>
             )}
           </div>
         )}
@@ -952,21 +1002,24 @@ export default function TrackPage() {
               annotations={annotationsMap[stock.ticker]}
               isLoadingAnnotations={loadingAnnotations === stock.ticker}
               onToggleAnnotations={() => toggleAnnotations(stock.ticker)}
+              holding={activeIsHolding}
             />
           ))}
         </div>
       ) : (
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", minWidth: 780, tableLayout: "fixed", borderCollapse: "collapse", fontSize: 14 }}>
+          <table style={{ width: "100%", minWidth: activeIsHolding ? 940 : 780, tableLayout: "fixed", borderCollapse: "collapse", fontSize: 14 }}>
             <colgroup>
-              <col style={{ width: "18%" }} />
-              <col style={{ width: "13%" }} />
-              <col style={{ width: "11%" }} />
-              <col style={{ width: "13%" }} />
-              <col style={{ width: "13%" }} />
-              <col style={{ width: "13%" }} />
-              <col style={{ width: "9%" }} />
-              <col style={{ width: "10%" }} />
+              <col style={{ width: activeIsHolding ? "15%" : "18%" }} />
+              <col style={{ width: activeIsHolding ? "11%" : "13%" }} />
+              <col style={{ width: activeIsHolding ? "9%" : "11%" }} />
+              <col style={{ width: activeIsHolding ? "11%" : "13%" }} />
+              <col style={{ width: activeIsHolding ? "10%" : "13%" }} />
+              <col style={{ width: activeIsHolding ? "10%" : "13%" }} />
+              <col style={{ width: activeIsHolding ? "8%" : "9%" }} />
+              <col style={{ width: activeIsHolding ? "8%" : "10%" }} />
+              {activeIsHolding && <col style={{ width: "9%" }} />}
+              {activeIsHolding && <col style={{ width: "9%" }} />}
             </colgroup>
             <thead>
               <tr style={{ background: "#1e3a5f", color: "#fff" }}>
@@ -978,6 +1031,8 @@ export default function TrackPage() {
                 <th style={{ ...listThStyle, textAlign: "right" }}>27E</th>
                 <th style={{ ...listThStyle, textAlign: "center" }}>日期</th>
                 <th style={{ ...listThStyle, textAlign: "center" }}>標記</th>
+                {activeIsHolding && <th style={{ ...listThStyle, textAlign: "right" }}>股數</th>}
+                {activeIsHolding && <th style={{ ...listThStyle, textAlign: "right" }}>市值</th>}
               </tr>
             </thead>
             <tbody>
@@ -1060,10 +1115,20 @@ export default function TrackPage() {
                           <span style={{ color: "#ccc", fontSize: 13 }}>-</span>
                         )}
                       </td>
+                      {activeIsHolding && (
+                        <td style={{ ...listTdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                          {stock.shares != null ? stock.shares.toLocaleString() : "-"}
+                        </td>
+                      )}
+                      {activeIsHolding && (
+                        <td style={{ ...listTdStyle, textAlign: "right", fontWeight: "bold", fontVariantNumeric: "tabular-nums" }}>
+                          {stock.shares != null && q?.price != null ? `$${Math.round(stock.shares * q.price).toLocaleString()}` : "-"}
+                        </td>
+                      )}
                     </tr>
                     {isExpanded && (
                       <tr>
-                        <td colSpan={8} style={{ padding: 0 }}>
+                        <td colSpan={activeIsHolding ? 10 : 8} style={{ padding: 0 }}>
                           <div style={{ background: "#f8fafc", borderLeft: "3px solid #1a56db", margin: "0 14px 8px", padding: "12px 16px" }}>
                             {loadingAnnotations === stock.ticker ? (
                               <div style={{ color: "#999", fontSize: 13 }}>載入中...</div>
@@ -1180,6 +1245,19 @@ export default function TrackPage() {
                     ＋ 新增群組
                   </button>
                 )}
+                {modalActiveIsRealGroup && (
+                  <label
+                    title="持倉群組會顯示股數與市值"
+                    style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13, color: "#374151", cursor: "pointer", padding: "4px 4px" }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={modalGroupIsHolding}
+                      onChange={() => toggleGroupHolding(modalGroup)}
+                    />
+                    持倉
+                  </label>
+                )}
                 <button
                   onClick={() => { setShowImport((v) => !v); setImportError(false); }}
                   title="從分享碼匯入群組"
@@ -1287,6 +1365,19 @@ export default function TrackPage() {
                   <div key={s.ticker} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 2px", borderBottom: "1px solid #f3f4f6" }}>
                     <span style={{ fontWeight: 600, color: "#1a56db", minWidth: 52 }}>{s.ticker}</span>
                     <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
+                    {modalGroupIsHolding && (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={s.shares != null ? String(s.shares) : ""}
+                          onChange={(e) => setStockShares(s.ticker, modalGroup, e.target.value)}
+                          placeholder="股數"
+                          style={{ width: 84, padding: "5px 8px", fontSize: 13, textAlign: "right", border: "1px solid #d1d5db", borderRadius: 6, outline: "none" }}
+                        />
+                        <span style={{ fontSize: 12, color: "#9ca3af" }}>股</span>
+                      </span>
+                    )}
                     <button
                       onClick={() => removeStockFromGroup(s.ticker, modalGroup)}
                       title={`從「${modalGroup}」刪除`}
@@ -1425,6 +1516,7 @@ function StockCard({
   annotations,
   isLoadingAnnotations,
   onToggleAnnotations,
+  holding,
 }: {
   stock: Stock;
   quote: TrackQuote | undefined;
@@ -1435,6 +1527,7 @@ function StockCard({
   annotations: Annotation[] | undefined;
   isLoadingAnnotations: boolean;
   onToggleAnnotations: () => void;
+  holding: boolean;
 }) {
   const change = quote?.change ?? null;
   const dir: "up" | "down" | "flat" | "none" =
@@ -1510,6 +1603,17 @@ function StockCard({
             <span style={{ marginLeft: "auto" }}>{quote.volume.toLocaleString()} 張</span>
           )}
         </div>
+
+        {holding && (
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 12, color: "#374151", borderTop: "1px solid #f3f4f6", marginTop: 8, paddingTop: 8, whiteSpace: "nowrap" }}>
+            <span>持有 <b>{stock.shares != null ? stock.shares.toLocaleString() : "-"}</b> 股</span>
+            <span style={{ marginLeft: "auto", color: "#6b7280" }}>
+              市值 <b style={{ color: "#111827" }}>
+                {stock.shares != null && quote?.price != null ? `$${Math.round(stock.shares * quote.price).toLocaleString()}` : "-"}
+              </b>
+            </span>
+          </div>
+        )}
       </div>
 
 
