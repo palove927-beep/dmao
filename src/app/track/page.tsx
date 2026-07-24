@@ -310,6 +310,31 @@ function Sparkline({ ticker }: { ticker: string }) {
   );
 }
 
+// 張數輸入（允許小數，如 0.5 張 = 500 股）；以 key 綁定 ticker/group，切換時重新初始化
+function LotsInput({ value, onChange }: { value?: number; onChange: (v: number | undefined) => void }) {
+  const [text, setText] = useState(value != null ? String(value) : "");
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={text}
+      onChange={(e) => {
+        // 只允許數字與一個小數點
+        let cleaned = e.target.value.replace(/[^\d.]/g, "");
+        const firstDot = cleaned.indexOf(".");
+        if (firstDot !== -1) {
+          cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, "");
+        }
+        setText(cleaned);
+        const n = Number(cleaned);
+        onChange(cleaned !== "" && isFinite(n) && n > 0 ? n : undefined);
+      }}
+      placeholder="張數"
+      style={{ width: 72, padding: "5px 8px", fontSize: 13, textAlign: "right", border: "1px solid #d1d5db", borderRadius: 6, outline: "none" }}
+    />
+  );
+}
+
 // ─── 持倉群組：總市值 + 近一月走勢（各持股歷史收盤 × 張數×1000 逐日加總）─────
 function PortfolioSummary({
   holdings,
@@ -626,9 +651,7 @@ export default function TrackPage() {
   };
 
   // 設定某檔在某群組的張數（空值 = 清除）— 草稿
-  const setStockLots = (ticker: string, group: string, raw: string) => {
-    const n = Math.floor(Number(raw.replace(/[^\d]/g, "")));
-    const lots = raw.trim() !== "" && isFinite(n) && n > 0 ? n : undefined;
+  const setStockLots = (ticker: string, group: string, lots: number | undefined) => {
     setDraftGroups((prev) =>
       prev.map((g) =>
         g.name === group
@@ -1518,13 +1541,10 @@ export default function TrackPage() {
                     <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
                     {modalGroupIsHolding && (
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={s.lots != null ? String(s.lots) : ""}
-                          onChange={(e) => setStockLots(s.ticker, modalGroup, e.target.value)}
-                          placeholder="張數"
-                          style={{ width: 72, padding: "5px 8px", fontSize: 13, textAlign: "right", border: "1px solid #d1d5db", borderRadius: 6, outline: "none" }}
+                        <LotsInput
+                          key={`${modalGroup}:${s.ticker}`}
+                          value={s.lots}
+                          onChange={(v) => setStockLots(s.ticker, modalGroup, v)}
                         />
                         <span style={{ fontSize: 12, color: "#9ca3af" }}>張</span>
                       </span>
