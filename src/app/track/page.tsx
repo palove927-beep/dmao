@@ -397,48 +397,54 @@ function PortfolioSummary({
   const pct = hasChart && series![0].value > 0 ? (diff / series![0].value) * 100 : 0;
 
   return (
-    <div style={{ marginTop: 20, border: "1px solid #e5e7eb", borderRadius: 10, padding: "14px 16px", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: hasChart ? 10 : 0 }}>
-        <span style={{ fontSize: 13, color: "#6b7280" }}>持倉總市值</span>
-        <span style={{ fontSize: 24, fontWeight: 700, color: "#111827" }}>
-          {displayValue != null ? `$${Math.round(displayValue).toLocaleString()}` : "-"}
-        </span>
+    <div style={{ marginTop: 20, border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 16px", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <span style={{ fontSize: 13, color: "#6b7280", whiteSpace: "nowrap" }}>持倉總市值</span>
+
+        {/* 近一月走勢圖（與上面個股的近一月欄對齊） */}
         {hasChart && (
-          <span style={{ fontSize: 13, fontWeight: 600, color: lineColor }}>
-            近一月 {diff >= 0 ? "+" : ""}{Math.round(diff).toLocaleString()}（{diff >= 0 ? "+" : ""}{pct.toFixed(1)}%）
-          </span>
-        )}
-      </div>
-      {hasChart && (
-        <div
-          ref={wrapRef}
-          style={{ position: "relative", width: "100%", height: h }}
-          onMouseMove={handleMove}
-          onMouseLeave={() => setHover(null)}
-        >
-          <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: "block", width: "100%", height: h }} aria-hidden="true">
-            <polyline points={coords} fill="none" stroke={lineColor} strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          <div
+            ref={wrapRef}
+            style={{ position: "relative", flex: 1, minWidth: 80, height: h }}
+            onMouseMove={handleMove}
+            onMouseLeave={() => setHover(null)}
+          >
+            <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: "block", width: "100%", height: h }} aria-hidden="true">
+              <polyline points={coords} fill="none" stroke={lineColor} strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+              {hover !== null && (
+                <line x1={xAt(hover)} y1={0} x2={xAt(hover)} y2={h} stroke="#cbd5e1" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+              )}
+            </svg>
             {hover !== null && (
-              <line x1={xAt(hover)} y1={0} x2={xAt(hover)} y2={h} stroke="#cbd5e1" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+              <div style={{ position: "absolute", left: `${hoverLeftPct}%`, top: `${hoverTopPct}%`, width: 7, height: 7, marginLeft: -3.5, marginTop: -3.5, borderRadius: "50%", background: lineColor, pointerEvents: "none" }} />
             )}
-          </svg>
-          {hover !== null && (
-            <div style={{ position: "absolute", left: `${hoverLeftPct}%`, top: `${hoverTopPct}%`, width: 7, height: 7, marginLeft: -3.5, marginTop: -3.5, borderRadius: "50%", background: lineColor, pointerEvents: "none" }} />
-          )}
-          {hoverPt && (
-            <div
-              style={{
-                position: "absolute", left: `${hoverLeftPct}%`, bottom: "100%", marginBottom: 4,
-                transform: hoverLeftPct > 60 ? "translateX(-100%)" : "translateX(-50%)",
-                background: "#1e293b", color: "#fff", fontSize: 11, lineHeight: 1.4, padding: "3px 8px",
-                borderRadius: 5, whiteSpace: "nowrap", pointerEvents: "none", zIndex: 30, boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
-              }}
-            >
-              {formatShortDate(hoverPt.date)}　<b>${Math.round(hoverPt.value).toLocaleString()}</b>
+            {hoverPt && (
+              <div
+                style={{
+                  position: "absolute", left: `${hoverLeftPct}%`, bottom: "100%", marginBottom: 4,
+                  transform: hoverLeftPct > 60 ? "translateX(-100%)" : "translateX(-50%)",
+                  background: "#1e293b", color: "#fff", fontSize: 11, lineHeight: 1.4, padding: "3px 8px",
+                  borderRadius: 5, whiteSpace: "nowrap", pointerEvents: "none", zIndex: 30, boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+                }}
+              >
+                {formatShortDate(hoverPt.date)}　<b>${Math.round(hoverPt.value).toLocaleString()}</b>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 總市值 + 近一月漲跌（靠右，對齊上面的市值欄） */}
+        <div style={{ marginLeft: "auto", textAlign: "right", whiteSpace: "nowrap" }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#111827" }}>
+            {displayValue != null ? `$${Math.round(displayValue).toLocaleString()}` : "-"}
+          </div>
+          {hasChart && (
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: lineColor }}>
+              近一月 {diff >= 0 ? "+" : ""}{Math.round(diff).toLocaleString()}（{diff >= 0 ? "+" : ""}{pct.toFixed(1)}%）
             </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -1148,16 +1154,16 @@ export default function TrackPage() {
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", minWidth: activeIsHolding ? 940 : 780, tableLayout: "fixed", borderCollapse: "collapse", fontSize: 14 }}>
             <colgroup>
-              <col style={{ width: activeIsHolding ? "15%" : "18%" }} />
-              <col style={{ width: activeIsHolding ? "11%" : "13%" }} />
-              <col style={{ width: activeIsHolding ? "9%" : "11%" }} />
-              <col style={{ width: activeIsHolding ? "11%" : "13%" }} />
+              <col style={{ width: activeIsHolding ? "16%" : "18%" }} />
+              <col style={{ width: activeIsHolding ? "12%" : "13%" }} />
+              <col style={{ width: activeIsHolding ? "10%" : "11%" }} />
+              <col style={{ width: activeIsHolding ? "12%" : "13%" }} />
               <col style={{ width: activeIsHolding ? "10%" : "13%" }} />
               <col style={{ width: activeIsHolding ? "10%" : "13%" }} />
-              <col style={{ width: activeIsHolding ? "8%" : "9%" }} />
+              {!activeIsHolding && <col style={{ width: "9%" }} />}
               <col style={{ width: activeIsHolding ? "8%" : "10%" }} />
               {activeIsHolding && <col style={{ width: "9%" }} />}
-              {activeIsHolding && <col style={{ width: "9%" }} />}
+              {activeIsHolding && <col style={{ width: "13%" }} />}
             </colgroup>
             <thead>
               <tr style={{ background: "#1e3a5f", color: "#fff" }}>
@@ -1167,7 +1173,7 @@ export default function TrackPage() {
                 <th style={{ ...listThStyle, textAlign: "right" }}>漲跌</th>
                 <th style={{ ...listThStyle, textAlign: "right" }}>26E</th>
                 <th style={{ ...listThStyle, textAlign: "right" }}>27E</th>
-                <th style={{ ...listThStyle, textAlign: "center" }}>日期</th>
+                {!activeIsHolding && <th style={{ ...listThStyle, textAlign: "center" }}>日期</th>}
                 <th style={{ ...listThStyle, textAlign: "center" }}>標記</th>
                 {activeIsHolding && <th style={{ ...listThStyle, textAlign: "right" }}>張數</th>}
                 {activeIsHolding && <th style={{ ...listThStyle, textAlign: "right" }}>市值</th>}
@@ -1227,14 +1233,16 @@ export default function TrackPage() {
                       </td>
                       <td style={{ ...listTdStyle, textAlign: "right" }}>{renderEps(eps26)}</td>
                       <td style={{ ...listTdStyle, textAlign: "right" }}>{renderEps(eps27)}</td>
-                      <td style={{ ...listTdStyle, textAlign: "center", fontSize: 12, color: "#666" }}>
-                        {epsDate ? (
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                            <span style={{ width: 9, height: 9, borderRadius: "50%", background: dateAgeColor(epsDate), flexShrink: 0 }} />
-                            {formatShortDate(epsDate)}
-                          </span>
-                        ) : "-"}
-                      </td>
+                      {!activeIsHolding && (
+                        <td style={{ ...listTdStyle, textAlign: "center", fontSize: 12, color: "#666" }}>
+                          {epsDate ? (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                              <span style={{ width: 9, height: 9, borderRadius: "50%", background: dateAgeColor(epsDate), flexShrink: 0 }} />
+                              {formatShortDate(epsDate)}
+                            </span>
+                          ) : "-"}
+                        </td>
+                      )}
                       <td style={{ ...listTdStyle, textAlign: "center" }}>
                         {annCount > 0 ? (
                           <button
@@ -1266,7 +1274,7 @@ export default function TrackPage() {
                     </tr>
                     {isExpanded && (
                       <tr>
-                        <td colSpan={activeIsHolding ? 10 : 8} style={{ padding: 0 }}>
+                        <td colSpan={activeIsHolding ? 9 : 8} style={{ padding: 0 }}>
                           <div style={{ background: "#f8fafc", borderLeft: "3px solid #1a56db", margin: "0 14px 8px", padding: "12px 16px" }}>
                             {loadingAnnotations === stock.ticker ? (
                               <div style={{ color: "#999", fontSize: 13 }}>載入中...</div>
