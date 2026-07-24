@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
-import { House, RefreshCw, SquarePen, Trash2, Copy, Check, Import } from "lucide-react";
+import { House, RefreshCw, SquarePen, Trash2, Copy, Check, Import, GripVertical } from "lucide-react";
 import { scanStocks } from "@/lib/stock-lookup";
 import type { TrackQuote } from "@/app/api/track/route";
 
@@ -343,14 +343,15 @@ function PortfolioSummary({
   holdings: { ticker: string; lots: number }[];
   currentValue: number | null;
 }) {
-  const [series, setSeries] = useState<{ date: string; value: number }[] | null>(null);
+  const [fullSeries, setFullSeries] = useState<{ date: string; value: number }[] | null>(null);
+  const [range, setRange] = useState<"1m" | "3m" | "6m" | "1y">("1m");
   const [hover, setHover] = useState<number | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const key = holdings.map((x) => `${x.ticker}:${x.lots}`).join(",");
 
   useEffect(() => {
     let cancelled = false;
-    if (holdings.length === 0) { setSeries(null); return; }
+    if (holdings.length === 0) { setFullSeries(null); return; }
     Promise.all(
       holdings.map((x) =>
         fetch(`/api/stock-history/${x.ticker}`)
@@ -363,7 +364,7 @@ function PortfolioSummary({
         if (cancelled) return;
         const maps = results.map((res) => {
           const m = new Map<string, number>();
-          for (const p of res.prices.slice(-40)) {
+          for (const p of res.prices.slice(-300)) {
             if (typeof p.close === "number" && p.date) m.set(p.date, p.close);
           }
           return { lots: res.lots, m };
@@ -374,8 +375,8 @@ function PortfolioSummary({
           const ds = [...m.keys()];
           common = common === null ? ds : common.filter((d) => m.has(d));
         }
-        const dates = (common ?? []).sort().slice(-22);
-        setSeries(
+        const dates = (common ?? []).sort();
+        setFullSeries(
           dates.map((date) => ({
             date,
             value: maps.reduce((sum, { lots, m }) => sum + lots * SHARES_PER_LOT * (m.get(date) ?? 0), 0),
@@ -387,9 +388,19 @@ function PortfolioSummary({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  const hasChart = !!series && series.length >= 2;
+  const RANGES = [
+    { key: "1m" as const, label: "1個月", days: 31 },
+    { key: "3m" as const, label: "3個月", days: 92 },
+    { key: "6m" as const, label: "6個月", days: 183 },
+    { key: "1y" as const, label: "1年", days: 366 },
+  ];
+  const rangeDays = RANGES.find((r) => r.key === range)!.days;
+  const sinceStr = new Date(Date.now() - rangeDays * 86400000).toISOString().slice(0, 10);
+  const series = (fullSeries ?? []).filter((p) => p.date >= sinceStr);
+
+  const hasChart = series.length >= 2;
   const displayValue =
-    currentValue != null ? currentValue : hasChart ? series![series!.length - 1].value : null;
+    currentValue != null ? currentValue : series.length ? series[series.length - 1].value : null;
 
   const w = 100, h = 44;
   let coords = "";
@@ -397,12 +408,12 @@ function PortfolioSummary({
   let yAt: (i: number) => number = () => 0;
   let trendUp = true;
   if (hasChart) {
-    const vals = series!.map((p) => p.value);
-    const min = Math.min(...vals), max = Math.max(...vals), range = max - min || 1;
-    xAt = (i: number) => (i / (series!.length - 1)) * w;
-    yAt = (i: number) => h - 4 - ((series![i].value - min) / range) * (h - 8);
-    coords = series!.map((_, i) => `${xAt(i).toFixed(1)},${yAt(i).toFixed(1)}`).join(" ");
-    trendUp = series![series!.length - 1].value >= series![0].value;
+    const vals = series.map((p) => p.value);
+    const min = Math.min(...vals), max = Math.max(...vals), span = max - min || 1;
+    xAt = (i: number) => (i / (series.length - 1)) * w;
+    yAt = (i: number) => h - 4 - ((series[i].value - min) / span) * (h - 8);
+    coords = series.map((_, i) => `${xAt(i).toFixed(1)},${yAt(i).toFixed(1)}`).join(" ");
+    trendUp = series[series.length - 1].value >= series[0].value;
   }
   const lineColor = trendUp ? "#dc2626" : "#15803d";
 
@@ -412,21 +423,42 @@ function PortfolioSummary({
     const rect = el.getBoundingClientRect();
     if (rect.width === 0) return;
     const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-    setHover(Math.round(ratio * (series!.length - 1)));
+    setHover(Math.round(ratio * (series.length - 1)));
   };
-  const hoverPt = hover !== null && hasChart ? series![hover] : null;
-  const hoverLeftPct = hover !== null && hasChart ? (hover / (series!.length - 1)) * 100 : 0;
+  const hoverPt = hover !== null && hasChart ? series[hover] : null;
+  const hoverLeftPct = hover !== null && hasChart ? (hover / (series.length - 1)) * 100 : 0;
   const hoverTopPct = hover !== null && hasChart ? (yAt(hover) / h) * 100 : 0;
 
-  const diff = hasChart ? series![series!.length - 1].value - series![0].value : 0;
-  const pct = hasChart && series![0].value > 0 ? (diff / series![0].value) * 100 : 0;
+  const diff = hasChart ? series[series.length - 1].value - series[0].value : 0;
+  const pct = hasChart && series[0].value > 0 ? (diff / series[0].value) * 100 : 0;
+  const rangeLabel = RANGES.find((r) => r.key === range)!.label;
 
   return (
     <div style={{ marginTop: 20, border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 16px", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+      {/* 標題 + 日期區間選擇 */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
         <span style={{ fontSize: 13, color: "#6b7280", whiteSpace: "nowrap" }}>持倉總市值</span>
+        <div style={{ display: "flex", gap: 4 }}>
+          {RANGES.map((r) => (
+            <button
+              key={r.key}
+              onClick={() => { setRange(r.key); setHover(null); }}
+              style={{
+                padding: "3px 10px", fontSize: 12, borderRadius: 14, cursor: "pointer",
+                border: "1px solid #d1d5db",
+                background: range === r.key ? "#374151" : "#fff",
+                color: range === r.key ? "#fff" : "#6b7280",
+                fontWeight: range === r.key ? "bold" : "normal",
+              }}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-        {/* 近一月走勢圖（與上面個股的近一月欄對齊） */}
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        {/* 走勢圖 */}
         {hasChart && (
           <div
             ref={wrapRef}
@@ -465,7 +497,7 @@ function PortfolioSummary({
           </div>
           {hasChart && (
             <div style={{ fontSize: 12.5, fontWeight: 600, color: lineColor }}>
-              近一月 {diff >= 0 ? "+" : ""}{Math.round(diff).toLocaleString()}（{diff >= 0 ? "+" : ""}{pct.toFixed(1)}%）
+              {rangeLabel} {diff >= 0 ? "+" : ""}{Math.round(diff).toLocaleString()}（{diff >= 0 ? "+" : ""}{pct.toFixed(1)}%）
             </div>
           )}
         </div>
@@ -486,6 +518,9 @@ export default function TrackPage() {
   const [activeGroup, setActiveGroup] = useState<string>("");
   const [showGroupInput, setShowGroupInput] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
+  const [renamingGroup, setRenamingGroup] = useState<string | null>(null); // 正在改名的群組
+  const [renameText, setRenameText] = useState("");
+  const [dragIndex, setDragIndex] = useState<number | null>(null); // 拖移中的股票索引
 
   // ─── 編輯彈窗（新增/刪除股票、群組皆先改草稿，按儲存才生效）───
   const [editMode, setEditMode] = useState(false); // = 編輯彈窗是否開啟
@@ -550,6 +585,9 @@ export default function TrackPage() {
     setShowImport(false);
     setImportText("");
     setImportError(false);
+    setRenamingGroup(null);
+    setRenameText("");
+    setDragIndex(null);
     setEditMode(true);
   };
 
@@ -632,6 +670,33 @@ export default function TrackPage() {
     if (modalGroup === name) {
       setModalGroup(draftGroups.filter((g) => g.name !== name)[0]?.name ?? "");
     }
+  };
+
+  // 群組改名 — 草稿
+  const commitRename = () => {
+    const oldName = renamingGroup;
+    setRenamingGroup(null);
+    if (!oldName) return;
+    const n = renameText.trim();
+    if (!n || n === oldName) return;
+    if (draftGroups.some((g) => g.name === n)) return; // 名稱重複 → 放棄
+    setDraftGroups((prev) => prev.map((g) => (g.name === oldName ? { ...g, name: n } : g)));
+    if (modalGroup === oldName) setModalGroup(n);
+  };
+
+  // 拖移調整某群組股票順序 — 草稿
+  const reorderStocks = (group: string, from: number, to: number) => {
+    if (from === to) return;
+    setDraftGroups((prev) =>
+      prev.map((g) => {
+        if (g.name !== group) return g;
+        const next = [...g.stocks];
+        const [moved] = next.splice(from, 1);
+        if (!moved) return g;
+        next.splice(to, 0, moved);
+        return { ...g, stocks: next };
+      }),
+    );
   };
 
   // 從目前群組刪除（只影響該群組；同股在其他群組不受影響）— 草稿
@@ -1383,21 +1448,41 @@ export default function TrackPage() {
               {/* 群組選擇 */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
                 <span style={{ color: "#666", fontSize: 13 }}>群組：</span>
-                {draftGroups.map((g) => (
-                  <button
-                    key={g.name}
-                    onClick={() => setModalGroup(g.name)}
-                    style={{
-                      padding: "4px 12px", fontSize: 13, borderRadius: 16,
-                      border: "1px solid #7c3aed", cursor: "pointer",
-                      background: modalGroup === g.name ? "#7c3aed" : "#fff",
-                      color: modalGroup === g.name ? "#fff" : "#7c3aed",
-                      fontWeight: modalGroup === g.name ? "bold" : "normal",
-                    }}
-                  >
-                    {g.name}
-                  </button>
-                ))}
+                {draftGroups.map((g) =>
+                  renamingGroup === g.name ? (
+                    <input
+                      key={g.name}
+                      autoFocus
+                      value={renameText}
+                      onChange={(e) => setRenameText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitRename();
+                        if (e.key === "Escape") setRenamingGroup(null);
+                      }}
+                      onBlur={commitRename}
+                      style={{ padding: "4px 10px", fontSize: 13, border: "1px solid #7c3aed", borderRadius: 16, outline: "none", width: 120, fontWeight: "bold" }}
+                    />
+                  ) : (
+                    <button
+                      key={g.name}
+                      onClick={() => {
+                        // 點已選取的群組名 → 進入改名；否則先選取
+                        if (modalGroup === g.name) { setRenamingGroup(g.name); setRenameText(g.name); }
+                        else setModalGroup(g.name);
+                      }}
+                      title={modalGroup === g.name ? "再點一次可改名" : g.name}
+                      style={{
+                        padding: "4px 12px", fontSize: 13, borderRadius: 16,
+                        border: "1px solid #7c3aed", cursor: "pointer",
+                        background: modalGroup === g.name ? "#7c3aed" : "#fff",
+                        color: modalGroup === g.name ? "#fff" : "#7c3aed",
+                        fontWeight: modalGroup === g.name ? "bold" : "normal",
+                      }}
+                    >
+                      {g.name}
+                    </button>
+                  ),
+                )}
                 {showGroupInput ? (
                   <input
                     autoFocus
@@ -1535,8 +1620,27 @@ export default function TrackPage() {
                   此群組尚無股票，用上方搜尋加入
                 </div>
               ) : (
-                modalFilteredList.map((s) => (
-                  <div key={s.ticker} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 2px", borderBottom: "1px solid #f3f4f6" }}>
+                modalFilteredList.map((s, i) => (
+                  <div
+                    key={s.ticker}
+                    draggable
+                    onDragStart={(e) => { setDragIndex(i); e.dataTransfer.effectAllowed = "move"; }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      if (dragIndex !== null && dragIndex !== i) {
+                        reorderStocks(modalGroup, dragIndex, i);
+                        setDragIndex(i);
+                      }
+                    }}
+                    onDragEnd={() => setDragIndex(null)}
+                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 2px", borderBottom: "1px solid #f3f4f6", background: dragIndex === i ? "#f1f5f9" : "transparent" }}
+                  >
+                    <span
+                      title="拖曳調整順序"
+                      style={{ display: "flex", alignItems: "center", color: "#cbd5e1", cursor: "grab", flexShrink: 0 }}
+                    >
+                      <GripVertical size={16} strokeWidth={1.75} />
+                    </span>
                     <span style={{ fontWeight: 600, color: "#1a56db", minWidth: 52 }}>{s.ticker}</span>
                     <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
                     {modalGroupIsHolding && (
