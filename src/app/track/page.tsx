@@ -310,6 +310,139 @@ function Sparkline({ ticker }: { ticker: string }) {
   );
 }
 
+// ─── 持倉群組：總市值 + 近一月走勢（各持股歷史收盤 × 張數×1000 逐日加總）─────
+function PortfolioSummary({
+  holdings,
+  currentValue,
+}: {
+  holdings: { ticker: string; lots: number }[];
+  currentValue: number | null;
+}) {
+  const [series, setSeries] = useState<{ date: string; value: number }[] | null>(null);
+  const [hover, setHover] = useState<number | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const key = holdings.map((x) => `${x.ticker}:${x.lots}`).join(",");
+
+  useEffect(() => {
+    let cancelled = false;
+    if (holdings.length === 0) { setSeries(null); return; }
+    Promise.all(
+      holdings.map((x) =>
+        fetch(`/api/stock-history/${x.ticker}`)
+          .then((r) => r.json())
+          .then((j) => ({ lots: x.lots, prices: j.ok && Array.isArray(j.prices) ? j.prices : [] }))
+          .catch(() => ({ lots: x.lots, prices: [] as { date: string; close: number }[] })),
+      ),
+    )
+      .then((results) => {
+        if (cancelled) return;
+        const maps = results.map((res) => {
+          const m = new Map<string, number>();
+          for (const p of res.prices.slice(-40)) {
+            if (typeof p.close === "number" && p.date) m.set(p.date, p.close);
+          }
+          return { lots: res.lots, m };
+        });
+        // 交集日期：各持股皆有收盤，才能算出一致的總市值
+        let common: string[] | null = null;
+        for (const { m } of maps) {
+          const ds = [...m.keys()];
+          common = common === null ? ds : common.filter((d) => m.has(d));
+        }
+        const dates = (common ?? []).sort().slice(-22);
+        setSeries(
+          dates.map((date) => ({
+            date,
+            value: maps.reduce((sum, { lots, m }) => sum + lots * SHARES_PER_LOT * (m.get(date) ?? 0), 0),
+          })),
+        );
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  const hasChart = !!series && series.length >= 2;
+  const displayValue =
+    currentValue != null ? currentValue : hasChart ? series![series!.length - 1].value : null;
+
+  const w = 100, h = 44;
+  let coords = "";
+  let xAt: (i: number) => number = () => 0;
+  let yAt: (i: number) => number = () => 0;
+  let trendUp = true;
+  if (hasChart) {
+    const vals = series!.map((p) => p.value);
+    const min = Math.min(...vals), max = Math.max(...vals), range = max - min || 1;
+    xAt = (i: number) => (i / (series!.length - 1)) * w;
+    yAt = (i: number) => h - 4 - ((series![i].value - min) / range) * (h - 8);
+    coords = series!.map((_, i) => `${xAt(i).toFixed(1)},${yAt(i).toFixed(1)}`).join(" ");
+    trendUp = series![series!.length - 1].value >= series![0].value;
+  }
+  const lineColor = trendUp ? "#dc2626" : "#15803d";
+
+  const handleMove = (e: React.MouseEvent) => {
+    const el = wrapRef.current;
+    if (!el || !hasChart) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width === 0) return;
+    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    setHover(Math.round(ratio * (series!.length - 1)));
+  };
+  const hoverPt = hover !== null && hasChart ? series![hover] : null;
+  const hoverLeftPct = hover !== null && hasChart ? (hover / (series!.length - 1)) * 100 : 0;
+  const hoverTopPct = hover !== null && hasChart ? (yAt(hover) / h) * 100 : 0;
+
+  const diff = hasChart ? series![series!.length - 1].value - series![0].value : 0;
+  const pct = hasChart && series![0].value > 0 ? (diff / series![0].value) * 100 : 0;
+
+  return (
+    <div style={{ marginTop: 20, border: "1px solid #e5e7eb", borderRadius: 10, padding: "14px 16px", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: hasChart ? 10 : 0 }}>
+        <span style={{ fontSize: 13, color: "#6b7280" }}>持倉總市值</span>
+        <span style={{ fontSize: 24, fontWeight: 700, color: "#111827" }}>
+          {displayValue != null ? `$${Math.round(displayValue).toLocaleString()}` : "-"}
+        </span>
+        {hasChart && (
+          <span style={{ fontSize: 13, fontWeight: 600, color: lineColor }}>
+            近一月 {diff >= 0 ? "+" : ""}{Math.round(diff).toLocaleString()}（{diff >= 0 ? "+" : ""}{pct.toFixed(1)}%）
+          </span>
+        )}
+      </div>
+      {hasChart && (
+        <div
+          ref={wrapRef}
+          style={{ position: "relative", width: "100%", height: h }}
+          onMouseMove={handleMove}
+          onMouseLeave={() => setHover(null)}
+        >
+          <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: "block", width: "100%", height: h }} aria-hidden="true">
+            <polyline points={coords} fill="none" stroke={lineColor} strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+            {hover !== null && (
+              <line x1={xAt(hover)} y1={0} x2={xAt(hover)} y2={h} stroke="#cbd5e1" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+            )}
+          </svg>
+          {hover !== null && (
+            <div style={{ position: "absolute", left: `${hoverLeftPct}%`, top: `${hoverTopPct}%`, width: 7, height: 7, marginLeft: -3.5, marginTop: -3.5, borderRadius: "50%", background: lineColor, pointerEvents: "none" }} />
+          )}
+          {hoverPt && (
+            <div
+              style={{
+                position: "absolute", left: `${hoverLeftPct}%`, bottom: "100%", marginBottom: 4,
+                transform: hoverLeftPct > 60 ? "translateX(-100%)" : "translateX(-50%)",
+                background: "#1e293b", color: "#fff", fontSize: 11, lineHeight: 1.4, padding: "3px 8px",
+                borderRadius: 5, whiteSpace: "nowrap", pointerEvents: "none", zIndex: 30, boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+              }}
+            >
+              {formatShortDate(hoverPt.date)}　<b>${Math.round(hoverPt.value).toLocaleString()}</b>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TrackPage() {
   const [groupsData, setGroupsData] = useState<Group[] | null>(null);
   const [quotes, setQuotes] = useState<Record<string, TrackQuote>>({});
@@ -729,6 +862,15 @@ export default function TrackPage() {
     return any ? total : null;
   }, [activeIsHolding, groupFilteredList, quotes]);
 
+  // 持倉群組：有張數的持股（供近一月總市值走勢圖）
+  const holdings = useMemo(
+    () =>
+      activeIsHolding
+        ? groupFilteredList.filter((s) => s.lots != null).map((s) => ({ ticker: s.ticker, lots: s.lots! }))
+        : [],
+    [activeIsHolding, groupFilteredList],
+  );
+
   // 彈窗內：目前選取群組的草稿股票
   const modalFilteredList = modalGroupStocks;
   const modalActiveIsRealGroup = draftGroups.some((g) => g.name === modalGroup);
@@ -950,23 +1092,16 @@ export default function TrackPage() {
           </button>
         </div>
 
-        {((activeIsHolding && groupMarketValue != null) || summary.up > 0 || summary.down > 0 || summary.flat > 0) && (
-          <div style={{ fontSize: 13, color: "#666", marginLeft: "auto", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            {activeIsHolding && groupMarketValue != null && (
-              <span>總市值 <b style={{ color: "#111827" }}>${Math.round(groupMarketValue).toLocaleString()}</b></span>
-            )}
-            {(summary.up > 0 || summary.down > 0 || summary.flat > 0) && (
-              <span>
-                <span style={{ color: "#dc2626", fontWeight: 600 }}>▲ {summary.up} 檔上漲</span>
+        {(summary.up > 0 || summary.down > 0 || summary.flat > 0) && (
+          <div style={{ fontSize: 13, color: "#666", marginLeft: "auto" }}>
+            <span style={{ color: "#dc2626", fontWeight: 600 }}>▲ {summary.up} 檔上漲</span>
+            <span style={{ margin: "0 8px", color: "#d1d5db" }}>·</span>
+            <span style={{ color: "#15803d", fontWeight: 600 }}>▼ {summary.down} 檔下跌</span>
+            {summary.flat > 0 && (
+              <>
                 <span style={{ margin: "0 8px", color: "#d1d5db" }}>·</span>
-                <span style={{ color: "#15803d", fontWeight: 600 }}>▼ {summary.down} 檔下跌</span>
-                {summary.flat > 0 && (
-                  <>
-                    <span style={{ margin: "0 8px", color: "#d1d5db" }}>·</span>
-                    <span>{summary.flat} 檔平盤</span>
-                  </>
-                )}
-              </span>
+                <span>{summary.flat} 檔平盤</span>
+              </>
             )}
           </div>
         )}
@@ -1181,6 +1316,11 @@ export default function TrackPage() {
 
       {groupsData === null && (
         <div style={{ textAlign: "center", padding: 40, color: "#999" }}>載入中...</div>
+      )}
+
+      {/* ─── 持倉群組：總市值 + 近一月走勢（置底）─── */}
+      {activeIsHolding && holdings.length > 0 && (
+        <PortfolioSummary holdings={holdings} currentValue={groupMarketValue} />
       )}
 
       {/* ─── 編輯彈窗 ─── */}
