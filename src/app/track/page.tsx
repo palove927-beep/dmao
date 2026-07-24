@@ -344,7 +344,7 @@ function PortfolioSummary({
   currentValue: number | null;
 }) {
   const [fullSeries, setFullSeries] = useState<{ date: string; value: number }[] | null>(null);
-  const [range, setRange] = useState<"1m" | "3m" | "6m" | "1y">("1m");
+  const [range, setRange] = useState<"1w" | "1m" | "3m">("1m");
   const [hover, setHover] = useState<number | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const key = holdings.map((x) => `${x.ticker}:${x.lots}`).join(",");
@@ -389,10 +389,9 @@ function PortfolioSummary({
   }, [key]);
 
   const RANGES = [
+    { key: "1w" as const, label: "1週", days: 8 },
     { key: "1m" as const, label: "1個月", days: 31 },
     { key: "3m" as const, label: "3個月", days: 92 },
-    { key: "6m" as const, label: "6個月", days: 183 },
-    { key: "1y" as const, label: "1年", days: 366 },
   ];
   const rangeDays = RANGES.find((r) => r.key === range)!.days;
   const sinceStr = new Date(Date.now() - rangeDays * 86400000).toISOString().slice(0, 10);
