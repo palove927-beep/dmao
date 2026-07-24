@@ -1180,12 +1180,22 @@ export default function TrackPage() {
                     ＋ 新增群組
                   </button>
                 )}
+                <button
+                  onClick={() => { setShowImport((v) => !v); setImportError(false); }}
+                  title="從分享碼匯入群組"
+                  aria-label="從分享碼匯入群組"
+                  style={{ marginLeft: "auto", display: "flex", alignItems: "center", border: "none", background: showImport ? "#eef2ff" : "none", borderRadius: 8, cursor: "pointer", color: showImport ? "#1a56db" : "#374151", padding: 4 }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = "#1a56db"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = showImport ? "#1a56db" : "#374151"; }}
+                >
+                  <Import size={18} strokeWidth={1.75} />
+                </button>
                 {modalActiveIsRealGroup && (
                   <button
                     onClick={() => setConfirmDeleteGroup(modalGroup)}
                     title={`刪除群組「${modalGroup}」`}
                     aria-label={`刪除群組「${modalGroup}」`}
-                    style={{ marginLeft: "auto", display: "flex", alignItems: "center", border: "none", background: "none", cursor: "pointer", color: "#9ca3af", padding: 4 }}
+                    style={{ display: "flex", alignItems: "center", border: "none", background: "none", cursor: "pointer", color: "#9ca3af", padding: 4 }}
                     onMouseEnter={(e) => { e.currentTarget.style.color = "#dc2626"; }}
                     onMouseLeave={(e) => { e.currentTarget.style.color = "#9ca3af"; }}
                   >
@@ -1239,6 +1249,31 @@ export default function TrackPage() {
                   </div>
                 )}
               </div>
+
+              {/* 匯入群組：貼上分享碼 */}
+              {showImport && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      autoFocus
+                      value={importText}
+                      onChange={(e) => { setImportText(e.target.value); setImportError(false); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") importGroup(); }}
+                      placeholder="貼上分享碼匯入群組，按「匯入」"
+                      style={{ flex: 1, padding: "7px 10px", fontSize: 13, border: `1px solid ${importError ? "#fca5a5" : "#d1d5db"}`, borderRadius: 8, outline: "none", boxSizing: "border-box" }}
+                    />
+                    <button
+                      onClick={importGroup}
+                      style={{ padding: "7px 16px", fontSize: 13, fontWeight: "bold", border: "none", borderRadius: 8, background: "#1a56db", color: "#fff", cursor: "pointer", whiteSpace: "nowrap" }}
+                    >
+                      匯入
+                    </button>
+                  </div>
+                  {importError && (
+                    <div style={{ color: "#dc2626", fontSize: 12, marginTop: 4 }}>分享碼無效，請確認完整貼上</div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* 股票清單（可捲動；固定高度避免切換群組時跳動）*/}
@@ -1267,67 +1302,23 @@ export default function TrackPage() {
               )}
             </div>
 
-            {/* 分享：複製此群組 / 匯入群組（固定於底部）*/}
-            <div style={{ padding: "10px 20px", borderTop: "1px solid #f1f5f9", flexShrink: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <button
-                  onClick={copyGroup}
-                  disabled={!modalActiveIsRealGroup}
-                  title="複製此群組為分享碼"
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 5,
-                    padding: "4px 12px", fontSize: 13, borderRadius: 16,
-                    border: "1px solid #d1d5db", background: "#fff",
-                    color: copied ? "#16a34a" : "#374151",
-                    cursor: modalActiveIsRealGroup ? "pointer" : "not-allowed",
-                    opacity: modalActiveIsRealGroup ? 1 : 0.5,
-                  }}
-                >
-                  {copied ? <Check size={14} strokeWidth={2} /> : <Copy size={14} strokeWidth={1.75} />}
-                  {copied ? "已複製" : "複製此群組"}
-                </button>
-                <button
-                  onClick={() => { setShowImport((v) => !v); setImportError(false); }}
-                  title="從分享碼匯入群組"
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 5,
-                    padding: "4px 12px", fontSize: 13, borderRadius: 16,
-                    border: "1px solid #d1d5db", background: showImport ? "#f3f4f6" : "#fff",
-                    color: "#374151", cursor: "pointer",
-                  }}
-                >
-                  <Import size={14} strokeWidth={1.75} />
-                  匯入群組
-                </button>
-              </div>
-
-              {showImport && (
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <input
-                      autoFocus
-                      value={importText}
-                      onChange={(e) => { setImportText(e.target.value); setImportError(false); }}
-                      onKeyDown={(e) => { if (e.key === "Enter") importGroup(); }}
-                      placeholder="貼上分享碼，按「匯入」"
-                      style={{ flex: 1, padding: "7px 10px", fontSize: 13, border: `1px solid ${importError ? "#fca5a5" : "#d1d5db"}`, borderRadius: 8, outline: "none", boxSizing: "border-box" }}
-                    />
-                    <button
-                      onClick={importGroup}
-                      style={{ padding: "7px 16px", fontSize: 13, fontWeight: "bold", border: "none", borderRadius: 8, background: "#1a56db", color: "#fff", cursor: "pointer", whiteSpace: "nowrap" }}
-                    >
-                      匯入
-                    </button>
-                  </div>
-                  {importError && (
-                    <div style={{ color: "#dc2626", fontSize: 12, marginTop: 4 }}>分享碼無效，請確認完整貼上</div>
-                  )}
-                </div>
-              )}
-            </div>
-
             {/* footer */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 20px", borderTop: "1px solid #eee" }}>
+              <button
+                onClick={copyGroup}
+                disabled={!modalActiveIsRealGroup}
+                title="複製此群組為分享碼"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  padding: "6px 12px", fontSize: 13, borderRadius: 8,
+                  border: "1px solid #d1d5db", background: "#fff", color: "#374151",
+                  cursor: modalActiveIsRealGroup ? "pointer" : "not-allowed",
+                  opacity: modalActiveIsRealGroup ? 1 : 0.5,
+                }}
+              >
+                <Copy size={14} strokeWidth={1.75} />
+                複製此群組
+              </button>
               <span style={{ marginRight: "auto", color: "#9ca3af", fontSize: 12 }}>變更按「儲存」才生效</span>
               <button
                 onClick={cancelEdit}
@@ -1390,6 +1381,20 @@ export default function TrackPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ─── Toast：複製成功 ─── */}
+      {copied && (
+        <div
+          style={{
+            position: "fixed", bottom: 32, left: "50%", transform: "translateX(-50%)",
+            zIndex: 1300, background: "#1e293b", color: "#fff", fontSize: 13,
+            padding: "10px 18px", borderRadius: 10, display: "flex", alignItems: "center", gap: 8,
+            boxShadow: "0 6px 20px rgba(0,0,0,0.3)", pointerEvents: "none",
+          }}
+        >
+          <Check size={16} strokeWidth={2} /> 已複製分享碼，可傳給他人匯入
         </div>
       )}
     </div>
