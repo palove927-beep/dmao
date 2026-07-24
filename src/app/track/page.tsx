@@ -424,8 +424,10 @@ export default function TrackPage() {
   };
 
   const saveEdit = () => {
-    setGroupsData(draftGroups);
-    saveGroups(draftGroups);
+    // 沒有股票的群組不儲存（等同移除）
+    const cleaned = draftGroups.filter((g) => g.stocks.length > 0);
+    setGroupsData(cleaned);
+    saveGroups(cleaned);
     setEditMode(false);
     setShowGroupInput(false);
     setNewGroupName("");
@@ -434,8 +436,8 @@ export default function TrackPage() {
     setShowImport(false);
     setImportText("");
     setImportError(false);
-    // 主畫面所選群組若已被刪除 → 校正回第一個群組
-    const names = draftGroups.map((g) => g.name);
+    // 主畫面所選群組若已被移除 → 校正回第一個群組
+    const names = cleaned.map((g) => g.name);
     if (!names.includes(activeGroup)) changeActiveGroup(names[0] ?? "");
   };
 
