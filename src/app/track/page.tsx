@@ -8,8 +8,8 @@ import type { TrackQuote } from "@/app/api/track/route";
 
 // ─── Watchlist persistence (localStorage) ────────────────
 // 群組為主的結構：每個群組各自持有一份股票清單（同一支股票若跨群組，會分別存於各群組）
-// shares：持倉群組每檔的股數；holding：此群組是否為持倉（會顯示股數/市值）
-type Stock = { ticker: string; name: string; shares?: number };
+// lots：持倉群組每檔的張數（1 張 = 1000 股）；holding：此群組是否為持倉（會顯示張數/市值）
+type Stock = { ticker: string; name: string; lots?: number };
 type Group = { name: string; holding?: boolean; stocks: Stock[] };
 
 const STORAGE_KEY = "dmao_track_groups_v2";
@@ -38,8 +38,8 @@ function sanitizeStocks(arr: unknown): Stock[] {
   for (const s of arr) {
     if (s && typeof s.ticker === "string" && typeof s.name === "string" && !seen.has(s.ticker)) {
       seen.add(s.ticker);
-      const shares = typeof s.shares === "number" && isFinite(s.shares) && s.shares > 0 ? s.shares : undefined;
-      out.push({ ticker: s.ticker, name: s.name, shares });
+      const lots = typeof s.lots === "number" && isFinite(s.lots) && s.lots > 0 ? s.lots : undefined;
+      out.push({ ticker: s.ticker, name: s.name, lots });
     }
   }
   return out;
@@ -78,7 +78,7 @@ function encodeGroup(g: Group): string {
     v: 1,
     name: g.name,
     h: g.holding ? 1 : 0,
-    s: g.stocks.map((x) => (x.shares != null ? [x.ticker, x.name, x.shares] : [x.ticker, x.name])),
+    s: g.stocks.map((x) => (x.lots != null ? [x.ticker, x.name, x.lots] : [x.ticker, x.name])),
   };
   const bytes = new TextEncoder().encode(JSON.stringify(payload));
   const b64 = btoa(String.fromCharCode(...bytes));
@@ -97,8 +97,8 @@ function decodeGroup(code: string): Group | null {
     for (const it of p.s) {
       if (Array.isArray(it) && typeof it[0] === "string" && typeof it[1] === "string" && !seen.has(it[0])) {
         seen.add(it[0]);
-        const shares = typeof it[2] === "number" && isFinite(it[2]) && it[2] > 0 ? it[2] : undefined;
-        stocks.push({ ticker: it[0], name: it[1], shares });
+        const lots = typeof it[2] === "number" && isFinite(it[2]) && it[2] > 0 ? it[2] : undefined;
+        stocks.push({ ticker: it[0], name: it[1], lots });
       }
     }
     return { name: String(p.name).slice(0, 40) || "匯入群組", holding: !!p.h, stocks };
@@ -109,6 +109,9 @@ function decodeGroup(code: string): Group | null {
 
 // 只有台股（純數字代碼）才有報價來源
 const isTwTicker = (t: string) => /^\d{4,6}$/.test(t);
+
+// 1 張 = 1000 股
+const SHARES_PER_LOT = 1000;
 
 type SortMode = "custom" | "gainers" | "losers";
 
@@ -483,14 +486,14 @@ export default function TrackPage() {
     );
   };
 
-  // 設定某檔在某群組的股數（空值 = 清除）— 草稿
-  const setStockShares = (ticker: string, group: string, raw: string) => {
+  // 設定某檔在某群組的張數（空值 = 清除）— 草稿
+  const setStockLots = (ticker: string, group: string, raw: string) => {
     const n = Math.floor(Number(raw.replace(/[^\d]/g, "")));
-    const shares = raw.trim() !== "" && isFinite(n) && n > 0 ? n : undefined;
+    const lots = raw.trim() !== "" && isFinite(n) && n > 0 ? n : undefined;
     setDraftGroups((prev) =>
       prev.map((g) =>
         g.name === group
-          ? { ...g, stocks: g.stocks.map((s) => (s.ticker === ticker ? { ...s, shares } : s)) }
+          ? { ...g, stocks: g.stocks.map((s) => (s.ticker === ticker ? { ...s, lots } : s)) }
           : g,
       ),
     );
@@ -714,14 +717,14 @@ export default function TrackPage() {
   const groupFilteredList = useMemo(() => activeGroupObj?.stocks ?? [], [activeGroupObj]);
   const activeIsHolding = !!activeGroupObj?.holding;
 
-  // 持倉群組：總市值（各檔股數 × 現價）
+  // 持倉群組：總市值（各檔張數 × 1000 × 現價）
   const groupMarketValue = useMemo(() => {
     if (!activeIsHolding) return null;
     let total = 0;
     let any = false;
     for (const s of groupFilteredList) {
       const price = quotes[s.ticker]?.price;
-      if (s.shares && price != null) { total += s.shares * price; any = true; }
+      if (s.lots && price != null) { total += s.lots * SHARES_PER_LOT * price; any = true; }
     }
     return any ? total : null;
   }, [activeIsHolding, groupFilteredList, quotes]);
@@ -1031,7 +1034,7 @@ export default function TrackPage() {
                 <th style={{ ...listThStyle, textAlign: "right" }}>27E</th>
                 <th style={{ ...listThStyle, textAlign: "center" }}>日期</th>
                 <th style={{ ...listThStyle, textAlign: "center" }}>標記</th>
-                {activeIsHolding && <th style={{ ...listThStyle, textAlign: "right" }}>股數</th>}
+                {activeIsHolding && <th style={{ ...listThStyle, textAlign: "right" }}>張數</th>}
                 {activeIsHolding && <th style={{ ...listThStyle, textAlign: "right" }}>市值</th>}
               </tr>
             </thead>
@@ -1117,12 +1120,12 @@ export default function TrackPage() {
                       </td>
                       {activeIsHolding && (
                         <td style={{ ...listTdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                          {stock.shares != null ? stock.shares.toLocaleString() : "-"}
+                          {stock.lots != null ? `${stock.lots.toLocaleString()} 張` : "-"}
                         </td>
                       )}
                       {activeIsHolding && (
                         <td style={{ ...listTdStyle, textAlign: "right", fontWeight: "bold", fontVariantNumeric: "tabular-nums" }}>
-                          {stock.shares != null && q?.price != null ? `$${Math.round(stock.shares * q.price).toLocaleString()}` : "-"}
+                          {stock.lots != null && q?.price != null ? `$${Math.round(stock.lots * SHARES_PER_LOT * q.price).toLocaleString()}` : "-"}
                         </td>
                       )}
                     </tr>
@@ -1247,7 +1250,7 @@ export default function TrackPage() {
                 )}
                 {modalActiveIsRealGroup && (
                   <label
-                    title="持倉群組會顯示股數與市值"
+                    title="持倉群組會顯示張數與市值"
                     style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13, color: "#374151", cursor: "pointer", padding: "4px 4px" }}
                   >
                     <input
@@ -1370,12 +1373,12 @@ export default function TrackPage() {
                         <input
                           type="text"
                           inputMode="numeric"
-                          value={s.shares != null ? String(s.shares) : ""}
-                          onChange={(e) => setStockShares(s.ticker, modalGroup, e.target.value)}
-                          placeholder="股數"
-                          style={{ width: 84, padding: "5px 8px", fontSize: 13, textAlign: "right", border: "1px solid #d1d5db", borderRadius: 6, outline: "none" }}
+                          value={s.lots != null ? String(s.lots) : ""}
+                          onChange={(e) => setStockLots(s.ticker, modalGroup, e.target.value)}
+                          placeholder="張數"
+                          style={{ width: 72, padding: "5px 8px", fontSize: 13, textAlign: "right", border: "1px solid #d1d5db", borderRadius: 6, outline: "none" }}
                         />
-                        <span style={{ fontSize: 12, color: "#9ca3af" }}>股</span>
+                        <span style={{ fontSize: 12, color: "#9ca3af" }}>張</span>
                       </span>
                     )}
                     <button
@@ -1606,10 +1609,10 @@ function StockCard({
 
         {holding && (
           <div style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 12, color: "#374151", borderTop: "1px solid #f3f4f6", marginTop: 8, paddingTop: 8, whiteSpace: "nowrap" }}>
-            <span>持有 <b>{stock.shares != null ? stock.shares.toLocaleString() : "-"}</b> 股</span>
+            <span>持有 <b>{stock.lots != null ? stock.lots.toLocaleString() : "-"}</b> 張</span>
             <span style={{ marginLeft: "auto", color: "#6b7280" }}>
               市值 <b style={{ color: "#111827" }}>
-                {stock.shares != null && quote?.price != null ? `$${Math.round(stock.shares * quote.price).toLocaleString()}` : "-"}
+                {stock.lots != null && quote?.price != null ? `$${Math.round(stock.lots * SHARES_PER_LOT * quote.price).toLocaleString()}` : "-"}
               </b>
             </span>
           </div>
