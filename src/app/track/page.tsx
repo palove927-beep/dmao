@@ -395,7 +395,14 @@ function PortfolioSummary({
   ];
   const rangeDays = RANGES.find((r) => r.key === range)!.days;
   const sinceStr = new Date(Date.now() - rangeDays * 86400000).toISOString().slice(0, 10);
-  const series = (fullSeries ?? []).filter((p) => p.date >= sinceStr);
+  // 台灣時區今日（UTC+8），與歷史資料的日期字串格式一致
+  const twToday = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+  const past = (fullSeries ?? []).filter((p) => p.date >= sinceStr);
+  // 歷史日收盤要收盤後才更新，補上今日即時總市值，讓走勢包含今天
+  const series =
+    currentValue != null && (past.length === 0 || past[past.length - 1].date < twToday)
+      ? [...past, { date: twToday, value: currentValue }]
+      : past;
 
   const hasChart = series.length >= 2;
   const displayValue =
