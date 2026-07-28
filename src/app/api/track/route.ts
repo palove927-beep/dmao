@@ -25,6 +25,13 @@ function parseNumber(s: string | undefined): number | null {
   return isNaN(n) ? null : n;
 }
 
+// 股價/累計均價等欄位永遠不會是 0——TWSE 對「今日尚無成交」等情況常回傳
+// 字串 "0.00" 而非 "-"，若當成有效值 0 會提前中斷 ?? 備援鏈導致現價顯示 0。
+function parsePrice(s: string | undefined): number | null {
+  const n = parseNumber(s);
+  return n === null || n <= 0 ? null : n;
+}
+
 async function fetchWithRetry(
   url: string,
   retries = 3,
@@ -53,10 +60,10 @@ function parseMsgArray(
 ) {
   for (const item of msgArray) {
     const ticker = item.c;
-    const yesterday = parseNumber(item.y);
+    const yesterday = parsePrice(item.y);
     // z=成交價, b=買價, a=賣價, u=漲停價, w=跌停價, y=昨收
     const effectivePrice =
-      parseNumber(item.z) ?? parseNumber(item.b?.split("_")[0]) ?? parseNumber(item.a?.split("_")[0]) ?? parseNumber(item.u) ?? parseNumber(item.w) ?? yesterday;
+      parsePrice(item.z) ?? parsePrice(item.b?.split("_")[0]) ?? parsePrice(item.a?.split("_")[0]) ?? parsePrice(item.u) ?? parsePrice(item.w) ?? yesterday;
 
     const change =
       effectivePrice !== null && yesterday !== null
@@ -73,9 +80,9 @@ function parseMsgArray(
       price: effectivePrice,
       change,
       changePercent,
-      open: parseNumber(item.o),
-      high: parseNumber(item.h),
-      low: parseNumber(item.l),
+      open: parsePrice(item.o),
+      high: parsePrice(item.h),
+      low: parsePrice(item.l),
       yesterday,
       volume: parseNumber(item.v),
     });
