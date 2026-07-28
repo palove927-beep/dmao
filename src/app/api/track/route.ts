@@ -61,9 +61,11 @@ function parseMsgArray(
   for (const item of msgArray) {
     const ticker = item.c;
     const yesterday = parsePrice(item.y);
-    // z=成交價, b=買價, a=賣價, u=漲停價, w=跌停價, y=昨收
+    // z=成交價, b=買價, a=賣價。
+    // 不用漲停價(u)/跌停價(w)兜底：無從判斷該股今天是撞漲停還是跌停，
+    // 猜錯方向會把跌停股顯示成飆漲。此處拿不到就留 null，交由 Fugle 補價。
     const effectivePrice =
-      parsePrice(item.z) ?? parsePrice(item.b?.split("_")[0]) ?? parsePrice(item.a?.split("_")[0]) ?? parsePrice(item.u) ?? parsePrice(item.w) ?? yesterday;
+      parsePrice(item.z) ?? parsePrice(item.b?.split("_")[0]) ?? parsePrice(item.a?.split("_")[0]);
 
     const change =
       effectivePrice !== null && yesterday !== null
@@ -169,18 +171,48 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // TWSE 查不到的（興櫃）改用 Fugle
-    const missing = codes.filter((c) => !map.has(c));
+    // 改用 Fugle 補價的情況：
+    // 1. TWSE 完全查不到（興櫃）
+    // 2. TWSE 查到但沒有有效現價（如跌停鎖死時 z/b/a 皆為空）
+    const missing = codes.filter((c) => {
+      const q = map.get(c);
+      return !q || q.price === null;
+    });
     if (missing.length > 0) {
       const results = await Promise.all(missing.map(fetchFugleQuote));
       for (const q of results) {
-        if (q) map.set(q.ticker, q);
+        if (!q) continue;
+        const existing = map.get(q.ticker);
+        if (!existing) {
+          map.set(q.ticker, q);
+        } else if (q.price !== null) {
+          // 保留 TWSE 的股名與昨收，只補上 Fugle 的價格資訊
+          const yesterday = existing.yesterday ?? q.yesterday;
+          const change = yesterday !== null ? Math.round((q.price - yesterday) * 100) / 100 : null;
+          map.set(q.ticker, {
+            ...existing,
+            price: q.price,
+            change,
+            changePercent:
+              change !== null && yesterday !== null && yesterday !== 0
+                ? Math.round((change / yesterday) * 10000) / 100
+                : null,
+            open: existing.open ?? q.open,
+            high: existing.high ?? q.high,
+            low: existing.low ?? q.low,
+            yesterday,
+          });
+        }
       }
     }
 
     const result: Record<string, TrackQuote> = {};
     for (const [ticker, data] of map) {
-      result[ticker] = data;
+      // 兩個來源都拿不到現價 → 最後才退回昨收（顯示平盤，至少不會誤導漲跌方向）
+      result[ticker] =
+        data.price === null && data.yesterday !== null
+          ? { ...data, price: data.yesterday, change: 0, changePercent: 0 }
+          : data;
     }
 
     return NextResponse.json(
