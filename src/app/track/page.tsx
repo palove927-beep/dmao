@@ -1414,8 +1414,9 @@ export default function TrackPage() {
       )}
 
       {/* ─── 持倉群組：總市值 + 近一月走勢（置底）─── */}
+      {/* key={activeGroup}：切換群組時強制重新掛載，避免殘留上一個群組的走勢圖 */}
       {activeIsHolding && holdings.length > 0 && (
-        <PortfolioSummary holdings={holdings} currentValue={groupMarketValue} />
+        <PortfolioSummary key={activeGroup} holdings={holdings} currentValue={groupMarketValue} />
       )}
 
       {/* ─── 編輯彈窗 ─── */}
