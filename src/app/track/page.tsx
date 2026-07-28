@@ -339,9 +339,11 @@ function LotsInput({ value, onChange }: { value?: number; onChange: (v: number |
 function PortfolioSummary({
   holdings,
   currentValue,
+  todayChange,
 }: {
   holdings: { ticker: string; lots: number }[];
   currentValue: number | null;
+  todayChange: number | null;
 }) {
   const [fullSeries, setFullSeries] = useState<{ date: string; value: number }[] | null>(null);
   const [range, setRange] = useState<"1w" | "1m" | "3m">("1m");
@@ -438,6 +440,13 @@ function PortfolioSummary({
   const diff = hasChart ? series[series.length - 1].value - series[0].value : 0;
   const pct = hasChart && series[0].value > 0 ? (diff / series[0].value) * 100 : 0;
   const rangeLabel = RANGES.find((r) => r.key === range)!.label;
+  // 今日漲跌% = 今日損益 / 昨日總市值（= 現值 − 今日損益）
+  const todayBase =
+    todayChange != null && currentValue != null ? currentValue - todayChange : null;
+  const todayPct =
+    todayChange != null && todayBase != null && todayBase > 0
+      ? (todayChange / todayBase) * 100
+      : null;
 
   return (
     <div style={{ marginTop: 20, border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 16px", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
@@ -496,11 +505,17 @@ function PortfolioSummary({
           </div>
         )}
 
-        {/* 總市值 + 近一月漲跌（靠右，對齊上面的市值欄） */}
+        {/* 總市值 + 今日/區間漲跌（靠右，對齊上面的市值欄） */}
         <div style={{ marginLeft: "auto", textAlign: "right", whiteSpace: "nowrap" }}>
           <div style={{ fontSize: 22, fontWeight: 700, color: "#111827" }}>
             {displayValue != null ? `$${Math.round(displayValue).toLocaleString()}` : "-"}
           </div>
+          {todayChange != null && (
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: todayChange >= 0 ? "#dc2626" : "#15803d" }}>
+              今日 {todayChange >= 0 ? "+" : ""}{Math.round(todayChange).toLocaleString()}
+              {todayPct != null && `（${todayPct >= 0 ? "+" : ""}${todayPct.toFixed(1)}%）`}
+            </div>
+          )}
           {hasChart && (
             <div style={{ fontSize: 12.5, fontWeight: 600, color: lineColor }}>
               {rangeLabel} {diff >= 0 ? "+" : ""}{Math.round(diff).toLocaleString()}（{diff >= 0 ? "+" : ""}{pct.toFixed(1)}%）
@@ -958,6 +973,18 @@ export default function TrackPage() {
     for (const s of groupFilteredList) {
       const price = quotes[s.ticker]?.price;
       if (s.lots && price != null) { total += s.lots * SHARES_PER_LOT * price; any = true; }
+    }
+    return any ? total : null;
+  }, [activeIsHolding, groupFilteredList, quotes]);
+
+  // 持倉群組：今日總損益（各檔今日漲跌 × 張數 × 1000 加總）
+  const todayChange = useMemo(() => {
+    if (!activeIsHolding) return null;
+    let total = 0;
+    let any = false;
+    for (const s of groupFilteredList) {
+      const chg = quotes[s.ticker]?.change;
+      if (s.lots && chg != null) { total += s.lots * SHARES_PER_LOT * chg; any = true; }
     }
     return any ? total : null;
   }, [activeIsHolding, groupFilteredList, quotes]);
@@ -1423,7 +1450,12 @@ export default function TrackPage() {
       {/* ─── 持倉群組：總市值 + 近一月走勢（置底）─── */}
       {/* key={activeGroup}：切換群組時強制重新掛載，避免殘留上一個群組的走勢圖 */}
       {activeIsHolding && holdings.length > 0 && (
-        <PortfolioSummary key={activeGroup} holdings={holdings} currentValue={groupMarketValue} />
+        <PortfolioSummary
+          key={activeGroup}
+          holdings={holdings}
+          currentValue={groupMarketValue}
+          todayChange={todayChange}
+        />
       )}
 
       {/* ─── 編輯彈窗 ─── */}
