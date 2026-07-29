@@ -131,6 +131,30 @@ function ArticlePinShape(props: any) {
   );
 }
 
+function YahooIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 3386.34 3010.5"
+      width={size}
+      height={size}
+      shapeRendering="geometricPrecision"
+      textRendering="geometricPrecision"
+      imageRendering="optimizeQuality"
+      fillRule="evenodd"
+      clipRule="evenodd"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        d="M0 732.88h645.84l376.07 962.1 380.96-962.1h628.76l-946.8 2277.62H451.98l259.19-603.53L.02 732.88zm2763.84 768.75h-704.26L2684.65 0l701.69.03-622.5 1501.6zm-519.78 143.72c216.09 0 391.25 175.17 391.25 391.22 0 216.06-175.16 391.23-391.25 391.23-216.06 0-391.19-175.17-391.19-391.23 0-216.05 175.16-391.22 391.19-391.22z"
+        fill="#5f01d1"
+        fillRule="nonzero"
+      />
+    </svg>
+  );
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CandlestickShape(props: any) {
   const { x, y, width, height, payload } = props;
@@ -376,7 +400,18 @@ export default function StockDetailPage() {
           <>
             <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
               <h1 style={{ fontSize: 26, fontWeight: "bold", margin: 0 }}>{data.name}</h1>
-              <span style={{ fontSize: 15, color: "#6b7280" }}>{ticker}</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 15, color: "#6b7280" }}>
+                {ticker}
+                <a
+                  href={`https://tw.stock.yahoo.com/quote/${ticker}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={`在 Yahoo 股市查看 ${ticker}`}
+                  style={{ display: "inline-flex", alignItems: "center", lineHeight: 0 }}
+                >
+                  <YahooIcon />
+                </a>
+              </span>
             </div>
 
             {(latest != null || quote?.price != null) && (
