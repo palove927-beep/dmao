@@ -131,7 +131,7 @@ function ArticlePinShape(props: any) {
   );
 }
 
-function YahooIcon({ size = 15 }: { size?: number }) {
+function YahooIcon({ size = 20 }: { size?: number }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
