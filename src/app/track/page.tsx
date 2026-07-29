@@ -542,6 +542,7 @@ export default function TrackPage() {
   const [renamingGroup, setRenamingGroup] = useState<string | null>(null); // 正在改名的群組
   const [renameText, setRenameText] = useState("");
   const [dragIndex, setDragIndex] = useState<number | null>(null); // 拖移中的股票索引
+  const [dragGroupIndex, setDragGroupIndex] = useState<number | null>(null); // 拖移中的群組索引
 
   // ─── 編輯彈窗（新增/刪除股票、群組皆先改草稿，按儲存才生效）───
   const [editMode, setEditMode] = useState(false); // = 編輯彈窗是否開啟
@@ -718,6 +719,18 @@ export default function TrackPage() {
         return { ...g, stocks: next };
       }),
     );
+  };
+
+  // 拖移調整群組順序（影響主畫面群組列的排列）— 草稿
+  const reorderGroups = (from: number, to: number) => {
+    if (from === to) return;
+    setDraftGroups((prev) => {
+      if (from < 0 || from >= prev.length || to < 0 || to >= prev.length) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
   };
 
   // 從目前群組刪除（只影響該群組；同股在其他群組不受影響）— 草稿
@@ -1487,7 +1500,7 @@ export default function TrackPage() {
               {/* 群組選擇 */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
                 <span style={{ color: "#666", fontSize: 13 }}>群組：</span>
-                {draftGroups.map((g) =>
+                {draftGroups.map((g, gi) =>
                   renamingGroup === g.name ? (
                     <input
                       key={g.name}
@@ -1504,18 +1517,29 @@ export default function TrackPage() {
                   ) : (
                     <button
                       key={g.name}
+                      draggable
+                      onDragStart={(e) => { setDragGroupIndex(gi); e.dataTransfer.effectAllowed = "move"; }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (dragGroupIndex !== null && dragGroupIndex !== gi) {
+                          reorderGroups(dragGroupIndex, gi);
+                          setDragGroupIndex(gi);
+                        }
+                      }}
+                      onDragEnd={() => setDragGroupIndex(null)}
                       onClick={() => {
                         // 點已選取的群組名 → 進入改名；否則先選取
                         if (modalGroup === g.name) { setRenamingGroup(g.name); setRenameText(g.name); }
                         else setModalGroup(g.name);
                       }}
-                      title={modalGroup === g.name ? "再點一次可改名" : g.name}
+                      title={modalGroup === g.name ? "再點一次可改名；拖曳可調整群組順序" : `${g.name}（拖曳可調整順序）`}
                       style={{
                         padding: "4px 12px", fontSize: 13, borderRadius: 16,
                         border: "1px solid #7c3aed", cursor: "pointer",
                         background: modalGroup === g.name ? "#7c3aed" : "#fff",
                         color: modalGroup === g.name ? "#fff" : "#7c3aed",
                         fontWeight: modalGroup === g.name ? "bold" : "normal",
+                        opacity: dragGroupIndex === gi ? 0.5 : 1,
                       }}
                     >
                       {g.name}
