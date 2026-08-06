@@ -7,6 +7,27 @@ export type EtfHolding = {
   weight: number | null; // 佔比（%），來源沒給就是 null
 };
 
+// 從 HTML／JS／JSON 文字中撈出可能是資料端點的網址（給 ?discover=1 用）。
+// TWSE 前端是 JS 應用，實際的資料端點藏在頁面或 bundle 裡，撈出來比猜網址可靠。
+export function extractUrls(text: string, keywords = ["etf", "pcf", "nav", "fund"]): string[] {
+  const found = new Set<string>();
+  const patterns = [
+    /https?:\/\/[^\s"'<>()\\]+/g,
+    /["'](\/[a-zA-Z0-9_\-./]+\.(?:json|txt|jsp|csv))["'?]/g,
+    /["'](\/rwd\/[a-zA-Z0-9_\-./]+)["'?]/g,
+  ];
+  for (const re of patterns) {
+    for (const m of text.matchAll(re)) {
+      const url = (m[1] ?? m[0]).replace(/[.,;]+$/, "");
+      if (url.length > 200) continue;
+      if (/\.(png|jpg|jpeg|gif|svg|ico|woff2?|ttf|css)$/i.test(url)) continue;
+      const lower = url.toLowerCase();
+      if (keywords.some((k) => lower.includes(k))) found.add(url);
+    }
+  }
+  return [...found].slice(0, 40);
+}
+
 const isStockCode = (v: unknown): v is string =>
   typeof v === "string" && /^\d{4,6}[A-Z]?$/.test(v.trim());
 
