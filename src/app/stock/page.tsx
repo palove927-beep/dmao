@@ -15,6 +15,9 @@ type Annotation = {
   paragraph: string;
   is_summary: boolean;
   article_id: string;
+  aliases?: string[];
+  // 同段落中所有被標記的個股（含其他股票），由 /api/annotations 回傳
+  paragraph_stocks?: { ticker: string; stock_name: string; aliases?: string[] }[];
   dmao_articles: { id: string; title: string; created_at: string } | null;
 };
 
@@ -34,8 +37,17 @@ type LatestEpsInfo = {
 
 type TimeRange = "all" | "1w" | "1m" | "3m";
 
+// 段落內要標色的關鍵字：同段落所有被標記的個股（名稱／代碼／別名）；
+// 舊資料若沒有 paragraph_stocks，退回只標這檔自己
+function annotationKeywords(ann: Annotation): string[] {
+  const stocks = ann.paragraph_stocks?.length
+    ? ann.paragraph_stocks
+    : [{ ticker: ann.ticker, stock_name: ann.stock_name, aliases: ann.aliases }];
+  return stocks.flatMap((s) => [s.stock_name, s.ticker, ...(s.aliases ?? [])]);
+}
+
 function highlightKeywords(text: string, keywords: string[]) {
-  const filtered = keywords.filter(Boolean);
+  const filtered = [...new Set(keywords.filter(Boolean))];
   if (filtered.length === 0) return text;
   const escaped = filtered.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   escaped.sort((a, b) => b.length - a.length);
@@ -43,7 +55,7 @@ function highlightKeywords(text: string, keywords: string[]) {
   const parts = text.split(regex);
   return parts.map((part, i) =>
     filtered.includes(part) ? (
-      <mark key={i} style={{ background: "#fef9c3", padding: "1px 2px", borderRadius: 2 }}>{part}</mark>
+      <span key={i} style={{ color: "#dc2626", fontWeight: 600 }}>{part}</span>
     ) : (
       part
     )
@@ -620,7 +632,7 @@ export default function StockPage() {
                                     {ann.is_summary && (
                                       <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "#fef3c7", color: "#92400e", marginRight: 6 }}>AI 摘要</span>
                                     )}
-                                    {highlightKeywords(ann.paragraph, [ann.stock_name, ann.ticker])}
+                                    {highlightKeywords(ann.paragraph, annotationKeywords(ann))}
                                   </div>
                                 </div>
                               ))}
