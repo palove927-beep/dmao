@@ -12,6 +12,8 @@ export type StockPrice = {
   price: number | null;
   change: number | null;
   changePercent: number | null;
+  // 現價是否等於 TWSE 給的漲停價／跌停價（興櫃等沒有漲跌停的則為 null）
+  limit: "up" | "down" | null;
 };
 
 function parseNumber(s: string | undefined): number | null {
@@ -50,7 +52,20 @@ async function fetchWithRetry(
   return null;
 }
 
-type Quote = StockPrice & { yesterday: number | null };
+// 內部用：多帶昨收與 TWSE 的漲跌停價，最後才收斂成對外的 StockPrice
+type Quote = Omit<StockPrice, "limit"> & {
+  yesterday: number | null;
+  limitUp: number | null;
+  limitDown: number | null;
+};
+
+// 直接比對 TWSE 給的漲停價(u)/跌停價(w)，不用漲跌幅%推算（跳動單位會讓漲停幅度不足 10%）
+function limitState(q: Quote): "up" | "down" | null {
+  if (q.price === null) return null;
+  if (q.limitUp !== null && q.price === q.limitUp) return "up";
+  if (q.limitDown !== null && q.price === q.limitDown) return "down";
+  return null;
+}
 
 function calcChange(price: number | null, yesterday: number | null) {
   const change =
@@ -85,6 +100,8 @@ function parseMsgArray(
       price,
       ...calcChange(price, yesterday),
       yesterday,
+      limitUp: parsePrice(item.u),
+      limitDown: parsePrice(item.w),
     });
   }
 }
@@ -109,6 +126,9 @@ async function fetchFugleQuote(code: string): Promise<Quote | null> {
       price,
       ...calcChange(price, yesterday),
       yesterday,
+      // 興櫃無漲跌停；上市櫃走到這裡時會保留 TWSE 已取得的漲跌停價
+      limitUp: null,
+      limitDown: null,
     };
   } catch {
     return null;
@@ -179,11 +199,15 @@ export async function GET() {
     const result: Record<string, StockPrice> = {};
     for (const [ticker, data] of quotes) {
       // 兩個來源都拿不到現價 → 最後才退回昨收（顯示平盤，至少不會誤導漲跌方向）
-      const { yesterday, ...quote } = data;
-      result[ticker] =
-        quote.price === null && yesterday !== null
-          ? { ...quote, price: yesterday, change: 0, changePercent: 0 }
-          : quote;
+      const fallback = data.price === null && data.yesterday !== null;
+      result[ticker] = {
+        ticker: data.ticker,
+        name: data.name,
+        price: fallback ? data.yesterday : data.price,
+        change: fallback ? 0 : data.change,
+        changePercent: fallback ? 0 : data.changePercent,
+        limit: fallback ? null : limitState(data),
+      };
     }
 
     return NextResponse.json(

@@ -184,6 +184,15 @@ export default function StockPage() {
     return p.toFixed(2);
   };
 
+  // 漲停紅底、跌停綠底
+  const limitBadgeStyle = (limit: "up" | "down"): React.CSSProperties => ({
+    display: "inline-block",
+    padding: "2px 6px",
+    borderRadius: 4,
+    background: limit === "up" ? "#dc2626" : "#15803d",
+    color: "#fff",
+  });
+
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "-";
     const d = new Date(dateStr);
@@ -490,7 +499,11 @@ export default function StockPage() {
                         )}
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", fontVariantNumeric: "tabular-nums" }}>
-                        {hasTwData ? formatPrice(p.price) : "-"}
+                        {!hasTwData ? "-" : p.limit ? (
+                          <span title={p.limit === "up" ? "漲停" : "跌停"} style={limitBadgeStyle(p.limit)}>
+                            {formatPrice(p.price)}
+                          </span>
+                        ) : formatPrice(p.price)}
                       </td>
                       <td style={{
                         ...tdStyle,
