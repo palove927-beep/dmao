@@ -3,8 +3,8 @@ import { getTwseStockCodes } from "@/lib/stocks";
 
 export const dynamic = "force-dynamic";
 
-// 興櫃股票 — TWSE 查不到，需用 Fugle API
-const EMERGING_STOCKS = ["6826", "7822", "7853"];
+// TWSE MIS API 單次請求的代碼數上限（過長的 ex_ch 會被忽略），分批查詢
+const CHUNK_SIZE = 20;
 
 export type StockPrice = {
   ticker: string;
@@ -14,10 +14,18 @@ export type StockPrice = {
   changePercent: number | null;
 };
 
-function parseNumber(s: string): number | null {
+function parseNumber(s: string | undefined): number | null {
   if (!s || s === "--" || s === "---" || s === " ") return null;
   const n = parseFloat(s.replace(/,/g, ""));
   return isNaN(n) ? null : n;
+}
+
+// 股價欄位永遠不會是 0——TWSE 對「當下無成交」（漲跌停鎖死、盤中零星時段）
+// 常回傳字串 "0.00" 而非 "-"，若當成有效值 0 會提前中斷 ?? 備援鏈，
+// 前端再把 0 當成無資料顯示成「-」。
+function parsePrice(s: string | undefined): number | null {
+  const n = parseNumber(s);
+  return n === null || n <= 0 ? null : n;
 }
 
 async function fetchWithRetry(
@@ -42,114 +50,124 @@ async function fetchWithRetry(
   return null;
 }
 
+type Quote = StockPrice & { yesterday: number | null };
+
+function calcChange(price: number | null, yesterday: number | null) {
+  const change =
+    price !== null && yesterday !== null
+      ? Math.round((price - yesterday) * 100) / 100
+      : null;
+  const changePercent =
+    change !== null && yesterday !== null && yesterday !== 0
+      ? Math.round((change / yesterday) * 10000) / 100
+      : null;
+  return { change, changePercent };
+}
+
 function parseMsgArray(
   msgArray: Record<string, string>[],
-  map: Map<string, StockPrice>,
+  map: Map<string, Quote>,
 ) {
   for (const item of msgArray) {
     const ticker = item.c;
-    const yesterday = parseNumber(item.y);
-    // z=成交價, b=買價, a=賣價, u=漲停價, w=跌停價, y=昨收
-    const effectivePrice =
-      parseNumber(item.z) ?? parseNumber(item.b?.split("_")[0]) ?? parseNumber(item.a?.split("_")[0]) ?? parseNumber(item.u) ?? parseNumber(item.w) ?? yesterday;
-
-    const change =
-      effectivePrice !== null && yesterday !== null
-        ? Math.round((effectivePrice - yesterday) * 100) / 100
-        : null;
-    const changePercent =
-      change !== null && yesterday !== null && yesterday !== 0
-        ? Math.round((change / yesterday) * 10000) / 100
-        : null;
+    const yesterday = parsePrice(item.y);
+    // z=成交價, b=買價, a=賣價。
+    // 不用漲停價(u)/跌停價(w)兜底：無從判斷該股今天是撞漲停還是跌停，
+    // 猜錯方向會把跌停股顯示成飆漲。此處拿不到就留 null，交由 Fugle 補價。
+    const price =
+      parsePrice(item.z) ??
+      parsePrice(item.b?.split("_")[0]) ??
+      parsePrice(item.a?.split("_")[0]);
 
     map.set(ticker, {
       ticker,
       name: (item.n || "").replace(/\*/g, ""),
-      price: effectivePrice,
-      change,
-      changePercent,
+      price,
+      ...calcChange(price, yesterday),
+      yesterday,
     });
   }
 }
 
-async function fetchAllPrices(): Promise<Map<string, StockPrice>> {
+// 興櫃股票 TWSE 查不到；上市櫃遇漲跌停鎖死時 TWSE 也可能沒有有效現價，
+// 兩種情況都改由 Fugle 取得真實成交價。
+async function fetchFugleQuote(code: string): Promise<Quote | null> {
+  try {
+    const res = await fetchWithRetry(
+      `https://api.fugle.tw/marketdata/v1.0/stock/intraday/quote/${code}`,
+      2,
+      { "X-API-KEY": process.env.FUGLE_API_KEY || "" },
+    );
+    if (!res) return null;
+    const data = await res.json();
+    const price = data.lastPrice ?? data.closePrice ?? null;
+    const yesterday = data.previousClose ?? null;
+
+    return {
+      ticker: code,
+      name: `${data.name || ""}*`,
+      price,
+      ...calcChange(price, yesterday),
+      yesterday,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchAllPrices(): Promise<Map<string, Quote>> {
   const allCodes = getTwseStockCodes();
-  const map = new Map<string, StockPrice>();
+  const map = new Map<string, Quote>();
 
-  // Separate emerging stocks
-  const regularCodes = allCodes.filter(
-    (c) => !EMERGING_STOCKS.includes(c),
-  );
-  const emergingCodes = allCodes.filter((c) =>
-    EMERGING_STOCKS.includes(c),
-  );
+  const chunks: string[][] = [];
+  for (let i = 0; i < allCodes.length; i += CHUNK_SIZE) {
+    chunks.push(allCodes.slice(i, i + CHUNK_SIZE));
+  }
 
-  // Build TSE + OTC URLs with all regular codes (API ignores invalid ones)
-  const tseExCh = regularCodes.map((c) => `tse_${c}.tw`).join("|");
-  const otcExCh = regularCodes.map((c) => `otc_${c}.tw`).join("|");
+  // 同時以上市/上櫃前綴查詢，API 會忽略不存在的代碼
+  const misUrl = (chunk: string[], prefix: "tse" | "otc") =>
+    `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${chunk.map((c) => `${prefix}_${c}.tw`).join("|")}`;
 
-  const tseUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${tseExCh}`;
-  const otcUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${otcExCh}`;
-
-  // Fetch TSE + OTC in parallel
-  const [tseRes, otcRes] = await Promise.all([
-    fetchWithRetry(tseUrl),
-    fetchWithRetry(otcUrl),
+  const [tseResList, otcResList] = await Promise.all([
+    Promise.all(chunks.map((chunk) => fetchWithRetry(misUrl(chunk, "tse")))),
+    Promise.all(chunks.map((chunk) => fetchWithRetry(misUrl(chunk, "otc")))),
   ]);
 
   // OTC first, then TSE overwrites (TSE takes priority for dual-listed)
-  if (otcRes) {
+  for (const res of [...otcResList, ...tseResList]) {
+    if (!res) continue;
     try {
-      const data = await otcRes.json();
+      const data = await res.json();
       if (data.msgArray) parseMsgArray(data.msgArray, map);
     } catch {
       // parse error
     }
   }
 
-  if (tseRes) {
-    try {
-      const data = await tseRes.json();
-      if (data.msgArray) parseMsgArray(data.msgArray, map);
-    } catch {
-      // parse error
-    }
-  }
+  // TWSE 查不到、或查到但沒有有效現價（漲跌停鎖死等）→ 由 Fugle 補價
+  const missing = allCodes.filter((c) => {
+    const q = map.get(c);
+    return !q || q.price === null;
+  });
 
-  // Fetch emerging stocks via Fugle API
-  if (emergingCodes.length > 0) {
-    const fuglePromises = emergingCodes.map(async (code) => {
-      try {
-        const res = await fetchWithRetry(
-          `https://api.fugle.tw/marketdata/v1.0/stock/intraday/quote/${code}`,
-          3,
-          { "X-API-KEY": process.env.FUGLE_API_KEY || "" },
-        );
-        if (!res) return;
-        const data = await res.json();
-        const price = data.lastPrice ?? data.closePrice ?? null;
-        const yesterday = data.previousClose ?? null;
-        const change =
-          price !== null && yesterday !== null
-            ? Math.round((price - yesterday) * 100) / 100
-            : null;
-        const changePercent =
-          change !== null && yesterday !== null && yesterday !== 0
-            ? Math.round((change / yesterday) * 10000) / 100
-            : null;
-
-        map.set(code, {
-          ticker: code,
-          name: `${data.name || ""}*`,
-          price,
-          change,
-          changePercent,
+  if (missing.length > 0) {
+    const results = await Promise.all(missing.map(fetchFugleQuote));
+    for (const q of results) {
+      if (!q) continue;
+      const existing = map.get(q.ticker);
+      if (!existing) {
+        map.set(q.ticker, q);
+      } else if (q.price !== null) {
+        // 保留 TWSE 的股名與昨收，只補上 Fugle 的價格
+        const yesterday = existing.yesterday ?? q.yesterday;
+        map.set(q.ticker, {
+          ...existing,
+          price: q.price,
+          ...calcChange(q.price, yesterday),
+          yesterday,
         });
-      } catch {
-        // fugle failed for this code
       }
-    });
-    await Promise.all(fuglePromises);
+    }
   }
 
   return map;
@@ -160,7 +178,12 @@ export async function GET() {
     const quotes = await fetchAllPrices();
     const result: Record<string, StockPrice> = {};
     for (const [ticker, data] of quotes) {
-      result[ticker] = data;
+      // 兩個來源都拿不到現價 → 最後才退回昨收（顯示平盤，至少不會誤導漲跌方向）
+      const { yesterday, ...quote } = data;
+      result[ticker] =
+        quote.price === null && yesterday !== null
+          ? { ...quote, price: yesterday, change: 0, changePercent: 0 }
+          : quote;
     }
 
     return NextResponse.json(
