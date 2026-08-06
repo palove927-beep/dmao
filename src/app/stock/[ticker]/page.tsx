@@ -604,7 +604,7 @@ export default function StockDetailPage() {
                         <span style={{ marginLeft: 6, color: "#9ca3af", fontSize: 12 }}>{formatDateFull(a.date)}</span>
                       </div>
                       {a.paragraphs.slice(0, 3).map((p, pi) => (
-                        <div key={pi} style={{ fontSize: 12.5, color: "#333", lineHeight: 1.6, marginTop: pi > 0 ? 6 : 0 }}>
+                        <div key={pi} style={{ fontSize: 12.5, color: "#333", lineHeight: 1.6, marginTop: pi > 0 ? 6 : 0, whiteSpace: "pre-wrap" }}>
                           {p.is_summary && (
                             <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 4, background: "#fef3c7", color: "#92400e", marginRight: 5 }}>AI 摘要</span>
                           )}
@@ -690,7 +690,7 @@ export default function StockDetailPage() {
                           查看全文 →
                         </a>
                       </div>
-                      <div style={{ fontSize: 14, color: "#333", lineHeight: 1.6 }}>
+                      <div style={{ fontSize: 14, color: "#333", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
                         {ann.is_summary && (
                           <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "#fef3c7", color: "#92400e", marginRight: 6 }}>AI 摘要</span>
                         )}
