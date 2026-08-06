@@ -75,6 +75,44 @@ export function parseRow(row: unknown, fields: string[] | null): EtfHolding | nu
   return { ticker, name, shares, weight };
 }
 
+// 投信的 PCF 頁若是伺服器端算好的 HTML 表格，直接從 <table> 解析
+function stripTags(s: string): string {
+  return s
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function parseHtmlTables(html: string): EtfHolding[] {
+  const tables = html.match(/<table[\s\S]*?<\/table>/gi) ?? [];
+  let best: EtfHolding[] = [];
+
+  for (const table of tables) {
+    const rows = (table.match(/<tr[\s\S]*?<\/tr>/gi) ?? []).map((tr) =>
+      (tr.match(/<t[dh][\s\S]*?<\/t[dh]>/gi) ?? []).map(stripTags),
+    );
+    if (rows.length < 3) continue;
+
+    // 第一列若沒有股票代號，視為表頭
+    const firstRowIsData = rows[0].some(isStockCode);
+    const fields = firstRowIsData ? null : rows[0];
+    const body = firstRowIsData ? rows : rows.slice(1);
+
+    const holdings = body
+      .map((r) => parseRow(r, fields))
+      .filter((h): h is EtfHolding => h !== null);
+
+    // 版面用的表格常混進像股票代號的數字（例如年份 2026），
+    // 要求至少兩檔、且過半的列都解析得出成分股，才視為持股表
+    if (holdings.length < 2 || holdings.length < body.length * 0.5) continue;
+    if (holdings.length > best.length) best = holdings;
+  }
+
+  return best;
+}
+
 // 走訪整棵 JSON，找出「解析出最多成分股」的那個陣列
 export function extractHoldings(node: unknown, fields: string[] | null = null, depth = 0): EtfHolding[] {
   if (depth > 8 || node === null || typeof node !== "object") return [];

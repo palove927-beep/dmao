@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { extractHoldings, narrowToTicker, type EtfHolding } from "@/lib/etf-pcf";
+import {
+  extractHoldings,
+  extractUrls,
+  narrowToTicker,
+  parseHtmlTables,
+  type EtfHolding,
+} from "@/lib/etf-pcf";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +25,27 @@ export type EtfInfo = {
 export type EtfHoldingsData = EtfInfo & {
   source: string;
   holdings: EtfHolding[];
+  holdingsSource: string | null; // 持股實際是從哪個網址解析出來的
 };
+
+// 從投信的 PCF 頁面取持股：先試 JSON，再試伺服器端算好的 HTML 表格
+async function fetchIssuerHoldings(
+  pcfUrl: string,
+  ticker: string,
+): Promise<{ holdings: EtfHolding[]; via: string | null }> {
+  const { text, json } = await fetchJson(pcfUrl);
+
+  if (json !== null) {
+    const scope = narrowToTicker(json, ticker) ?? json;
+    const holdings = extractHoldings(scope);
+    if (holdings.length > 0) return { holdings, via: `${pcfUrl} (json)` };
+  }
+
+  const fromHtml = parseHtmlTables(text);
+  if (fromHtml.length > 0) return { holdings: fromHtml, via: `${pcfUrl} (html)` };
+
+  return { holdings: [], via: null };
+}
 
 // TWSE 的 ETF 商品資訊 API（頁面 content.html 上宣告的 data-api，實測可用）。
 // 參數名是 id，不是常見的 stkNo／stockNo。
@@ -63,6 +89,7 @@ export async function GET(
   const { ticker: raw } = await params;
   const ticker = (raw || "").trim().toUpperCase();
   const customUrl = req.nextUrl.searchParams.get("url");
+  const discover = req.nextUrl.searchParams.get("discover") === "1";
 
   if (!/^\d{4,6}[A-Z]?$/.test(ticker)) {
     return NextResponse.json({ ok: false, error: "代號格式不正確" }, { status: 400 });
@@ -98,7 +125,7 @@ export async function GET(
     const pcfTable = payload.tables.find((t) => /PCF|申購買回/.test(t.title ?? ""));
     const pcfUrl = pcfTable?.data?.[0]?.[0]?.trim() || null;
 
-    const data: EtfHoldingsData = {
+    const info: EtfInfo = {
       ticker,
       name: pickField(basic, "ETF簡稱"),
       fullName: pickField(basic, "名稱"),
@@ -107,9 +134,47 @@ export async function GET(
       issuer: pickField(basic, "基金經理公司"),
       issuerSite: pickField(basic, "基金經理公司網站"),
       pcfUrl: pcfUrl && /^https?:\/\//.test(pcfUrl) ? pcfUrl : null,
+    };
+
+    // TWSE 不提供成分股，持股要再往投信的 PCF 頁面取
+    let holdings: EtfHolding[] = [];
+    let holdingsSource: string | null = null;
+
+    if (info.pcfUrl) {
+      try {
+        const result = await fetchIssuerHoldings(info.pcfUrl, ticker);
+        holdings = result.holdings;
+        holdingsSource = result.via;
+      } catch {
+        // 投信網站抓不到就只回 TWSE 的基本資料
+      }
+    }
+
+    // 投信頁多半是 JS 應用，抓不到持股時列出頁面裡的端點，方便定位真正的資料來源
+    if (discover) {
+      const probe = info.pcfUrl ? await fetchJson(info.pcfUrl).catch(() => null) : null;
+      return NextResponse.json({
+        ok: true,
+        ticker,
+        pcfUrl: info.pcfUrl,
+        holdings: holdings.length,
+        holdingsSource,
+        page: probe
+          ? {
+              status: probe.status,
+              size: probe.text.length,
+              urls: extractUrls(probe.text, ["api", "json", "pcf", "etf", "fund", "holding", ".js"]),
+              sample: probe.text.slice(0, 400),
+            }
+          : null,
+      });
+    }
+
+    const data: EtfHoldingsData = {
+      ...info,
       source: "twse-rwd-productContent",
-      // TWSE 不提供成分股，持股要另外從 pcfUrl（各投信網站）取得
-      holdings: [],
+      holdings,
+      holdingsSource,
     };
 
     return NextResponse.json(
