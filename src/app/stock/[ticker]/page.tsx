@@ -142,6 +142,16 @@ function ArticlePinShape(props: any) {
   );
 }
 
+// 漲停紅底、跌停綠底
+function limitBadgeStyle(limit: "up" | "down"): React.CSSProperties {
+  return {
+    padding: "2px 10px",
+    borderRadius: 6,
+    background: limit === "up" ? "#dc2626" : "#15803d",
+    color: "#fff",
+  };
+}
+
 function YahooIcon({ size = 20 }: { size?: number }) {
   return (
     <svg
@@ -333,6 +343,9 @@ export default function StockDetailPage() {
     };
   });
 
+  // 只有顯示的是即時報價時才標漲跌停（歷史收盤價沒有漲跌停資訊）
+  const showLimit = quote?.price != null ? quote.limit : null;
+
   const latest = prices[prices.length - 1]?.close;
   const first = prices[0]?.close;
   const change = latest != null && first != null ? latest - first : null;
@@ -427,7 +440,14 @@ export default function StockDetailPage() {
 
             {(latest != null || quote?.price != null) && (
               <div style={{ display: "flex", alignItems: "baseline", gap: 12, margin: "10px 0 4px", flexWrap: "wrap" }}>
-                <span style={{ fontSize: 32, fontWeight: "bold" }}>
+                <span
+                  title={showLimit ? (showLimit === "up" ? "漲停" : "跌停") : undefined}
+                  style={{
+                    fontSize: 32,
+                    fontWeight: "bold",
+                    ...(showLimit ? limitBadgeStyle(showLimit) : null),
+                  }}
+                >
                   {(quote?.price ?? latest)!.toFixed(2)}
                 </span>
                 {quote?.change != null && quote?.changePercent != null && (

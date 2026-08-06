@@ -17,7 +17,23 @@ export type TrackQuote = {
   low: number | null;
   yesterday: number | null;
   volume: number | null; // 累積成交量（張）
+  // 現價是否等於 TWSE 給的漲停價／跌停價（興櫃等沒有漲跌停的則為 null）
+  limit: "up" | "down" | null;
 };
+
+// 內部用：多帶 TWSE 的漲跌停價，最後才收斂成對外的 TrackQuote
+type Quote = Omit<TrackQuote, "limit"> & {
+  limitUp: number | null;
+  limitDown: number | null;
+};
+
+// 直接比對 TWSE 給的漲停價(u)/跌停價(w)，不用漲跌幅%推算（跳動單位會讓漲停幅度不足 10%）
+function limitState(q: Quote): "up" | "down" | null {
+  if (q.price === null) return null;
+  if (q.limitUp !== null && q.price === q.limitUp) return "up";
+  if (q.limitDown !== null && q.price === q.limitDown) return "down";
+  return null;
+}
 
 function parseNumber(s: string | undefined): number | null {
   if (!s || s === "--" || s === "---" || s === " ") return null;
@@ -56,7 +72,7 @@ async function fetchWithRetry(
 
 function parseMsgArray(
   msgArray: Record<string, string>[],
-  map: Map<string, TrackQuote>,
+  map: Map<string, Quote>,
 ) {
   for (const item of msgArray) {
     const ticker = item.c;
@@ -87,11 +103,13 @@ function parseMsgArray(
       low: parsePrice(item.l),
       yesterday,
       volume: parseNumber(item.v),
+      limitUp: parsePrice(item.u),
+      limitDown: parsePrice(item.w),
     });
   }
 }
 
-async function fetchFugleQuote(code: string): Promise<TrackQuote | null> {
+async function fetchFugleQuote(code: string): Promise<Quote | null> {
   try {
     const res = await fetchWithRetry(
       `https://api.fugle.tw/marketdata/v1.0/stock/intraday/quote/${code}`,
@@ -122,6 +140,9 @@ async function fetchFugleQuote(code: string): Promise<TrackQuote | null> {
       low: data.lowPrice ?? null,
       yesterday,
       volume: data.total?.tradeVolume ?? null,
+      // 興櫃無漲跌停；上市櫃走到這裡時會保留 TWSE 已取得的漲跌停價
+      limitUp: null,
+      limitDown: null,
     };
   } catch {
     return null;
@@ -144,7 +165,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const map = new Map<string, TrackQuote>();
+    const map = new Map<string, Quote>();
 
     // 同時以上市/上櫃前綴查詢，API 會忽略不存在的代碼
     const chunks: string[][] = [];
@@ -209,10 +230,20 @@ export async function GET(req: NextRequest) {
     const result: Record<string, TrackQuote> = {};
     for (const [ticker, data] of map) {
       // 兩個來源都拿不到現價 → 最後才退回昨收（顯示平盤，至少不會誤導漲跌方向）
-      result[ticker] =
-        data.price === null && data.yesterday !== null
-          ? { ...data, price: data.yesterday, change: 0, changePercent: 0 }
-          : data;
+      const fallback = data.price === null && data.yesterday !== null;
+      result[ticker] = {
+        ticker: data.ticker,
+        name: data.name,
+        price: fallback ? data.yesterday : data.price,
+        change: fallback ? 0 : data.change,
+        changePercent: fallback ? 0 : data.changePercent,
+        open: data.open,
+        high: data.high,
+        low: data.low,
+        yesterday: data.yesterday,
+        volume: data.volume,
+        limit: fallback ? null : limitState(data),
+      };
     }
 
     return NextResponse.json(

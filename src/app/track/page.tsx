@@ -180,6 +180,16 @@ const formatShortDate = (dateStr: string) => {
   return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
 };
 
+// 漲停紅底、跌停綠底
+function limitBadgeStyle(limit: "up" | "down"): React.CSSProperties {
+  return {
+    padding: "1px 8px",
+    borderRadius: 5,
+    background: limit === "up" ? "#dc2626" : "#15803d",
+    color: "#fff",
+  };
+}
+
 // 段落內要標色的關鍵字：同段落所有被標記的個股（名稱／代碼／別名）；
 // 舊資料若沒有 paragraph_stocks，退回只標這檔自己
 function annotationKeywords(ann: Annotation): string[] {
@@ -1370,7 +1380,11 @@ export default function TrackPage() {
                         <Sparkline ticker={stock.ticker} />
                       </td>
                       <td style={{ ...listTdStyle, textAlign: "right", fontWeight: "bold", fontVariantNumeric: "tabular-nums" }}>
-                        {q ? fmtCompact(q.price) : "-"}
+                        {q?.limit ? (
+                          <span title={q.limit === "up" ? "漲停" : "跌停"} style={limitBadgeStyle(q.limit)}>
+                            {fmtCompact(q.price)}
+                          </span>
+                        ) : q ? fmtCompact(q.price) : "-"}
                       </td>
                       <td style={{ ...listTdStyle, textAlign: "right", fontSize: 13, fontWeight: 600, color: pctColor, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
                         {q && q.change !== null && pct !== null
@@ -1919,7 +1933,17 @@ function StockCard({
         </div>
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
-          <span style={{ fontSize: 24, fontWeight: 600, color: valueColor, lineHeight: 1, whiteSpace: "nowrap" }}>
+          <span
+            title={quote?.limit ? (quote.limit === "up" ? "漲停" : "跌停") : undefined}
+            style={{
+              fontSize: 24,
+              fontWeight: 600,
+              color: valueColor,
+              lineHeight: 1,
+              whiteSpace: "nowrap",
+              ...(quote?.limit ? limitBadgeStyle(quote.limit) : null),
+            }}
+          >
             {quote ? fmtCompact(quote.price) : "-"}
           </span>
           <span style={{
