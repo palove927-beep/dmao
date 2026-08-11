@@ -27,17 +27,26 @@ const NON_STOCK_TERMS = new Set([
   "AGC", "SMC", // Too ambiguous as abbreviations
 ]);
 
+// 英文／數字的名稱與別名必須是「獨立的詞」才算命中。
+// 純 includes 會誤判：EMC(台光電) 命中 SEMCO、SMC 命中 SMCI、ASE(日月光) 命中 PHASE。
+// 中文沒有詞界可言，維持子字串比對。
+function textHasTerm(text: string, term: string): boolean {
+  if (!term || term.length < 2) return false;
+  if (!/^[\x00-\x7F]+$/.test(term)) return text.includes(term);
+  return new RegExp(`(?<![A-Za-z0-9])${escapeRegex(term)}(?![A-Za-z0-9])`).test(text);
+}
+
 function scanParagraphForStocks(text: string): { ticker: string; stock_name: string }[] {
   const found: Map<string, { ticker: string; stock_name: string }> = new Map();
 
   // 1. Scan all known stocks — match by name, aliases, or ticker in parentheses
   for (const s of scanStocks) {
     if (found.has(s.ticker)) continue;
-    if (s.name.length >= 2 && text.includes(s.name)) {
+    if (textHasTerm(text, s.name)) {
       found.set(s.ticker, { ticker: s.ticker, stock_name: s.name });
       continue;
     }
-    if (s.aliases?.some((a) => a.length >= 2 && text.includes(a))) {
+    if (s.aliases?.some((a) => textHasTerm(text, a))) {
       found.set(s.ticker, { ticker: s.ticker, stock_name: s.name });
       continue;
     }
@@ -172,11 +181,11 @@ ${trimmedList}`,
       text: string,
       stock: { ticker: string; stock_name: string },
     ) => {
-      if (text.includes(stock.stock_name) || text.includes(stock.ticker)) return true;
+      if (textHasTerm(text, stock.stock_name) || textHasTerm(text, stock.ticker)) return true;
       const scanMatch = scanStocks.find((s) => s.ticker === stock.ticker);
       if (scanMatch) {
-        if (scanMatch.aliases?.some((a) => text.includes(a))) return true;
-        if (text.includes(scanMatch.name)) return true;
+        if (scanMatch.aliases?.some((a) => textHasTerm(text, a))) return true;
+        if (textHasTerm(text, scanMatch.name)) return true;
       }
       return false;
     };
