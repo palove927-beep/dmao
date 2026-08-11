@@ -243,15 +243,34 @@ ${trimmedList}`,
       eps_forecasts: epsForecasts,
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    // AI SDK 的 APICallError 只會給「Bad Request」這種空泛訊息，
-    // 真正的原因（模型不存在、不支援結構化輸出等）在上游回應裡。
-    const detail =
-      err && typeof err === "object" && "responseBody" in err
-        ? String((err as { responseBody?: unknown }).responseBody ?? "").slice(0, 500)
-        : undefined;
+    // AI SDK / AI Gateway 的錯誤訊息常常只有「Bad Request」，真正的原因散在
+    // responseBody、data、或 cause 鏈裡（GatewayError 系列就沒有 responseBody）。
+    // 把這些欄位攤平，換模型出問題時才看得出是哪一種。
+    const describe = (e: unknown, depth = 0): string => {
+      if (depth > 3 || !e) return "";
+      if (typeof e !== "object") return String(e);
+      const o = e as Record<string, unknown>;
+      const parts: string[] = [];
+      const push = (label: string, v: unknown) => {
+        if (v === undefined || v === null || v === "") return;
+        const s = typeof v === "string" ? v : JSON.stringify(v);
+        parts.push(`${label}=${s.slice(0, 300)}`);
+      };
+      push("name", o.name);
+      push("type", o.type);
+      push("status", o.statusCode);
+      push("msg", o.message);
+      push("body", o.responseBody);
+      push("data", o.data);
+      const inner = describe(o.cause, depth + 1);
+      if (inner) parts.push(`cause(${inner})`);
+      return parts.join(" ");
+    };
+
+    const detail = describe(err);
+    console.error("[analyze] 失敗：", detail || err);
     return NextResponse.json(
-      { ok: false, error: detail ? `${message} — ${detail}` : message },
+      { ok: false, error: detail || "Unknown error" },
       { status: 500 },
     );
   }
