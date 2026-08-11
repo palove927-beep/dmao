@@ -49,8 +49,14 @@ function annotationKeywords(ann: Annotation): string[] {
 function highlightKeywords(text: string, keywords: string[]) {
   const filtered = [...new Set(keywords.filter(Boolean))];
   if (filtered.length === 0) return text;
-  const escaped = filtered.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  escaped.sort((a, b) => b.length - a.length);
+  // 英數關鍵字要求前後不得接英數字元，否則 SEMCO 裡的 EMC 會被標色；
+  // 中文沒有詞界，維持原樣。長的排前面，南亞科 才不會被 南亞 先吃掉。
+  const escaped = [...filtered]
+    .sort((a, b) => b.length - a.length)
+    .map((k) => {
+      const esc = k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return /^[\x00-\x7F]+$/.test(k) ? `(?<![A-Za-z0-9])${esc}(?![A-Za-z0-9])` : esc;
+    });
   const regex = new RegExp(`(${escaped.join("|")})`, "g");
   const parts = text.split(regex);
   return parts.map((part, i) =>

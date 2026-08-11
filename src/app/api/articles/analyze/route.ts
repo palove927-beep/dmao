@@ -36,17 +36,53 @@ function textHasTerm(text: string, term: string): boolean {
   return new RegExp(`(?<![A-Za-z0-9])${escapeRegex(term)}(?![A-Za-z0-9])`).test(text);
 }
 
+// 所有已知的名稱與別名，供「較長名稱優先」判斷用
+const ALL_TERMS: { term: string; ticker: string }[] = scanStocks.flatMap((s) =>
+  [s.name, ...(s.aliases ?? [])]
+    .filter((t) => t && t.length >= 2)
+    .map((term) => ({ term, ticker: s.ticker })),
+);
+
+// 中文沒有詞界，南亞 是 南亞科 的前綴：文章只提「南亞科」時不該連「南亞」也標。
+// 規則是「較長名稱優先」——若某個詞的每一次出現都被其他個股的更長名稱包住，就不算命中；
+// 只要有一次是獨立出現（例如同段落真的提到南亞），仍然算數。
+function isShadowed(text: string, term: string, ticker: string): boolean {
+  const longer = ALL_TERMS.filter(
+    (x) => x.ticker !== ticker && x.term.length > term.length && x.term.includes(term),
+  );
+  if (longer.length === 0) return false;
+
+  const covers: [number, number][] = [];
+  for (const l of longer) {
+    for (let i = text.indexOf(l.term); i !== -1; i = text.indexOf(l.term, i + 1)) {
+      covers.push([i, i + l.term.length]);
+    }
+  }
+  if (covers.length === 0) return false;
+
+  for (let i = text.indexOf(term); i !== -1; i = text.indexOf(term, i + 1)) {
+    const end = i + term.length;
+    if (!covers.some(([a, b]) => a <= i && end <= b)) return false;
+  }
+  return true;
+}
+
+// 詞界 + 較長名稱優先
+function termHits(text: string, term: string, ticker: string): boolean {
+  return textHasTerm(text, term) && !isShadowed(text, term, ticker);
+}
+
 function scanParagraphForStocks(text: string): { ticker: string; stock_name: string }[] {
   const found: Map<string, { ticker: string; stock_name: string }> = new Map();
 
   // 1. Scan all known stocks — match by name, aliases, or ticker in parentheses
   for (const s of scanStocks) {
     if (found.has(s.ticker)) continue;
-    if (textHasTerm(text, s.name)) {
+    if (termHits(text, s.name, s.ticker)) {
       found.set(s.ticker, { ticker: s.ticker, stock_name: s.name });
       continue;
     }
-    if (s.aliases?.some((a) => textHasTerm(text, a))) {
+    if (s.aliases?.some((a) => termHits(text, a, s.ticker))) {
       found.set(s.ticker, { ticker: s.ticker, stock_name: s.name });
       continue;
     }
@@ -181,11 +217,16 @@ ${trimmedList}`,
       text: string,
       stock: { ticker: string; stock_name: string },
     ) => {
-      if (textHasTerm(text, stock.stock_name) || textHasTerm(text, stock.ticker)) return true;
+      if (
+        termHits(text, stock.stock_name, stock.ticker) ||
+        textHasTerm(text, stock.ticker)
+      ) {
+        return true;
+      }
       const scanMatch = scanStocks.find((s) => s.ticker === stock.ticker);
       if (scanMatch) {
-        if (scanMatch.aliases?.some((a) => textHasTerm(text, a))) return true;
-        if (textHasTerm(text, scanMatch.name)) return true;
+        if (scanMatch.aliases?.some((a) => termHits(text, a, scanMatch.ticker))) return true;
+        if (termHits(text, scanMatch.name, scanMatch.ticker)) return true;
       }
       return false;
     };
