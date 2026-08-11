@@ -28,12 +28,27 @@ export type EtfHoldingsData = EtfInfo & {
   holdingsSource: string | null; // 持股實際是從哪個網址解析出來的
 };
 
-// 從投信的 PCF 頁面取持股：先試 JSON，再試伺服器端算好的 HTML 表格
+// 從投信的 PCF 頁面取持股：先試 JSON，再試伺服器端算好的 HTML 表格。
+// 注意：部分投信（如統一 ezmoney）有 bot 偵測，會對非瀏覽器客戶端無限 302，
+// 所以這裡不跟隨轉址——遇到 3xx 直接放棄，避免每次請求都去打對方站台十幾次。
 async function fetchIssuerHoldings(
   pcfUrl: string,
   ticker: string,
 ): Promise<{ holdings: EtfHolding[]; via: string | null }> {
-  const { text, json } = await fetchJson(pcfUrl);
+  const probe = await fetch(pcfUrl, {
+    headers: { "User-Agent": "Mozilla/5.0", Accept: "text/html,application/json,*/*" },
+    redirect: "manual",
+    cache: "no-store",
+  });
+  if (probe.status >= 300 && probe.status < 400) return { holdings: [], via: null };
+
+  const text = await probe.text();
+  let json: unknown = null;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    // 不是 JSON，往下用 HTML 表格解析
+  }
 
   if (json !== null) {
     const scope = narrowToTicker(json, ticker) ?? json;
