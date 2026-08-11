@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { House, RefreshCw, User } from "lucide-react";
 import { categories } from "@/lib/stock-list";
 import { isEditor, loginEditor, logoutEditor } from "@/lib/auth";
@@ -241,9 +242,9 @@ export default function StockPage() {
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "16px 0 20px" }}>
-        <a href="/" style={{ color: "#1a56db", textDecoration: "none", display: "flex", alignItems: "center" }} title="首頁">
+        <Link href="/" style={{ color: "#1a56db", textDecoration: "none", display: "flex", alignItems: "center" }} title="首頁">
           <House size={20} strokeWidth={1.75} />
-        </a>
+        </Link>
         <div style={{ flex: 1, textAlign: "center" }}>
           <h1 style={{ fontSize: 24, fontWeight: "bold", margin: 0, display: "inline" }}>
             股票即時報價
@@ -270,7 +271,7 @@ export default function StockPage() {
           >
             追蹤清單
           </a>
-          <a
+          <Link
             href="/articles"
             style={{
               padding: "6px 16px",
@@ -284,9 +285,9 @@ export default function StockPage() {
             }}
           >
             文章列表
-          </a>
+          </Link>
           {editor && (
-            <a
+            <Link
               href="/stock/dmao"
               style={{
                 padding: "6px 16px",
@@ -300,7 +301,7 @@ export default function StockPage() {
               }}
             >
               貼上文章
-            </a>
+            </Link>
           )}
           <button
             onClick={() => { setLoading(true); fetchPrices(); }}

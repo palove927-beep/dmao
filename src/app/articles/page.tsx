@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
+import Link from "next/link";
 import { House } from "lucide-react";
-import { isEditor } from "@/lib/auth";
+import { useIsEditor } from "@/lib/auth";
 
 type Article = {
   id: string;
@@ -37,30 +38,36 @@ export default function ArticlesPage() {
   const [searchInput, setSearchInput] = useState("");
   const [activeQuery, setActiveQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const [editor, setEditor] = useState(false);
+  const editor = useIsEditor();
 
-  useEffect(() => { setEditor(isEditor()); }, []);
-
-  const fetchArticles = (q: string) => {
-    setLoading(true);
+  // loading 初值就是 true，首次載入不需要再設一次；
+  // 搜尋時的 loading 由事件處理器負責，不放在 effect 裡
+  const fetchArticles = useCallback(async (q: string) => {
     const url = q ? `/api/articles?q=${encodeURIComponent(q)}` : "/api/articles";
-    fetch(url)
-      .then((res) => res.json())
-      .then((json) => { if (json.ok) setArticles(json.articles ?? []); })
-      .finally(() => setLoading(false));
-  };
+    try {
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.ok) setArticles(json.articles ?? []);
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  useEffect(() => { fetchArticles(""); }, []);
+  useEffect(() => { fetchArticles(""); }, [fetchArticles]);
 
   const handleSearch = () => {
     const q = searchInput.trim();
     setActiveQuery(q);
+    setLoading(true);
     fetchArticles(q);
   };
 
   const handleClear = () => {
     setSearchInput("");
     setActiveQuery("");
+    setLoading(true);
     fetchArticles("");
     inputRef.current?.focus();
   };
@@ -68,13 +75,13 @@ export default function ArticlesPage() {
   return (
     <div style={{ maxWidth: 700, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "16px 0 20px" }}>
-        <a href="/stock" style={{ color: "#1a56db", textDecoration: "none", display: "flex", alignItems: "center" }} title="股票報價">
+        <Link href="/stock" style={{ color: "#1a56db", textDecoration: "none", display: "flex", alignItems: "center" }} title="股票報價">
           <House size={20} strokeWidth={1.75} />
-        </a>
+        </Link>
         <h1 style={{ fontSize: 24, fontWeight: "bold", margin: 0, flex: 1, textAlign: "center" }}>文章列表</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {editor && (
-            <a
+            <Link
               href="/stock/dmao"
               style={{
                 padding: "6px 16px",
@@ -87,7 +94,7 @@ export default function ArticlesPage() {
               }}
             >
               貼上文章
-            </a>
+            </Link>
           )}
         </div>
       </div>

@@ -317,7 +317,7 @@ export async function GET(
 
     // 1. Read existing data from Supabase
     const latestDate = await getLatestDate(ticker);
-    let needsFetch = forceRefresh || !latestDate || isStale(latestDate);
+    const needsFetch = forceRefresh || !latestDate || isStale(latestDate);
 
     // 2. Fetch missing data from external API if needed
     if (needsFetch) {

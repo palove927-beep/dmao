@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import Link from "next/link";
 import { House } from "lucide-react";
 import { useParams } from "next/navigation";
 import { categories } from "@/lib/stock-list";
@@ -242,13 +243,14 @@ export default function StockDetailPage() {
   const [quote, setQuote] = useState<TrackQuote | null>(null);
   const [articleEvents, setArticleEvents] = useState<ArticleEvent[]>([]);
   const [annotationRows, setAnnotationRows] = useState<AnnotationRow[]>([]);
-  const [hoverPin, setHoverPin] = useState<{ pin: ArticlePinGroup; x: number; y: number } | null>(null);
+  // wrapW 在 hover 當下量測並存起來，render 期間不去讀 ref
+  const [hoverPin, setHoverPin] = useState<{ pin: ArticlePinGroup; x: number; y: number; wrapW: number } | null>(null);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chartWrapRef = useRef<HTMLDivElement>(null);
 
   const showPinPopup = useCallback((pin: ArticlePinGroup, x: number, y: number) => {
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-    setHoverPin({ pin, x, y });
+    setHoverPin({ pin, x, y, wrapW: chartWrapRef.current?.clientWidth ?? 800 });
   }, []);
 
   const hidePinPopupSoon = useCallback(() => {
@@ -312,17 +314,21 @@ export default function StockDetailPage() {
     return () => { cancelled = true; clearInterval(interval); };
   }, [ticker]);
 
-  const fetchData = useCallback((refresh = false) => {
-    if (refresh) setRefreshing(true); else setLoading(true);
+  // loading 初值就是 true，首次載入不需要再設一次；
+  // 「重新抓取」的 refreshing 由事件處理器負責，不放在 effect 裡
+  const fetchData = useCallback(async (refresh = false) => {
     const url = refresh ? `/api/stock-history/${ticker}?refresh=1` : `/api/stock-history/${ticker}`;
-    fetch(url)
-      .then((r) => r.json())
-      .then((json) => {
-        if (json.ok) { setData(json); setError(null); }
-        else setError(json.error ?? "載入失敗");
-      })
-      .catch(() => setError("網路錯誤"))
-      .finally(() => { setLoading(false); setRefreshing(false); });
+    try {
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.ok) { setData(json); setError(null); }
+      else setError(json.error ?? "載入失敗");
+    } catch {
+      setError("網路錯誤");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [ticker]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -411,9 +417,9 @@ export default function StockDetailPage() {
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
       <div style={{ display: "flex", alignItems: "center", margin: "16px 0 0" }}>
-        <a href="/stock" style={{ color: "#1a56db", textDecoration: "none", display: "flex", alignItems: "center" }} title="股票列表">
+        <Link href="/stock" style={{ color: "#1a56db", textDecoration: "none", display: "flex", alignItems: "center" }} title="股票列表">
           <House size={20} strokeWidth={1.75} />
-        </a>
+        </Link>
       </div>
 
       <div style={{ margin: "20px 0" }}>
@@ -503,7 +509,7 @@ export default function StockDetailPage() {
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <button
-                  onClick={() => fetchData(true)}
+                  onClick={() => { setRefreshing(true); fetchData(true); }}
                   disabled={refreshing}
                   title="重新抓取完整一年資料"
                   style={{
@@ -602,7 +608,7 @@ export default function StockDetailPage() {
 
             {/* 圖釘 hover：顯示文章的標記段落 */}
             {hoverPin && (() => {
-              const wrapW = chartWrapRef.current?.clientWidth ?? 800;
+              const wrapW = hoverPin.wrapW;
               const popupW = Math.min(340, wrapW - 8);
               const left = Math.min(Math.max(hoverPin.x - popupW / 2, 4), wrapW - popupW - 4);
               return (

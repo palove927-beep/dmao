@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { House } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { scanStocks } from "@/lib/stock-lookup";
@@ -167,9 +168,9 @@ export default function ArticlePage() {
 
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
-      <a href="/stock" style={{ color: "#1a56db", textDecoration: "none", display: "inline-flex", alignItems: "center" }} title="回到股票頁">
+      <Link href="/stock" style={{ color: "#1a56db", textDecoration: "none", display: "inline-flex", alignItems: "center" }} title="回到股票頁">
         <House size={20} strokeWidth={1.75} />
-      </a>
+      </Link>
 
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginTop: 20, marginBottom: 8, gap: 12 }}>
         <h1 style={{ fontSize: 24, fontWeight: "bold", margin: 0, display: "flex", alignItems: "center", gap: 10 }}>

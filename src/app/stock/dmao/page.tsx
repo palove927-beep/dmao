@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
 import { House } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { splitParagraphs } from "@/lib/paragraphs";
@@ -656,9 +657,9 @@ export default function DmaoPage() {
       onPaste={step === 1 ? handlePaste : undefined}
     >
       <div style={{ display: "flex", alignItems: "center", margin: "16px 0 20px" }}>
-        <a href="/stock" style={{ color: "#1a56db", textDecoration: "none", display: "flex", alignItems: "center" }} title="股票報價">
+        <Link href="/stock" style={{ color: "#1a56db", textDecoration: "none", display: "flex", alignItems: "center" }} title="股票報價">
           <House size={20} strokeWidth={1.75} />
-        </a>
+        </Link>
         <h1 style={{ fontSize: 24, fontWeight: "bold", margin: 0, flex: 1, textAlign: "center" }}>
           {step === 1 ? "貼上文章" : "審核標記"}
         </h1>
