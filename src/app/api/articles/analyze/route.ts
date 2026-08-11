@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       : paragraphList;
 
     const { object: result } = await generateObject({
-      model: process.env.ANALYZE_MODEL || "inclusionai/ling-3.0-flash",
+      model: process.env.ANALYZE_MODEL || "meta/muse-spark-1.2-contributor",
       schema: z.object({
         article_type: z.enum(["stock", "weekly", "macro", "industry", "other"])
           .describe("文章分類：stock=個股分析, weekly=產業週報, macro=總經分析, industry=產業分析, other=其他"),
