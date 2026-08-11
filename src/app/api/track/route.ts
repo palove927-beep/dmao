@@ -25,6 +25,8 @@ export type TrackQuote = {
 type Quote = Omit<TrackQuote, "limit"> & {
   limitUp: number | null;
   limitDown: number | null;
+  // Fugle 直接給的漲跌停旗標，TWSE 沒有漲跌停價可比對時當備援
+  fugleLimit: "up" | "down" | null;
 };
 
 // 直接比對 TWSE 給的漲停價(u)/跌停價(w)，不用漲跌幅%推算（跳動單位會讓漲停幅度不足 10%）
@@ -32,7 +34,8 @@ function limitState(q: Quote): "up" | "down" | null {
   if (q.price === null) return null;
   if (q.limitUp !== null && q.price === q.limitUp) return "up";
   if (q.limitDown !== null && q.price === q.limitDown) return "down";
-  return null;
+  // TWSE 沒給漲跌停價（如興櫃、或該檔整筆查無）時，用 Fugle 的旗標
+  return q.fugleLimit;
 }
 
 function parseNumber(s: string | undefined): number | null {
@@ -105,6 +108,7 @@ function parseMsgArray(
       volume: parseNumber(item.v),
       limitUp: parsePrice(item.u),
       limitDown: parsePrice(item.w),
+      fugleLimit: null,
     });
   }
 }
@@ -143,6 +147,8 @@ async function fetchFugleQuote(code: string): Promise<Quote | null> {
       // 興櫃無漲跌停；上市櫃走到這裡時會保留 TWSE 已取得的漲跌停價
       limitUp: null,
       limitDown: null,
+      // Fugle 回傳裡直接就有是否觸及漲跌停，不必再比價
+      fugleLimit: data.isLimitUpPrice ? "up" : data.isLimitDownPrice ? "down" : null,
     };
   } catch {
     return null;
@@ -222,6 +228,8 @@ export async function GET(req: NextRequest) {
             high: existing.high ?? q.high,
             low: existing.low ?? q.low,
             yesterday,
+            // 價格來自 Fugle，漲跌停旗標也一併採用
+            fugleLimit: q.fugleLimit,
           });
         }
       }
