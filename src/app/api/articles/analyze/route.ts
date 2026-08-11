@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       : paragraphList;
 
     const { object: result } = await generateObject({
-      model: "inclusionai/ling-3.0-flash",
+      model: "anthropic/claude-sonnet-5",
       schema: z.object({
         article_type: z.enum(["stock", "weekly", "macro", "industry", "other"])
           .describe("文章分類：stock=個股分析, weekly=產業週報, macro=總經分析, industry=產業分析, other=其他"),
@@ -244,6 +244,15 @@ ${trimmedList}`,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    // AI SDK 的 APICallError 只會給「Bad Request」這種空泛訊息，
+    // 真正的原因（模型不存在、不支援結構化輸出等）在上游回應裡。
+    const detail =
+      err && typeof err === "object" && "responseBody" in err
+        ? String((err as { responseBody?: unknown }).responseBody ?? "").slice(0, 500)
+        : undefined;
+    return NextResponse.json(
+      { ok: false, error: detail ? `${message} — ${detail}` : message },
+      { status: 500 },
+    );
   }
 }
