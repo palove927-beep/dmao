@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  extractHoldings,
-  extractUrls,
-  narrowToTicker,
-  parseHtmlTables,
-  type EtfHolding,
-} from "@/lib/etf-pcf";
+import { extractHoldings, narrowToTicker, type EtfHolding } from "@/lib/etf-pcf";
 
 export const dynamic = "force-dynamic";
 
@@ -24,43 +18,9 @@ export type EtfInfo = {
 
 export type EtfHoldingsData = EtfInfo & {
   source: string;
+  // TWSE 不提供成分股，實際持股請見 pcfUrl（各投信自行公告）
   holdings: EtfHolding[];
-  holdingsSource: string | null; // 持股實際是從哪個網址解析出來的
 };
-
-// 從投信的 PCF 頁面取持股：先試 JSON，再試伺服器端算好的 HTML 表格。
-// 注意：部分投信（如統一 ezmoney）有 bot 偵測，會對非瀏覽器客戶端無限 302，
-// 所以這裡不跟隨轉址——遇到 3xx 直接放棄，避免每次請求都去打對方站台十幾次。
-async function fetchIssuerHoldings(
-  pcfUrl: string,
-  ticker: string,
-): Promise<{ holdings: EtfHolding[]; via: string | null }> {
-  const probe = await fetch(pcfUrl, {
-    headers: { "User-Agent": "Mozilla/5.0", Accept: "text/html,application/json,*/*" },
-    redirect: "manual",
-    cache: "no-store",
-  });
-  if (probe.status >= 300 && probe.status < 400) return { holdings: [], via: null };
-
-  const text = await probe.text();
-  let json: unknown = null;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    // 不是 JSON，往下用 HTML 表格解析
-  }
-
-  if (json !== null) {
-    const scope = narrowToTicker(json, ticker) ?? json;
-    const holdings = extractHoldings(scope);
-    if (holdings.length > 0) return { holdings, via: `${pcfUrl} (json)` };
-  }
-
-  const fromHtml = parseHtmlTables(text);
-  if (fromHtml.length > 0) return { holdings: fromHtml, via: `${pcfUrl} (html)` };
-
-  return { holdings: [], via: null };
-}
 
 // TWSE 的 ETF 商品資訊 API（頁面 content.html 上宣告的 data-api，實測可用）。
 // 參數名是 id，不是常見的 stkNo／stockNo。
@@ -104,7 +64,6 @@ export async function GET(
   const { ticker: raw } = await params;
   const ticker = (raw || "").trim().toUpperCase();
   const customUrl = req.nextUrl.searchParams.get("url");
-  const discover = req.nextUrl.searchParams.get("discover") === "1";
 
   if (!/^\d{4,6}[A-Z]?$/.test(ticker)) {
     return NextResponse.json({ ok: false, error: "代號格式不正確" }, { status: 400 });
@@ -151,45 +110,10 @@ export async function GET(
       pcfUrl: pcfUrl && /^https?:\/\//.test(pcfUrl) ? pcfUrl : null,
     };
 
-    // TWSE 不提供成分股，持股要再往投信的 PCF 頁面取
-    let holdings: EtfHolding[] = [];
-    let holdingsSource: string | null = null;
-
-    if (info.pcfUrl) {
-      try {
-        const result = await fetchIssuerHoldings(info.pcfUrl, ticker);
-        holdings = result.holdings;
-        holdingsSource = result.via;
-      } catch {
-        // 投信網站抓不到就只回 TWSE 的基本資料
-      }
-    }
-
-    // 投信頁多半是 JS 應用，抓不到持股時列出頁面裡的端點，方便定位真正的資料來源
-    if (discover) {
-      const probe = info.pcfUrl ? await fetchJson(info.pcfUrl).catch(() => null) : null;
-      return NextResponse.json({
-        ok: true,
-        ticker,
-        pcfUrl: info.pcfUrl,
-        holdings: holdings.length,
-        holdingsSource,
-        page: probe
-          ? {
-              status: probe.status,
-              size: probe.text.length,
-              urls: extractUrls(probe.text, ["api", "json", "pcf", "etf", "fund", "holding", ".js"]),
-              sample: probe.text.slice(0, 400),
-            }
-          : null,
-      });
-    }
-
     const data: EtfHoldingsData = {
       ...info,
       source: "twse-rwd-productContent",
-      holdings,
-      holdingsSource,
+      holdings: [],
     };
 
     return NextResponse.json(
