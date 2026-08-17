@@ -265,15 +265,21 @@ function isStale(latestDate: string): boolean {
 
 // ─── Fetch external data (TWSE/TPEX + Fugle fallback) ───
 
+// 未列在 stock-list 的代碼（比價頁可自由加入）無從得知上市或上櫃，
+// 因此兩個市場都試過才放棄。
 async function fetchExternal(ticker: string, isTpex: boolean, sinceDate?: string): Promise<PriceRow[]> {
   if (isTpex) {
     const tpexPrices = await fetchTpex(ticker, sinceDate);
     if (tpexPrices.length > 0) return tpexPrices;
-    return fetchFugle(ticker, sinceDate);
+    const fuglePrices = await fetchFugle(ticker, sinceDate);
+    if (fuglePrices.length > 0) return fuglePrices;
+    return fetchTwse(ticker, sinceDate);
   }
   const twsePrices = await fetchTwse(ticker, sinceDate);
   if (twsePrices.length > 0) return twsePrices;
-  return fetchFugle(ticker, sinceDate);
+  const fuglePrices = await fetchFugle(ticker, sinceDate);
+  if (fuglePrices.length > 0) return fuglePrices;
+  return fetchTpex(ticker, sinceDate);
 }
 
 // ─── Route handler ───────────────────────────────────────

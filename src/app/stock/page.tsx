@@ -272,6 +272,21 @@ export default function StockPage() {
             追蹤清單
           </a>
           <Link
+            href="/compare"
+            style={{
+              padding: "6px 16px",
+              fontSize: 13,
+              border: "1px solid #1a56db",
+              borderRadius: 6,
+              background: "#fff",
+              color: "#1a56db",
+              textDecoration: "none",
+              display: "inline-block",
+            }}
+          >
+            股價比價
+          </Link>
+          <Link
             href="/articles"
             style={{
               padding: "6px 16px",

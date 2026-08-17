@@ -1141,6 +1141,21 @@ export default function TrackPage() {
           >
             即時報價
           </Link>
+          <Link
+            href="/compare"
+            style={{
+              padding: "6px 16px",
+              fontSize: 13,
+              border: "1px solid #1a56db",
+              borderRadius: 6,
+              background: "#fff",
+              color: "#1a56db",
+              textDecoration: "none",
+              display: "inline-block",
+            }}
+          >
+            股價比價
+          </Link>
           <button
             onClick={fetchQuotes}
             disabled={loading}
