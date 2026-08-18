@@ -5,6 +5,7 @@ import Link from "next/link";
 import { House, RefreshCw, SquarePen, Trash2, Copy, Check, Import, GripVertical } from "lucide-react";
 import { scanStocks } from "@/lib/stock-lookup";
 import type { TrackQuote } from "@/app/api/track/route";
+import { encodeGroup, decodeGroup } from "@/lib/group-share";
 
 // ─── Watchlist persistence (localStorage) ────────────────
 // 群組為主的結構：每個群組各自持有一份股票清單（同一支股票若跨群組，會分別存於各群組）
@@ -67,43 +68,6 @@ function saveGroups(groups: Group[]) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
   } catch {
     // ignore
-  }
-}
-
-// ─── 群組分享（複製為分享碼／從分享碼匯入）───
-const SHARE_PREFIX = "DMAO1-";
-
-function encodeGroup(g: Group): string {
-  const payload = {
-    v: 1,
-    name: g.name,
-    h: g.holding ? 1 : 0,
-    s: g.stocks.map((x) => (x.lots != null ? [x.ticker, x.name, x.lots] : [x.ticker, x.name])),
-  };
-  const bytes = new TextEncoder().encode(JSON.stringify(payload));
-  const b64 = btoa(String.fromCharCode(...bytes));
-  return SHARE_PREFIX + b64;
-}
-
-function decodeGroup(code: string): Group | null {
-  try {
-    const raw = code.trim().replace(/^DMAO1-/, "");
-    if (!raw) return null;
-    const bytes = Uint8Array.from(atob(raw), (c) => c.charCodeAt(0));
-    const p = JSON.parse(new TextDecoder().decode(bytes));
-    if (!p || typeof p.name !== "string" || !Array.isArray(p.s)) return null;
-    const seen = new Set<string>();
-    const stocks: Stock[] = [];
-    for (const it of p.s) {
-      if (Array.isArray(it) && typeof it[0] === "string" && typeof it[1] === "string" && !seen.has(it[0])) {
-        seen.add(it[0]);
-        const lots = typeof it[2] === "number" && isFinite(it[2]) && it[2] > 0 ? it[2] : undefined;
-        stocks.push({ ticker: it[0], name: it[1], lots });
-      }
-    }
-    return { name: String(p.name).slice(0, 40) || "匯入群組", holding: !!p.h, stocks };
-  } catch {
-    return null;
   }
 }
 
