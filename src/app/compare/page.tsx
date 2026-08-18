@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { House, RefreshCw, X, Trash2, SquarePen, Copy, Check, Import, GripVertical } from "lucide-react";
+import { House, RefreshCw, Trash2, SquarePen, Copy, Check, Import, GripVertical } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from "recharts";
@@ -269,10 +269,6 @@ export default function ComparePage() {
   const [sortAsc, setSortAsc] = useState(false);
   const [benchmark, setBenchmark] = useState<string>("");
 
-  const [query, setQuery] = useState("");
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
-
   // ─── 編輯彈窗（新增/刪除股票、群組皆先改草稿，按儲存才生效）───
   const [editMode, setEditMode] = useState(false);
   const [draftGroups, setDraftGroups] = useState<Group[]>([]);
@@ -396,30 +392,6 @@ export default function ComparePage() {
     ensureData(stocks.map((s) => s.ticker), true);
   }, [stocks, ensureData]);
 
-  // ─── 主畫面：加入／移除股票（直接生效）───
-  const addStock = useCallback((stock: Stock) => {
-    setGroupsData((prev) => {
-      const list = prev ?? [];
-      // 一個群組都沒有時，先開一個預設群組
-      if (list.length === 0) {
-        const next = [{ name: DEFAULT_GROUP, stocks: [stock] }];
-        saveGroups(next);
-        changeActiveGroup(DEFAULT_GROUP);
-        return next;
-      }
-      const next = list.map((g) => {
-        if (g.name !== activeGroup) return g;
-        if (g.stocks.some((s) => s.ticker === stock.ticker)) return g;
-        if (g.stocks.length >= MAX_STOCKS) return g;
-        return { ...g, stocks: [...g.stocks, stock] };
-      });
-      saveGroups(next);
-      return next;
-    });
-    setQuery("");
-    setShowSuggestions(false);
-  }, [activeGroup, changeActiveGroup]);
-
   // 直接輸入代碼加入時，向報價 API 補股名
   const resolveName = useCallback(async (code: string) => {
     try {
@@ -441,22 +413,6 @@ export default function ComparePage() {
       // 補不到就維持代碼
     }
   }, []);
-
-  const addByCode = useCallback((code: string) => {
-    addStock({ ticker: code, name: code });
-    resolveName(code);
-  }, [addStock, resolveName]);
-
-  const removeStock = useCallback((ticker: string) => {
-    setGroupsData((prev) => {
-      const next = (prev ?? []).map((g) =>
-        g.name === activeGroup ? { ...g, stocks: g.stocks.filter((s) => s.ticker !== ticker) } : g,
-      );
-      saveGroups(next);
-      return next;
-    });
-    setBenchmark((b) => (b === ticker ? "" : b));
-  }, [activeGroup]);
 
   const toggleHidden = useCallback((ticker: string) => {
     setHidden((prev) => {
@@ -646,7 +602,6 @@ export default function ComparePage() {
   // ─── 搜尋建議 ───
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowSuggestions(false);
       if (modalSearchRef.current && !modalSearchRef.current.contains(e.target as Node)) setShowModalSuggestions(false);
     };
     document.addEventListener("mousedown", handler);
@@ -668,23 +623,12 @@ export default function ComparePage() {
       .slice(0, 8);
   };
 
-  const suggestions = useMemo(() => buildSuggestions(query, stocks), [query, stocks]);
   const modalSuggestions = useMemo(() => buildSuggestions(modalQuery, modalGroupStocks), [modalQuery, modalGroupStocks]);
-
-  const rawCodeAddable =
-    isTwTicker(query.trim()) &&
-    !stocks.some((s) => s.ticker === query.trim()) &&
-    !suggestions.some((s) => s.ticker === query.trim());
 
   const modalRawCodeAddable =
     isTwTicker(modalQuery.trim()) &&
     !modalGroupStocks.some((s) => s.ticker === modalQuery.trim()) &&
     !modalSuggestions.some((s) => s.ticker === modalQuery.trim());
-
-  const handleEnter = () => {
-    if (suggestions.length > 0) addStock({ ticker: suggestions[0].ticker, name: suggestions[0].name });
-    else if (rawCodeAddable) addByCode(query.trim());
-  };
 
   const handleModalEnter = () => {
     if (modalSuggestions.length > 0) addStockToDraft({ ticker: modalSuggestions[0].ticker, name: modalSuggestions[0].name });
@@ -869,57 +813,6 @@ export default function ComparePage() {
         </button>
       </div>
 
-      {/* 加入股票（直接加進目前群組）*/}
-      <div ref={searchRef} style={{ position: "relative", marginBottom: 14 }}>
-        <input
-          value={query}
-          onChange={(e) => { setQuery(e.target.value); setShowSuggestions(true); }}
-          onFocus={() => setShowSuggestions(true)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleEnter();
-            if (e.key === "Escape") setShowSuggestions(false);
-          }}
-          placeholder={`加入股票到「${activeGroup || DEFAULT_GROUP}」（代碼或名稱，如 2330、台積電）— 每組最多 ${MAX_STOCKS} 檔`}
-          style={{
-            width: "100%", padding: "9px 12px", fontSize: 14, border: "1px solid #d1d5db",
-            borderRadius: 6, outline: "none", boxSizing: "border-box",
-          }}
-        />
-        {showSuggestions && (suggestions.length > 0 || rawCodeAddable) && (
-          <div style={{
-            position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4, background: "#fff",
-            border: "1px solid #e5e7eb", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.1)", zIndex: 20,
-            maxHeight: 300, overflowY: "auto",
-          }}>
-            {suggestions.map((s) => (
-              <button
-                key={s.ticker}
-                onClick={() => addStock({ ticker: s.ticker, name: s.name })}
-                style={{
-                  display: "block", width: "100%", padding: "8px 12px", fontSize: 14, border: "none",
-                  background: "none", cursor: "pointer", textAlign: "left", color: "#222",
-                }}
-              >
-                <span style={{ color: "#6b7280", marginRight: 8 }}>{s.ticker}</span>
-                {s.name}
-              </button>
-            ))}
-            {rawCodeAddable && (
-              <button
-                onClick={() => addByCode(query.trim())}
-                style={{
-                  display: "block", width: "100%", padding: "8px 12px", fontSize: 14, border: "none",
-                  borderTop: suggestions.length > 0 ? "1px solid #f3f4f6" : "none",
-                  background: "none", cursor: "pointer", textAlign: "left", color: "#6b7280",
-                }}
-              >
-                直接加入代碼「{query.trim()}」
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
       {/* 區間選擇 */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 12, fontSize: 14 }}>
         <span style={{ color: "#666" }}>比較區間：</span>
@@ -1017,30 +910,19 @@ export default function ComparePage() {
             return (
               <span
                 key={s.ticker}
+                onClick={() => toggleHidden(s.ticker)}
+                title={isHidden ? "在圖上顯示" : "在圖上隱藏"}
                 style={{
-                  display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 8px 4px 10px",
+                  display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px",
                   border: `1px solid ${err ? "#fecaca" : "#e5e7eb"}`, borderRadius: 16, fontSize: 13,
-                  background: err ? "#fef2f2" : "#fff", opacity: isHidden ? 0.45 : 1,
+                  background: err ? "#fef2f2" : "#fff", opacity: isHidden ? 0.45 : 1, cursor: "pointer",
                 }}
               >
-                <span
-                  onClick={() => toggleHidden(s.ticker)}
-                  title={isHidden ? "在圖上顯示" : "在圖上隱藏"}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer" }}
-                >
-                  <span style={{ width: 9, height: 9, borderRadius: 5, background: lineColor(i), display: "inline-block" }} />
-                  <b>{s.name}</b>
-                  <span style={{ color: "#9ca3af" }}>{s.ticker}</span>
-                  {isLoading && <span style={{ color: "#9ca3af" }}>載入中…</span>}
-                  {err && <span style={{ color: "#dc2626" }}>{err}</span>}
-                </span>
-                <button
-                  onClick={() => removeStock(s.ticker)}
-                  title="從此群組移除"
-                  style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", color: "#9ca3af" }}
-                >
-                  <X size={14} strokeWidth={2} />
-                </button>
+                <span style={{ width: 9, height: 9, borderRadius: 5, background: lineColor(i), display: "inline-block" }} />
+                <b>{s.name}</b>
+                <span style={{ color: "#9ca3af" }}>{s.ticker}</span>
+                {isLoading && <span style={{ color: "#9ca3af" }}>載入中…</span>}
+                {err && <span style={{ color: "#dc2626" }}>{err}</span>}
               </span>
             );
           })}
@@ -1050,13 +932,13 @@ export default function ComparePage() {
       {/* 空狀態 */}
       {groupsData !== null && groupNames.length === 0 && (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#999", fontSize: 14 }}>
-          尚無群組，用上方搜尋加入股票或按「編輯」新增群組
+          尚無群組，按「編輯」新增群組與股票
         </div>
       )}
 
       {groupsData !== null && groupNames.length > 0 && stocks.length === 0 && (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#999", fontSize: 14 }}>
-          「{activeGroup}」群組尚無股票，用上方搜尋加入
+          「{activeGroup}」群組尚無股票，按「編輯」加入
         </div>
       )}
 
