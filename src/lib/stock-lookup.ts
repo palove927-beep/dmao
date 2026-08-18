@@ -181,6 +181,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "3485",       name: "敘豐" },
   { ticker: "4749",       name: "新應材" },
   { ticker: "4768",       name: "晶呈科技",              aliases: ["晶呈科"] },
+  { ticker: "4989",       name: "榮科" },
   { ticker: "6820",       name: "連訊" },
   { ticker: "6983",       name: "華洋精機" },
   { ticker: "7788",       name: "松川精密",              aliases: ["松川"] },
@@ -194,6 +195,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "300394.SZ",  name: "天孚通信",               aliases: ["TFC"] },
   { ticker: "300476.SZ",  name: "勝宏科技",              aliases: ["勝宏"] },
   { ticker: "600460.SS",  name: "士蘭微" },
+  { ticker: "600601.SS",  name: "方正科技",               aliases: ["方正"] },
   { ticker: "603228.SS",  name: "景旺電子",               aliases: ["景旺"] },
   { ticker: "603986.SS",  name: "兆易創新" },
   { ticker: "688396.SS",  name: "華潤微" },
@@ -211,6 +213,8 @@ export const scanStocks: ScanStock[] = [
   { ticker: "6997.T",     name: "佳美工(Chemi-Con)",         aliases: ["佳美工", "Chemi-Con", "ChemiCon"] },
   // 比對大小寫敏感，Shinko／shinko 兩種常見寫法都列進別名
   { ticker: "7120.T",     name: "SHINKO",                   aliases: ["Shinko", "shinko", "新光電氣"] },
+  // 同理，SUMCO／Sumco 兩種寫法都列進別名
+  { ticker: "3436.T",     name: "SUMCO",                    aliases: ["Sumco", "sumco"] },
   // ─── 韓股 ────────────────────────────────────────────────
   { ticker: "000157.KS",  name: "斗山(Doosan)",             aliases: ["斗山", "Doosan"] },
   // ─── 沙烏地 ──────────────────────────────────────────────
