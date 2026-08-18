@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import Link from "next/link";
-import { House } from "lucide-react";
 import { useParams } from "next/navigation";
 import { categories } from "@/lib/stock-list";
+import PageHeader from "@/components/PageHeader";
 import type { TrackQuote } from "@/app/api/track/route";
 import {
   ComposedChart, Bar, BarChart, Cell, AreaChart, Area, XAxis, YAxis, Tooltip,
@@ -416,11 +415,7 @@ export default function StockDetailPage() {
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
-      <div style={{ display: "flex", alignItems: "center", margin: "16px 0 0" }}>
-        <Link href="/stock" style={{ color: "#1a56db", textDecoration: "none", display: "flex", alignItems: "center" }} title="股票列表">
-          <House size={20} strokeWidth={1.75} />
-        </Link>
-      </div>
+      <PageHeader />
 
       <div style={{ margin: "20px 0" }}>
         {loading ? (

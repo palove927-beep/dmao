@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
-import { House, RefreshCw, User } from "lucide-react";
+import { RefreshCw, User } from "lucide-react";
 import { categories } from "@/lib/stock-list";
 import { isEditor, loginEditor, logoutEditor } from "@/lib/auth";
+import PageHeader from "@/components/PageHeader";
 import type { StockPrice } from "@/app/api/stock/route";
 
 type PriceMap = Record<string, StockPrice>;
@@ -241,127 +241,56 @@ export default function StockPage() {
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "16px 0 20px" }}>
-        <Link href="/" style={{ color: "#1a56db", textDecoration: "none", display: "flex", alignItems: "center" }} title="首頁">
-          <House size={20} strokeWidth={1.75} />
-        </Link>
-        <div style={{ flex: 1, textAlign: "center" }}>
-          <h1 style={{ fontSize: 24, fontWeight: "bold", margin: 0, display: "inline" }}>
-            股票即時報價
-          </h1>
-          {updatedAt && (
-            <span style={{ fontSize: 13, color: "#999", marginLeft: 10 }}>
-              {new Date(updatedAt).toLocaleString("zh-TW")}
-            </span>
-          )}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <a
-            href="/track"
-            style={{
-              padding: "6px 16px",
-              fontSize: 13,
-              border: "1px solid #1a56db",
-              borderRadius: 6,
-              background: "#fff",
-              color: "#1a56db",
-              textDecoration: "none",
-              display: "inline-block",
-            }}
-          >
-            追蹤清單
-          </a>
-          <Link
-            href="/compare"
-            style={{
-              padding: "6px 16px",
-              fontSize: 13,
-              border: "1px solid #1a56db",
-              borderRadius: 6,
-              background: "#fff",
-              color: "#1a56db",
-              textDecoration: "none",
-              display: "inline-block",
-            }}
-          >
-            股價比價
-          </Link>
-          <Link
-            href="/articles"
-            style={{
-              padding: "6px 16px",
-              fontSize: 13,
-              border: "1px solid #1a56db",
-              borderRadius: 6,
-              background: "#fff",
-              color: "#1a56db",
-              textDecoration: "none",
-              display: "inline-block",
-            }}
-          >
-            文章列表
-          </Link>
-          {editor && (
-            <Link
-              href="/stock/dmao"
+      <PageHeader
+        title="股票即時報價"
+        subtitle={updatedAt ? new Date(updatedAt).toLocaleString("zh-TW") : undefined}
+        actions={
+          <>
+            <button
+              onClick={() => { setLoading(true); fetchPrices(); }}
+              disabled={loading}
+              title="重新整理"
               style={{
-                padding: "6px 16px",
-                fontSize: 13,
-                border: "1px solid #1a56db",
-                borderRadius: 6,
-                background: "#fff",
-                color: "#1a56db",
-                textDecoration: "none",
-                display: "inline-block",
+                background: "none",
+                border: "none",
+                cursor: loading ? "not-allowed" : "pointer",
+                opacity: loading ? 0.5 : 1,
+                padding: "2px 6px",
+                display: "flex",
+                alignItems: "center",
+                color: "#333",
               }}
             >
-              貼上文章
-            </Link>
-          )}
-          <button
-            onClick={() => { setLoading(true); fetchPrices(); }}
-            disabled={loading}
-            title="重新整理"
-            style={{
-              background: "none",
-              border: "none",
-              cursor: loading ? "not-allowed" : "pointer",
-              opacity: loading ? 0.5 : 1,
-              padding: "2px 6px",
-              display: "flex",
-              alignItems: "center",
-              color: "#333",
-            }}
-          >
-            <RefreshCw size={18} strokeWidth={1.75} style={loading ? { animation: "spin 1s linear infinite" } : undefined} />
-          </button>
-          <button
-            onClick={() => {
-              if (editor) {
-                logoutEditor();
-                setEditor(false);
-              } else {
-                setShowLogin(true);
-                setLoginCode("");
-                setLoginError(false);
-              }
-            }}
-            title={editor ? "登出編輯模式" : "登入編輯模式"}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: "2px 6px",
-              borderRadius: 4,
-              display: "flex",
-              alignItems: "center",
-              color: editor ? "#16a34a" : "#999",
-            }}
-          >
-            <User size={20} strokeWidth={1.75} />
-          </button>
-        </div>
-      </div>
+              <RefreshCw size={18} strokeWidth={1.75} style={loading ? { animation: "spin 1s linear infinite" } : undefined} />
+            </button>
+            <button
+              onClick={() => {
+                if (editor) {
+                  logoutEditor();
+                  setEditor(false);
+                } else {
+                  setShowLogin(true);
+                  setLoginCode("");
+                  setLoginError(false);
+                }
+              }}
+              title={editor ? "登出編輯模式" : "登入編輯模式"}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: "2px 6px",
+                borderRadius: 4,
+                display: "flex",
+                alignItems: "center",
+                color: editor ? "#16a34a" : "#999",
+              }}
+            >
+              <User size={20} strokeWidth={1.75} />
+            </button>
+          </>
+        }
+      />
 
       {showLogin && (
         <div style={{

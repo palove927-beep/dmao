@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import Link from "next/link";
-import { House } from "lucide-react";
-import { useIsEditor } from "@/lib/auth";
+import PageHeader from "@/components/PageHeader";
 
 type Article = {
   id: string;
@@ -38,7 +36,6 @@ export default function ArticlesPage() {
   const [searchInput, setSearchInput] = useState("");
   const [activeQuery, setActiveQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const editor = useIsEditor();
 
   // loading 初值就是 true，首次載入不需要再設一次；
   // 搜尋時的 loading 由事件處理器負責，不放在 effect 裡
@@ -74,30 +71,7 @@ export default function ArticlesPage() {
 
   return (
     <div style={{ maxWidth: 700, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "16px 0 20px" }}>
-        <Link href="/stock" style={{ color: "#1a56db", textDecoration: "none", display: "flex", alignItems: "center" }} title="股票報價">
-          <House size={20} strokeWidth={1.75} />
-        </Link>
-        <h1 style={{ fontSize: 24, fontWeight: "bold", margin: 0, flex: 1, textAlign: "center" }}>文章列表</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {editor && (
-            <Link
-              href="/stock/dmao"
-              style={{
-                padding: "6px 16px",
-                fontSize: 13,
-                border: "1px solid #1a56db",
-                borderRadius: 6,
-                background: "#1a56db",
-                color: "#fff",
-                textDecoration: "none",
-              }}
-            >
-              貼上文章
-            </Link>
-          )}
-        </div>
-      </div>
+      <PageHeader title="文章列表" />
 
       {/* 搜尋列 */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>

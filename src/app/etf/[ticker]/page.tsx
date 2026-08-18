@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { House, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import PageHeader from "@/components/PageHeader";
 import type { EtfHolding, EtfInfo } from "@/app/api/etf-holdings/[ticker]/route";
 
 type State =
@@ -68,11 +69,7 @@ export default function EtfPage() {
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
-      <div style={{ display: "flex", alignItems: "center", margin: "16px 0 0" }}>
-        <Link href="/stock" style={{ color: "#1a56db", textDecoration: "none", display: "flex", alignItems: "center" }} title="股票列表">
-          <House size={20} strokeWidth={1.75} />
-        </Link>
-      </div>
+      <PageHeader />
 
       <div style={{ margin: "20px 0" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>

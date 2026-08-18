@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { House, RefreshCw, Trash2, SquarePen, Copy, Check, Import, GripVertical } from "lucide-react";
+import { RefreshCw, Trash2, SquarePen, Copy, Check, Import, GripVertical } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import { scanStocks } from "@/lib/stock-lookup";
 import { encodeGroup, decodeGroup } from "@/lib/group-share";
+import PageHeader from "@/components/PageHeader";
 import type { TrackQuote } from "@/app/api/track/route";
 
 // ─── 比價群組（localStorage，與 /track 的追蹤群組各自獨立）───
@@ -739,36 +740,14 @@ export default function ComparePage() {
     </th>
   );
 
-  const navLink = (href: string, label: string) => (
-    <Link
-      href={href}
-      style={{
-        padding: "6px 16px", fontSize: 13, border: "1px solid #1a56db", borderRadius: 6,
-        background: "#fff", color: "#1a56db", textDecoration: "none", display: "inline-block",
-      }}
-    >
-      {label}
-    </Link>
-  );
-
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "16px 0 20px" }}>
-        <Link href="/" style={{ color: "#1a56db", textDecoration: "none", display: "flex", alignItems: "center" }} title="首頁">
-          <House size={20} strokeWidth={1.75} />
-        </Link>
-        <div style={{ flex: 1, textAlign: "center" }}>
-          <h1 style={{ fontSize: 24, fontWeight: "bold", margin: 0, display: "inline" }}>股價比價</h1>
-          <span style={{ fontSize: 13, color: "#999", marginLeft: 10 }}>
-            {formatDateFull(start)} ~ {formatDateFull(end)}
-          </span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {navLink("/stock", "即時報價")}
-          {navLink("/track", "追蹤清單")}
+      <PageHeader
+        title="股價比價"
+        subtitle={`${formatDateFull(start)} ~ ${formatDateFull(end)}`}
+        actions={
           <button
             onClick={refresh}
             disabled={loading}
@@ -780,8 +759,8 @@ export default function ComparePage() {
           >
             <RefreshCw size={18} strokeWidth={1.75} style={loading ? { animation: "spin 1s linear infinite" } : undefined} />
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* 群組頁籤 + 編輯 */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 14, fontSize: 14 }}>

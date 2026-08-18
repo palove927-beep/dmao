@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { splitParagraphs } from "@/lib/paragraphs";
 import { lookupStock } from "@/lib/stocks";
+import PageHeader from "@/components/PageHeader";
 
 // ─── Types ──────────────────────────────────────────────
 type StockTag = { ticker: string; stock_name: string };
@@ -333,14 +334,17 @@ export default function EditAnnotationsPage() {
 
   if (loading) {
     return (
-      <div style={{ maxWidth: 700, margin: "0 auto", padding: "40px 24px", fontFamily: "sans-serif" }}>
-        載入中...
+      <div style={{ maxWidth: 700, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif" }}>
+        <PageHeader />
+        <div style={{ padding: "20px 0", color: "#999" }}>載入中...</div>
       </div>
     );
   }
 
   return (
     <div style={{ maxWidth: 700, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
+      <PageHeader />
+
       <h2 style={{ fontSize: 20, fontWeight: "bold", marginBottom: 16 }}>
         編輯標記：{articleTitle}
       </h2>

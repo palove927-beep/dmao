@@ -2,10 +2,11 @@
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
-import { House, RefreshCw, SquarePen, Trash2, Copy, Check, Import, GripVertical } from "lucide-react";
+import { RefreshCw, SquarePen, Trash2, Copy, Check, Import, GripVertical } from "lucide-react";
 import { scanStocks } from "@/lib/stock-lookup";
 import type { TrackQuote } from "@/app/api/track/route";
 import { encodeGroup, decodeGroup } from "@/lib/group-share";
+import PageHeader from "@/components/PageHeader";
 
 // ─── Watchlist persistence (localStorage) ────────────────
 // 群組為主的結構：每個群組各自持有一份股票清單（同一支股票若跨群組，會分別存於各群組）
@@ -1074,52 +1075,10 @@ export default function TrackPage() {
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "16px 0 20px" }}>
-        <Link href="/" style={{ color: "#1a56db", textDecoration: "none", display: "flex", alignItems: "center" }} title="首頁">
-          <House size={20} strokeWidth={1.75} />
-        </Link>
-        <div style={{ flex: 1, textAlign: "center" }}>
-          <h1 style={{ fontSize: 24, fontWeight: "bold", margin: 0, display: "inline" }}>
-            股票追蹤
-          </h1>
-          {updatedAt && (
-            <span style={{ fontSize: 13, color: "#999", marginLeft: 10 }}>
-              {new Date(updatedAt).toLocaleString("zh-TW")}
-            </span>
-          )}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Link
-            href="/stock"
-            style={{
-              padding: "6px 16px",
-              fontSize: 13,
-              border: "1px solid #1a56db",
-              borderRadius: 6,
-              background: "#fff",
-              color: "#1a56db",
-              textDecoration: "none",
-              display: "inline-block",
-            }}
-          >
-            即時報價
-          </Link>
-          <Link
-            href="/compare"
-            style={{
-              padding: "6px 16px",
-              fontSize: 13,
-              border: "1px solid #1a56db",
-              borderRadius: 6,
-              background: "#fff",
-              color: "#1a56db",
-              textDecoration: "none",
-              display: "inline-block",
-            }}
-          >
-            股價比價
-          </Link>
+      <PageHeader
+        title="股票追蹤"
+        subtitle={updatedAt ? new Date(updatedAt).toLocaleString("zh-TW") : undefined}
+        actions={
           <button
             onClick={fetchQuotes}
             disabled={loading}
@@ -1137,8 +1096,8 @@ export default function TrackPage() {
           >
             <RefreshCw size={18} strokeWidth={1.75} style={loading ? { animation: "spin 1s linear infinite" } : undefined} />
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Row 1：排序 + 檢視（左） ... 標記區間（右） */}
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginBottom: 16 }}>

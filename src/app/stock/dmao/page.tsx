@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import Link from "next/link";
-import { House } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { splitParagraphs } from "@/lib/paragraphs";
 import { lookupStock, scanStocks } from "@/lib/stock-lookup";
 import { isEditor } from "@/lib/auth";
+import PageHeader from "@/components/PageHeader";
 
 // ─── Types ──────────────────────────────────────────────
 type StockTag = { ticker: string; stock_name: string };
@@ -656,14 +655,7 @@ export default function DmaoPage() {
       style={{ maxWidth: 700, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}
       onPaste={step === 1 ? handlePaste : undefined}
     >
-      <div style={{ display: "flex", alignItems: "center", margin: "16px 0 20px" }}>
-        <Link href="/stock" style={{ color: "#1a56db", textDecoration: "none", display: "flex", alignItems: "center" }} title="股票報價">
-          <House size={20} strokeWidth={1.75} />
-        </Link>
-        <h1 style={{ fontSize: 24, fontWeight: "bold", margin: 0, flex: 1, textAlign: "center" }}>
-          {step === 1 ? "貼上文章" : "審核標記"}
-        </h1>
-      </div>
+      <PageHeader title={step === 1 ? "貼上文章" : "審核標記"} />
 
       {step === 1 && (
         <>

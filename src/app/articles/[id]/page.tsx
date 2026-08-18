@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { House } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { scanStocks } from "@/lib/stock-lookup";
+import PageHeader from "@/components/PageHeader";
 import { isEditor } from "@/lib/auth";
 
 type Article = {
@@ -69,16 +68,18 @@ export default function ArticlePage() {
 
   if (loading) {
     return (
-      <div style={{ maxWidth: 800, margin: "0 auto", padding: "40px 24px", fontFamily: "sans-serif" }}>
-        載入中...
+      <div style={{ maxWidth: 800, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif" }}>
+        <PageHeader />
+        <div style={{ padding: "20px 0", color: "#999" }}>載入中...</div>
       </div>
     );
   }
 
   if (!article) {
     return (
-      <div style={{ maxWidth: 800, margin: "0 auto", padding: "40px 24px", fontFamily: "sans-serif" }}>
-        找不到文章
+      <div style={{ maxWidth: 800, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif" }}>
+        <PageHeader />
+        <div style={{ padding: "20px 0", color: "#999" }}>找不到文章</div>
       </div>
     );
   }
@@ -168,9 +169,7 @@ export default function ArticlePage() {
 
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
-      <Link href="/stock" style={{ color: "#1a56db", textDecoration: "none", display: "inline-flex", alignItems: "center" }} title="回到股票頁">
-        <House size={20} strokeWidth={1.75} />
-      </Link>
+      <PageHeader />
 
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginTop: 20, marginBottom: 8, gap: 12 }}>
         <h1 style={{ fontSize: 24, fontWeight: "bold", margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
