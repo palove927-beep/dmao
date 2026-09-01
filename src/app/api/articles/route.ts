@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
+import { fetchAllRows } from "@/lib/supabase-paginate";
+
+type ArticleRow = {
+  id: string;
+  title: string;
+  source: string | null;
+  article_date: string | null;
+  article_type: string | null;
+  created_at: string;
+};
 
 function extractSnippet(content: string, q: string): string {
   const idx = content.toLowerCase().indexOf(q.toLowerCase());
@@ -13,29 +23,39 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim() || "";
 
   if (q) {
-    const { data, error } = await getSupabase()
-      .from("dmao_articles")
-      .select("id, title, source, article_date, article_type, created_at, content")
-      .or(`title.ilike.%${q}%,content.ilike.%${q}%`)
-      .order("article_date", { ascending: false });
+    // article_date 有大量並列，單獨用它排序無法穩定分頁，補 id 當決勝欄位
+    const { rows, error } = await fetchAllRows<ArticleRow & { content: string | null }>(
+      (from, to) =>
+        getSupabase()
+          .from("dmao_articles")
+          .select("id, title, source, article_date, article_type, created_at, content")
+          .or(`title.ilike.%${q}%,content.ilike.%${q}%`)
+          .order("article_date", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to)
+    );
 
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) return NextResponse.json({ ok: false, error }, { status: 500 });
 
-    const articles = data?.map(({ content, ...rest }) => ({
+    const articles = rows.map(({ content, ...rest }) => ({
       ...rest,
       snippet: extractSnippet(content ?? "", q),
     }));
     return NextResponse.json({ ok: true, articles });
   }
 
-  const { data, error } = await getSupabase()
-    .from("dmao_articles")
-    .select("id, title, source, article_date, article_type, created_at")
-    .order("article_date", { ascending: false });
+  const { rows, error } = await fetchAllRows<ArticleRow>((from, to) =>
+    getSupabase()
+      .from("dmao_articles")
+      .select("id, title, source, article_date, article_type, created_at")
+      .order("article_date", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
 
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ ok: false, error }, { status: 500 });
 
-  return NextResponse.json({ ok: true, articles: data });
+  return NextResponse.json({ ok: true, articles: rows });
 }
 
 export async function POST(req: NextRequest) {

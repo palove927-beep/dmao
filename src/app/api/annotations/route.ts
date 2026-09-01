@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { scanStocks } from "@/lib/stock-lookup";
+import { fetchAllRows } from "@/lib/supabase-paginate";
 
 const aliasMap = new Map<string, string[]>(
   scanStocks.filter((s) => s.aliases).map((s) => [s.ticker, s.aliases!])
@@ -61,41 +62,26 @@ export async function GET(req: NextRequest) {
 
   // Return counts grouped by ticker
   if (mode === "counts") {
-    // Supabase 單次查詢有回傳列數上限（Project Settings → API → Max rows，預設 1000），
-    // 標記總筆數早就超過。不分頁的話會被無聲截斷成前 N 列，
+    // 標記總筆數早就超過 Supabase 的單次回傳上限，不分頁會被無聲截斷，
     // 較新的標記全部算不到 —— 症狀是新標到的個股在 /stock 顯示「-」。
-    // 依 id 排序分頁讀完整張表再累加，頁大小只是請求量，實際前進以回傳筆數為準，
-    // 因此 Max rows 被調成任何值都不會漏算。
-    const PAGE_SIZE = 1000;
-    const MAX_PAGES = 500; // 安全上限，避免異常回應造成無窮迴圈
-    const counts: Record<string, number> = {};
-    let from = 0;
-
-    for (let page = 0; page < MAX_PAGES; page++) {
+    const { rows, error } = await fetchAllRows<{ ticker: string }>((from, to) => {
       const base = getSupabase().from("dmao_annotations");
       const query = since
         ? base
             .select("ticker, dmao_articles!inner(article_date)")
             .gte("dmao_articles.article_date", since)
         : base.select("ticker");
+      return query.order("id", { ascending: true }).range(from, to);
+    });
 
-      const { data, error } = await query
-        .order("id", { ascending: true })
-        .range(from, from + PAGE_SIZE - 1);
-
-      if (error) {
-        return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-      }
-
-      const rows = (data ?? []) as unknown as { ticker: string }[];
-      if (rows.length === 0) break;
-
-      for (const row of rows) {
-        counts[row.ticker] = (counts[row.ticker] || 0) + 1;
-      }
-      from += rows.length;
+    if (error) {
+      return NextResponse.json({ ok: false, error }, { status: 500 });
     }
 
+    const counts: Record<string, number> = {};
+    for (const row of rows) {
+      counts[row.ticker] = (counts[row.ticker] || 0) + 1;
+    }
     return NextResponse.json({ ok: true, counts });
   }
 
@@ -133,12 +119,24 @@ export async function GET(req: NextRequest) {
     // 分批查詢，避免 article_id 過多時 URL 過長
     const CHUNK = 100;
     for (let i = 0; i < articleIds.length; i += CHUNK) {
-      const { data: mates } = await getSupabase()
-        .from("dmao_annotations")
-        .select("article_id, ticker, stock_name, paragraph")
-        .in("article_id", articleIds.slice(i, i + CHUNK));
+      const ids = articleIds.slice(i, i + CHUNK);
+      // 100 篇文章的標記加起來也可能超過單次回傳上限，同樣要分頁讀完，
+      // 否則段落內其他個股會漏掉、標色不完整
+      const { rows: mates } = await fetchAllRows<{
+        article_id: string;
+        ticker: string;
+        stock_name: string;
+        paragraph: string;
+      }>((from, to) =>
+        getSupabase()
+          .from("dmao_annotations")
+          .select("article_id, ticker, stock_name, paragraph")
+          .in("article_id", ids)
+          .order("id", { ascending: true })
+          .range(from, to)
+      );
 
-      for (const m of mates || []) {
+      for (const m of mates) {
         const key = mateKey(m.article_id, m.paragraph);
         const list = mateMap.get(key) ?? [];
         if (!list.some((x) => x.ticker === m.ticker)) {

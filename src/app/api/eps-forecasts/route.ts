@@ -1,25 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
+import { fetchAllRows } from "@/lib/supabase-paginate";
+
+type EpsRow = {
+  ticker: string;
+  forecast_year: number;
+  created_at: string;
+  dmao_articles: { id: string; title: string; article_date: string } | null;
+};
 
 export async function GET(req: NextRequest) {
   const ticker = req.nextUrl.searchParams.get("ticker");
   const articleId = req.nextUrl.searchParams.get("article_id");
   const forecastYear = req.nextUrl.searchParams.get("forecast_year");
 
-  let query = getSupabase()
-    .from("dmao_eps_forecasts")
-    .select("*, dmao_articles(id, title, article_date)")
-    .order("created_at", { ascending: false })
-    .order("forecast_year", { ascending: true });
+  // /stock 會用 forecast_year + latest=1 一次取全部個股的財測，筆數會超過
+  // Supabase 的單次回傳上限，不分頁的話較舊的財測整批被截掉，
+  // 只有舊財測的個股 EPS 欄就會變成「-」。
+  // created_at + forecast_year 有並列，補 id 當決勝欄位才能穩定分頁。
+  const { rows: data, error } = await fetchAllRows<EpsRow>((from, to) => {
+    let query = getSupabase()
+      .from("dmao_eps_forecasts")
+      .select("*, dmao_articles(id, title, article_date)")
+      .order("created_at", { ascending: false })
+      .order("forecast_year", { ascending: true })
+      .order("id", { ascending: true });
 
-  if (ticker) query = query.eq("ticker", ticker);
-  if (articleId) query = query.eq("article_id", articleId);
-  if (forecastYear) query = query.eq("forecast_year", Number(forecastYear));
+    if (ticker) query = query.eq("ticker", ticker);
+    if (articleId) query = query.eq("article_id", articleId);
+    if (forecastYear) query = query.eq("forecast_year", Number(forecastYear));
 
-  const { data, error } = await query;
+    return query.range(from, to);
+  });
 
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error }, { status: 500 });
   }
 
   // latest=1: keep only the forecast from the most recent article (by article_date) per ticker
