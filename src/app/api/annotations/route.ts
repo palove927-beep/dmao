@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
       const ids = articleIds.slice(i, i + CHUNK);
       // 100 篇文章的標記加起來也可能超過單次回傳上限，同樣要分頁讀完，
       // 否則段落內其他個股會漏掉、標色不完整
-      const { rows: mates } = await fetchAllRows<{
+      const { rows: mates, error: mateErr } = await fetchAllRows<{
         article_id: string;
         ticker: string;
         stock_name: string;
@@ -135,6 +135,11 @@ export async function GET(req: NextRequest) {
           .order("id", { ascending: true })
           .range(from, to)
       );
+
+      // 這批查不到就整個請求失敗，不要靜靜回一份標色不完整的資料
+      if (mateErr) {
+        return NextResponse.json({ ok: false, error: mateErr }, { status: 500 });
+      }
 
       for (const m of mates) {
         const key = mateKey(m.article_id, m.paragraph);

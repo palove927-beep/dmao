@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { categories } from "@/lib/stock-list";
 import PageHeader from "@/components/PageHeader";
+import { annotationKeywords, renderParagraph } from "@/lib/highlight";
 import type { TrackQuote } from "@/app/api/track/route";
 import {
   ComposedChart, Bar, BarChart, Cell, AreaChart, Area, XAxis, YAxis, Tooltip,
@@ -82,36 +83,6 @@ type AnnotationRow = {
 };
 
 // 段落內要標色的關鍵字：同段落所有被標記的個股（名稱／代碼／別名）；
-// 舊資料若沒有 paragraph_stocks，退回只標這檔自己
-function annotationKeywords(ann: AnnotationRow): string[] {
-  const stocks = ann.paragraph_stocks?.length
-    ? ann.paragraph_stocks
-    : [{ ticker: ann.ticker, stock_name: ann.stock_name, aliases: ann.aliases }];
-  return stocks.flatMap((s) => [s.stock_name, s.ticker, ...(s.aliases ?? [])]);
-}
-
-function highlightKeywords(text: string, keywords: string[]) {
-  const filtered = [...new Set(keywords.filter(Boolean))];
-  if (filtered.length === 0) return text;
-  // 英數關鍵字要求前後不得接英數字元，否則 SEMCO 裡的 EMC 會被標色；
-  // 中文沒有詞界，維持原樣。長的排前面，南亞科 才不會被 南亞 先吃掉。
-  const escaped = [...filtered]
-    .sort((a, b) => b.length - a.length)
-    .map((k) => {
-      const esc = k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      return /^[\x00-\x7F]+$/.test(k) ? `(?<![A-Za-z0-9])${esc}(?![A-Za-z0-9])` : esc;
-    });
-  const regex = new RegExp(`(${escaped.join("|")})`, "g");
-  const parts = text.split(regex);
-  return parts.map((part, i) =>
-    filtered.includes(part) ? (
-      <span key={i} style={{ color: "#dc2626", fontWeight: 600 }}>{part}</span>
-    ) : (
-      part
-    )
-  );
-}
-
 // ─── 文章事件圖釘 ─────────────────────────────────────────
 type ArticleParagraph = { text: string; is_summary: boolean };
 type ArticleEvent = { id: string; title: string; date: string; paragraphs: ArticleParagraph[] };
@@ -732,7 +703,7 @@ export default function StockDetailPage() {
                         {ann.is_summary && (
                           <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "#fef3c7", color: "#92400e", marginRight: 6 }}>AI 摘要</span>
                         )}
-                        {highlightKeywords(ann.paragraph, annotationKeywords(ann))}
+                        {renderParagraph(ann.paragraph, annotationKeywords(ann))}
                       </div>
                     </div>
                   ))}

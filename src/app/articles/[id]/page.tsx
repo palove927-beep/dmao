@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { scanStocks } from "@/lib/stock-lookup";
+import { renderParagraph } from "@/lib/highlight";
 import PageHeader from "@/components/PageHeader";
 import { isEditor } from "@/lib/auth";
 
@@ -135,38 +136,6 @@ export default function ArticlePage() {
     }
   };
 
-  const highlightText = (text: string, keywords: string[]) => {
-    const filtered = keywords.filter(Boolean);
-    if (filtered.length === 0) return [text];
-    const escaped = filtered.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-    const regex = new RegExp(`(${escaped.join("|")})`, "g");
-    const parts = text.split(regex);
-    const kw = new Set(filtered);
-    return parts.map((part, i) =>
-      kw.has(part) ? (
-        <span key={i} style={{ color: "#dc2626", fontWeight: 600 }}>{part}</span>
-      ) : (
-        part
-      )
-    );
-  };
-
-  const renderParagraph = (text: string) => {
-    const parts = text.split(/(==.+?==)/g);
-    if (parts.length === 1) return highlightText(text, allStockKeywords);
-    return parts.map((part, i) => {
-      if (part.startsWith("==") && part.endsWith("==") && part.length > 4) {
-        const inner = part.slice(2, -2);
-        return (
-          <mark key={i} style={{ background: "#fef08a", padding: "1px 3px", borderRadius: 3 }}>
-            {highlightText(inner, allStockKeywords)}
-          </mark>
-        );
-      }
-      return <span key={i}>{highlightText(part, allStockKeywords)}</span>;
-    });
-  };
-
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
       <PageHeader />
@@ -287,7 +256,7 @@ export default function ArticlePage() {
                         AI 摘要
                       </span>
                     )}
-                    {highlightText(ann.paragraph, [name, expandedStock])}
+                    {renderParagraph(ann.paragraph, [name, expandedStock])}
                   </div>
                 ))}
               </div>
@@ -343,7 +312,7 @@ export default function ArticlePage() {
           return (
             <div key={i}>
               <p style={{ margin: "8px 0" }}>
-                {renderParagraph(trimmed)}
+                {renderParagraph(trimmed, allStockKeywords)}
               </p>
               {paraEps.length > 0 && (
                 <div style={{
