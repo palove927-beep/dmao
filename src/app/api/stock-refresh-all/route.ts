@@ -1,17 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { categories } from "@/lib/stock-list";
+import { allSectorStocks } from "@/lib/sector-groups";
 import { getSupabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
+// /stock 的清單與族群比較頁的成分股，兩邊都可能要補歷史股價
+const listStocks = categories.flatMap((c) => c.stocks);
+
 const tpexSet = new Set(
-  categories.flatMap((c) => c.stocks.filter((s) => s.market === "tpex").map((s) => s.ticker))
+  [...listStocks, ...allSectorStocks].filter((s) => s.market === "tpex").map((s) => s.ticker)
 );
 
 const nameMap = new Map(
-  categories.flatMap((c) => c.stocks.map((s) => [s.ticker, s.name]))
+  [...listStocks, ...allSectorStocks].map((s) => [s.ticker, s.name] as const)
 );
+
+// ?source=list（預設，/stock 清單）｜sectors（族群成分股）｜all（兩者聯集）
+function tickersFor(source: string): string[] {
+  const list = listStocks.map((s) => s.ticker);
+  const sectors = allSectorStocks.map((s) => s.ticker);
+  if (source === "sectors") return [...new Set(sectors)];
+  if (source === "all") return [...new Set([...list, ...sectors])];
+  return [...new Set(list)];
+}
 
 type PriceRow = {
   date: string;
@@ -188,9 +201,10 @@ async function upsertToDb(ticker: string, rows: PriceRow[]) {
 export async function GET(req: NextRequest) {
   const threshold = parseInt(req.nextUrl.searchParams.get("threshold") ?? "239");
   const dryRun = req.nextUrl.searchParams.get("dry") === "1";
+  const source = req.nextUrl.searchParams.get("source") ?? "list";
 
   const sb = getSupabase();
-  const allTickers = categories.flatMap((c) => c.stocks.map((s) => s.ticker));
+  const allTickers = tickersFor(source);
 
   const toRefresh: { ticker: string; name: string; count: number }[] = [];
 
@@ -207,6 +221,7 @@ export async function GET(req: NextRequest) {
   if (dryRun) {
     return NextResponse.json({
       mode: "dry-run",
+      source,
       threshold,
       toRefresh: toRefresh.length,
       stocks: toRefresh,
@@ -232,6 +247,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     mode: "refresh",
+    source,
     threshold,
     processed: results.length,
     results,

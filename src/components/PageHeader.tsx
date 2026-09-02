@@ -12,6 +12,7 @@ const NAV_ITEMS: { href: string; label: string; editorOnly?: boolean }[] = [
   { href: "/stock", label: "即時報價" },
   { href: "/track", label: "追蹤清單" },
   { href: "/compare", label: "股價比價" },
+  { href: "/sectors", label: "族群比較" },
   { href: "/articles", label: "文章列表" },
   { href: "/stock/dmao", label: "貼上文章", editorOnly: true },
 ];
