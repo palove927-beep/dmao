@@ -51,7 +51,7 @@ const TIER_STYLE: Record<string, { bg: string; fg: string; bar: string }> = {
 const tierStyle = (t: string) => TIER_STYLE[t] ?? { bg: "#f1f5f9", fg: "#475569", bar: "#cbd5e1" };
 
 // 圖表的水溫：熱水區紅字、溫水區黃(橙)字、冷水區黑字
-const TEMP_COLOR: Record<string, string> = { hot: "#dc2626", warm: "#d97706" };
+const TEMP_COLOR: Record<string, string> = { hot: "#dc2626", warm: "#e07b1f" };
 const tempColor = (t: string | null) => (t ? TEMP_COLOR[t] ?? "#1f2937" : "#1f2937");
 
 function changeColor(v: number | null): string {
