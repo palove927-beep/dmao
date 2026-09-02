@@ -47,6 +47,7 @@ const TIER_STYLE: Record<string, { bg: string; fg: string; bar: string }> = {
   一線: { bg: "#dbeafe", fg: "#1e40af", bar: "#3b82f6" },
   二線: { bg: "#ede9fe", fg: "#5b21b6", bar: "#8b5cf6" },
   三線: { bg: "#e2e8f0", fg: "#475569", bar: "#94a3b8" },
+  個股: { bg: "#cffafe", fg: "#0e7490", bar: "#06b6d4" },
 };
 const tierStyle = (t: string) => TIER_STYLE[t] ?? { bg: "#f1f5f9", fg: "#475569", bar: "#cbd5e1" };
 
