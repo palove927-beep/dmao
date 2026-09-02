@@ -2,18 +2,14 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
-import { categories } from "@/lib/stock-list";
 import PageHeader from "@/components/PageHeader";
 import { annotationKeywords, renderParagraph } from "@/lib/highlight";
+import { stockNameOr } from "@/lib/stock-name";
 import type { TrackQuote } from "@/app/api/track/route";
 import {
   ComposedChart, Bar, BarChart, Cell, AreaChart, Area, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, ReferenceDot, ReferenceLine,
 } from "recharts";
-
-const nameMap: Record<string, string> = Object.fromEntries(
-  categories.flatMap((c) => c.stocks.map((s) => [s.ticker, s.name]))
-);
 
 type PricePoint = {
   date: string;
@@ -393,7 +389,7 @@ export default function StockDetailPage() {
           <div style={{ color: "#999" }}>載入中...</div>
         ) : error ? (
           <div style={{ marginTop: 32 }}>
-            <div style={{ fontSize: 16, color: "#374151", marginBottom: 8 }}>{nameMap[ticker] ?? ticker}</div>
+            <div style={{ fontSize: 16, color: "#374151", marginBottom: 8 }}>{stockNameOr(ticker)}</div>
             <div style={{ fontSize: 14, color: "#9ca3af", padding: "20px 0", borderTop: "1px solid #e5e7eb" }}>
               {error}
             </div>
@@ -401,7 +397,9 @@ export default function StockDetailPage() {
         ) : data && (
           <>
             <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-              <h1 style={{ fontSize: 26, fontWeight: "bold", margin: 0 }}>{data.name}</h1>
+              <h1 style={{ fontSize: 26, fontWeight: "bold", margin: 0 }}>
+                {data.name === ticker ? stockNameOr(ticker) : data.name}
+              </h1>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 15, color: "#6b7280" }}>
                 {ticker}
                 <a

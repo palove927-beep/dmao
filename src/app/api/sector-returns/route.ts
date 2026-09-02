@@ -118,6 +118,7 @@ export async function GET(req: NextRequest) {
           ticker: s.ticker,
           name: s.name,
           market: s.market ?? null,
+          temp: s.temp ?? null,
           basePrice: b?.close ?? null,
           baseDate: b?.date ?? null,
           price: l?.close ?? null,

@@ -9,6 +9,7 @@ type SectorStockRow = {
   ticker: string;
   name: string;
   market: "tpex" | null;
+  temp: "hot" | "warm" | null;
   basePrice: number | null;
   baseDate: string | null;
   price: number | null;
@@ -40,6 +41,18 @@ type SortKey = "change" | "table";
 const UP = "#dc2626";
 const DOWN = "#15803d";
 const FLAT = "#6b7280";
+
+// 一到三線各自的識別色。刻意避開紅／綠，才不會跟漲跌幅的顏色打架
+const TIER_STYLE: Record<string, { bg: string; fg: string; bar: string }> = {
+  一線: { bg: "#dbeafe", fg: "#1e40af", bar: "#3b82f6" },
+  二線: { bg: "#ede9fe", fg: "#5b21b6", bar: "#8b5cf6" },
+  三線: { bg: "#e2e8f0", fg: "#475569", bar: "#94a3b8" },
+};
+const tierStyle = (t: string) => TIER_STYLE[t] ?? { bg: "#f1f5f9", fg: "#475569", bar: "#cbd5e1" };
+
+// 圖表的水溫：熱水區紅字、溫水區黃(橙)字、冷水區黑字
+const TEMP_COLOR: Record<string, string> = { hot: "#dc2626", warm: "#d97706" };
+const tempColor = (t: string | null) => (t ? TEMP_COLOR[t] ?? "#1f2937" : "#1f2937");
 
 function changeColor(v: number | null): string {
   if (v === null || v === 0) return FLAT;
@@ -154,7 +167,20 @@ export default function SectorsPage() {
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16, alignItems: "center" }}>
         {tiers.map((t) => (
-          <button key={t} onClick={() => setTier(t)} style={{ ...btn(tier === t), padding: "5px 12px", fontSize: 12 }}>
+          <button
+            key={t}
+            onClick={() => setTier(t)}
+            style={{
+              ...btn(tier === t),
+              padding: "5px 12px",
+              fontSize: 12,
+              ...(t === "全部" ? {} : {
+                borderColor: tierStyle(t).bar,
+                background: tier === t ? tierStyle(t).bar : "#fff",
+                color: tier === t ? "#fff" : tierStyle(t).fg,
+              }),
+            }}
+          >
             {t}
           </button>
         ))}
@@ -185,13 +211,17 @@ export default function SectorsPage() {
                       gridTemplateColumns: "28px 52px minmax(96px, 1.1fr) 1fr 84px 56px",
                       alignItems: "center", gap: 10, padding: "10px 12px",
                       background: isOpen ? "#eff6ff" : "#fff",
-                      border: "none", cursor: "pointer", textAlign: "left", font: "inherit",
+                      border: "none", borderLeft: `3px solid ${tierStyle(g.tier).bar}`,
+                      cursor: "pointer", textAlign: "left", font: "inherit",
                     }}
                   >
                     <span style={{ color: "#9ca3af", fontSize: 12, textAlign: "center" }}>
                       {sort === "change" ? i + 1 : ""}
                     </span>
-                    <span style={{ fontSize: 11, color: "#1e3a5f", background: "#e0e7ff", borderRadius: 4, padding: "2px 6px", textAlign: "center" }}>
+                    <span style={{
+                      fontSize: 11, borderRadius: 4, padding: "2px 6px", textAlign: "center",
+                      color: tierStyle(g.tier).fg, background: tierStyle(g.tier).bg, fontWeight: 600,
+                    }}>
                       {g.tier}
                     </span>
                     <span style={{ fontWeight: 600, fontSize: 15, display: "flex", alignItems: "center", gap: 4 }}>
@@ -234,7 +264,9 @@ export default function SectorsPage() {
                                   <a href={`/stock/${s.ticker}`} style={{ color: "#1a56db", textDecoration: "none" }}>
                                     {s.ticker}
                                   </a>
-                                  <span style={{ marginLeft: 10 }}>{s.name}</span>
+                                  <span style={{ marginLeft: 10, color: tempColor(s.temp), fontWeight: s.temp ? 600 : 400 }}>
+                                    {s.name}
+                                  </span>
                                   {s.market === "tpex" && (
                                     <span style={{ marginLeft: 6, fontSize: 11, color: "#94a3b8" }}>櫃</span>
                                   )}
@@ -260,6 +292,11 @@ export default function SectorsPage() {
           </div>
 
           <div style={{ marginTop: 14, fontSize: 12, color: "#94a3b8", lineHeight: 1.7 }}>
+            個股名稱顏色沿用原表格的水溫：
+            <span style={{ color: TEMP_COLOR.hot, fontWeight: 600 }}>熱水區</span>、
+            <span style={{ color: TEMP_COLOR.warm, fontWeight: 600 }}>溫水區</span>、
+            <span style={{ color: "#1f2937" }}>冷水區</span>，與即時漲跌幅無關。
+            <br />
             族群漲幅為成分股漲幅的等權平均（未按市值加權）。右側 n/m 是有價格資料的檔數／成分股總數。
             {data.missing.length > 0 && (
               <>

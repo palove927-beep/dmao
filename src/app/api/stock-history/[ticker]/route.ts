@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { categories } from "@/lib/stock-list";
+import { stockNameOr } from "@/lib/stock-name";
 import { getSupabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
-const nameMap = new Map(
-  categories.flatMap((c) => c.stocks.map((s) => [s.ticker, s.name]))
-);
 
 const tpexSet = new Set(
   categories.flatMap((c) => c.stocks.filter((s) => s.market === "tpex").map((s) => s.ticker))
@@ -353,7 +351,7 @@ export async function GET(
       return NextResponse.json({
         ok: true,
         ticker,
-        name: nameMap.get(ticker) ?? ticker,
+        name: stockNameOr(ticker),
         currency: "TWD",
         prices,
         source: needsFetch ? "api+db" : "db",
@@ -367,7 +365,7 @@ export async function GET(
       return NextResponse.json({
         ok: true,
         ticker,
-        name: nameMap.get(ticker) ?? ticker,
+        name: stockNameOr(ticker),
         currency: "TWD",
         prices: directPrices,
         source: "api",
@@ -382,7 +380,7 @@ export async function GET(
       return NextResponse.json({
         ok: true,
         ticker,
-        name: nameMap.get(ticker) ?? ticker,
+        name: stockNameOr(ticker),
         currency: "TWD",
         prices,
         source: "api-fallback",
