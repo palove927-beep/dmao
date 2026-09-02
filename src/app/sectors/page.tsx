@@ -252,13 +252,15 @@ export default function SectorsPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {[...g.stocks]
-                            .sort((a, b) => {
-                              if (a.changePercent === null) return b.changePercent === null ? 0 : 1;
-                              if (b.changePercent === null) return -1;
-                              return b.changePercent - a.changePercent;
-                            })
-                            .map((s) => (
+                          {/* 排序跟著上方的切換：依表格順序時，成分股也維持原表格由左到右的順序 */}
+                          {(sort === "table"
+                            ? g.stocks
+                            : [...g.stocks].sort((a, b) => {
+                                if (a.changePercent === null) return b.changePercent === null ? 0 : 1;
+                                if (b.changePercent === null) return -1;
+                                return b.changePercent - a.changePercent;
+                              })
+                          ).map((s) => (
                               <tr key={s.ticker} style={{ borderTop: "1px solid #e5e7eb" }}>
                                 <td style={{ padding: "6px 8px" }}>
                                   <a href={`/stock/${s.ticker}`} style={{ color: "#1a56db", textDecoration: "none" }}>
