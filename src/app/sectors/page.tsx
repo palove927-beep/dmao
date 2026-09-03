@@ -32,6 +32,7 @@ type ApiResult = {
   range: RangeKey;
   baseDate: string;
   asOf: string | null;
+  baseAsOf: string | null;
   tiers: { tier: string; groups: SectorGroupRow[] }[];
   missing: { ticker: string; name: string }[];
 };
@@ -63,6 +64,16 @@ function changeColor(v: number | null): string {
 function formatPercent(v: number | null): string {
   if (v === null) return "-";
   return `${v > 0 ? "+" : ""}${v.toFixed(2)}%`;
+}
+
+const shortDate = (d: string) => d.slice(5).replace("-", "/");
+
+// 個股的基準日跟多數人不同時，把日期標出來，免得看不出平均混到了舊價
+function StaleDate({ date, reference }: { date: string | null; reference: string | null }) {
+  if (!date || !reference || date === reference) return null;
+  return (
+    <span style={{ marginLeft: 5, fontSize: 11, color: "#b45309" }}>{shortDate(date)}</span>
+  );
 }
 
 // 漲跌幅長條：以本頁最大絕對漲跌幅為滿格，從中線往兩側長
@@ -155,7 +166,7 @@ export default function SectorsPage() {
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
       <PageHeader
         title="族群比較"
-        subtitle={data?.asOf ? `${data.baseDate} → ${data.asOf}` : undefined}
+        subtitle={data?.asOf ? `收盤 ${data.baseAsOf ?? data.baseDate} → ${data.asOf}` : undefined}
       />
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
@@ -247,8 +258,8 @@ export default function SectorsPage() {
                         <thead>
                           <tr style={{ color: "#64748b", fontSize: 12 }}>
                             <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: 500 }}>個股</th>
-                            <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: 500 }}>起算價</th>
-                            <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: 500 }}>現價</th>
+                            <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: 500 }}>起算收盤</th>
+                            <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: 500 }}>最新收盤</th>
                             <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: 500 }}>漲跌幅</th>
                           </tr>
                         </thead>
@@ -274,11 +285,13 @@ export default function SectorsPage() {
                                     <span style={{ marginLeft: 6, fontSize: 11, color: "#94a3b8" }}>櫃</span>
                                   )}
                                 </td>
-                                <td style={{ padding: "6px 8px", textAlign: "right", color: "#64748b", fontVariantNumeric: "tabular-nums" }}>
+                                <td style={{ padding: "6px 8px", textAlign: "right", color: "#64748b", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
                                   {s.basePrice?.toFixed(2) ?? "-"}
+                                  <StaleDate date={s.baseDate} reference={data.baseAsOf} />
                                 </td>
-                                <td style={{ padding: "6px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                                <td style={{ padding: "6px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
                                   {s.price?.toFixed(2) ?? "-"}
+                                  <StaleDate date={s.priceDate} reference={data.asOf} />
                                 </td>
                                 <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: changeColor(s.changePercent) }}>
                                   {formatPercent(s.changePercent)}
@@ -295,6 +308,10 @@ export default function SectorsPage() {
           </div>
 
           <div style={{ marginTop: 14, fontSize: 12, color: "#94a3b8", lineHeight: 1.7 }}>
+            表中價格為<strong>日收盤價</strong>，不是盤中即時報價 —— 盤中看到的最新收盤通常是昨收。
+            個股的基準日與多數人不同時，會在價格旁以
+            <span style={{ color: "#b45309" }}>橘色日期</span>標出。
+            <br />
             個股名稱顏色沿用原表格的水溫：
             <span style={{ color: TEMP_COLOR.hot, fontWeight: 600 }}>熱水區</span>、
             <span style={{ color: TEMP_COLOR.warm, fontWeight: 600 }}>溫水區</span>、

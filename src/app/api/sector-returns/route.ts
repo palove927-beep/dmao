@@ -146,13 +146,17 @@ export async function GET(req: NextRequest) {
     }),
   }));
 
-  const dates = [...lastPrice.values()].map((v) => v.date).sort();
+  // asOf＝最新一筆收盤的日期；baseAsOf＝起算日之後第一個有交易的日子。
+  // 兩者都是「多數個股」的基準日，個股落後時前端會逐檔標出來。
+  const lastDates = [...lastPrice.values()].map((v) => v.date).sort();
+  const baseDates = [...basePrice.values()].map((v) => v.date).sort();
 
   return NextResponse.json({
     ok: true,
     range,
     baseDate,
-    asOf: dates[dates.length - 1] ?? null,
+    asOf: lastDates[lastDates.length - 1] ?? null,
+    baseAsOf: baseDates[0] ?? null,
     tiers,
     missing,
   });
