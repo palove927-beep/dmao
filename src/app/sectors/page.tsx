@@ -35,6 +35,7 @@ type ApiResult = {
   asOf: string | null;
   baseAsOf: string | null;
   hasSeries: boolean;
+  sampling: "daily" | "weekly";
   dates: string[];
   tiers: { tier: string; groups: SectorGroupRow[] }[];
   missing: { ticker: string; name: string }[];
@@ -77,30 +78,6 @@ function StaleDate({ date, reference }: { date: string | null; reference: string
   if (!date || !reference || date === reference) return null;
   return (
     <span style={{ marginLeft: 5, fontSize: 11, color: "#b45309" }}>{shortDate(date)}</span>
-  );
-}
-
-// 漲跌幅長條：長區間用。以本頁最大絕對漲跌幅為滿格，從中線往兩側長。
-// 長區間要畫走勢圖得讀整段每日收盤（一年四萬列起跳），不划算，
-// 因此只有一週／兩週給走勢圖，其餘維持長條。
-function ChangeBar({ value, max }: { value: number | null; max: number }) {
-  const width = value === null || max === 0 ? 0 : (Math.abs(value) / max) * 50;
-  const up = (value ?? 0) >= 0;
-  return (
-    <div style={{ position: "relative", height: 10, background: "#f1f5f9", borderRadius: 3 }}>
-      <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "#cbd5e1" }} />
-      <div
-        style={{
-          position: "absolute",
-          top: 1,
-          bottom: 1,
-          left: up ? "50%" : `${50 - width}%`,
-          width: `${width}%`,
-          background: changeColor(value),
-          borderRadius: 2,
-        }}
-      />
-    </div>
   );
 }
 
@@ -239,11 +216,6 @@ export default function SectorsPage() {
     });
   }, [data, tier, sort]);
 
-  const maxAbs = useMemo(
-    () => Math.max(...groups.map((g) => Math.abs(g.changePercent ?? 0)), 0.01),
-    [groups]
-  );
-
   // 目前顯示中的族群，所有走勢點的最小／最大值，當作共用 y 軸範圍
   const domain = useMemo<[number, number]>(() => {
     const values = groups.flatMap((g) => g.series).filter((v): v is number => v !== null);
@@ -332,6 +304,17 @@ export default function SectorsPage() {
 
       {!loading && !error && data && (
         <>
+          <div style={{
+            display: "flex", alignItems: "baseline", justifyContent: "flex-end",
+            gap: 6, marginBottom: 6, fontSize: 12, color: "#94a3b8",
+          }}>
+            走勢取樣：
+            <strong style={{ color: "#475569", fontWeight: 600 }}>
+              {data.sampling === "daily" ? "日線（每個交易日）" : "週線（每週最後一個交易日）"}
+            </strong>
+            <span>· {data.dates.length} 點</span>
+          </div>
+
           <div style={{ border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
             {groups.map((g, i) => {
               const isOpen = expanded === g.id;
@@ -362,9 +345,7 @@ export default function SectorsPage() {
                       />
                       {g.label}
                     </span>
-                    {data.hasSeries
-                      ? <Sparkline series={g.series} domain={domain} />
-                      : <ChangeBar value={g.changePercent} max={maxAbs} />}
+                    <Sparkline series={g.series} domain={domain} />
                     <span style={{ textAlign: "right", fontWeight: "bold", fontVariantNumeric: "tabular-nums", color: changeColor(g.changePercent) }}>
                       {formatPercent(g.changePercent)}
                     </span>
@@ -438,14 +419,10 @@ export default function SectorsPage() {
             <span style={{ color: TEMP_COLOR.warm, fontWeight: 600 }}>溫水區</span>、
             <span style={{ color: "#1f2937" }}>冷水區</span>，與即時漲跌幅無關。
             <br />
-            {data.hasSeries ? (
-              <>
-                走勢是起算日到最新收盤的累積漲跌幅，所有族群共用同一個縱軸範圍，
-                線的陡峭程度可以直接互相比較。
-              </>
-            ) : (
-              <>長條是起算日到最新收盤的漲跌幅，以本頁最大值為滿格。走勢圖只在一週／兩週提供。</>
-            )}
+            走勢是起算日到最新收盤的累積漲跌幅，所有族群共用同一個縱軸範圍，
+            線的陡峭程度可以直接互相比較。
+            {data.sampling === "weekly" &&
+              "一個月以上的區間改用週線取樣（每週最後一個交易日），讀取量約降到四分之一，形狀幾乎不受影響。"}
             <br />
             族群漲幅為成分股漲幅的等權平均（未按市值加權）。右側 n/m 是有價格資料的檔數／成分股總數。
             {data.missing.length > 0 && !sync && (

@@ -41,15 +41,80 @@ function shift(date: string, days: number): string {
 type PriceRow = { ticker: string; date: string; close: number | string };
 
 // 讀取策略依區間而定：
-// 短區間（一週／兩週）要畫走勢圖，整段每日收盤都得讀，約一到兩千列。
-// 長區間只需要頭尾兩個端點，讀整段是四萬列起跳，因此只讀起算日與
-// 最近各 14 天兩個窗口——聚合出來的漲跌幅完全相同。
+// 一週／兩週：整段每日收盤都讀，走勢圖用日線，約一到兩千列。
+// 一個月以上：讀整段是四萬列起跳，只為了一張迷你圖不划算，改成
+//   先問出交易日、每週取最後一個交易日，再只讀那些日期的收盤。
+//   一年因此從約四萬列降到約一萬列，走勢的形狀幾乎看不出差別。
 const WINDOW_DAYS = 14;
 const allTickers = allSectorStocks.map((s) => s.ticker);
+
+// 推交易日曆用的樣本檔數。全表撈日期跟撈整段一樣貴，
+// 取幾檔分散在清單裡的個股，聯集就是這段期間的交易日。
+const CALENDAR_SAMPLE = 8;
+
+function calendarTickers(): string[] {
+  const step = Math.max(1, Math.floor(allTickers.length / CALENDAR_SAMPLE));
+  return allTickers.filter((_, i) => i % step === 0).slice(0, CALENDAR_SAMPLE);
+}
+
+// 該日期所屬那一週的週一，當作分組用的 key
+function weekKey(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+}
+
+// 每週取最後一個交易日；區間的第一天與最後一天一定保留，
+// 起算價與末端漲跌幅才對得上顯示的數字
+function weeklyDates(dates: string[]): string[] {
+  if (dates.length === 0) return [];
+  const lastOfWeek = new Map<string, string>();
+  for (const d of dates) lastOfWeek.set(weekKey(d), d); // dates 已排序，後蓋前
+  const picked = new Set(lastOfWeek.values());
+  picked.add(dates[0]);
+  picked.add(dates[dates.length - 1]);
+  return [...picked].sort();
+}
 
 // 代碼分批帶入 in()，避免 181 檔一次塞進 query string 讓 URL 過長
 // （/api/annotations 的 mates 查詢也是同樣理由分批）
 const TICKER_CHUNK = 100;
+
+// 只讀 date 欄、只讀樣本檔，用來推出這段期間有哪些交易日
+async function readTradingDays(from: string, to: string): Promise<{ dates: string[]; error: string | null }> {
+  const res = await fetchAllRows<{ date: string }>((offset, last) =>
+    getSupabase()
+      .from("dmao_stock_prices")
+      .select("date")
+      .in("ticker", calendarTickers())
+      .gte("date", from)
+      .lte("date", to)
+      .order("date", { ascending: true })
+      .range(offset, last)
+  );
+  return { dates: [...new Set(res.rows.map((r) => r.date))].sort(), error: res.error };
+}
+
+async function readDates(dates: string[]): Promise<{ rows: PriceRow[]; error: string | null }> {
+  if (dates.length === 0) return { rows: [], error: null };
+  const rows: PriceRow[] = [];
+  for (let i = 0; i < allTickers.length; i += TICKER_CHUNK) {
+    const ids = allTickers.slice(i, i + TICKER_CHUNK);
+    const res = await fetchAllRows<PriceRow>((offset, last) =>
+      getSupabase()
+        .from("dmao_stock_prices")
+        .select("ticker, date, close")
+        .in("ticker", ids)
+        .in("date", dates)
+        .order("ticker", { ascending: true })
+        .order("date", { ascending: true })
+        .range(offset, last)
+    );
+    if (res.error) return { rows, error: res.error };
+    for (const r of res.rows) rows.push(r);
+  }
+  return { rows, error: null };
+}
 
 async function readRange(from: string, to: string): Promise<{ rows: PriceRow[]; error: string | null }> {
   const rows: PriceRow[] = [];
@@ -80,25 +145,32 @@ export async function GET(req: NextRequest) {
   const baseDate = baseDateFor(range);
   const today = new Date().toISOString().slice(0, 10);
 
-  // 走勢圖只在短區間提供，長區間讀整段太重
-  const withSeries = range === "1w" || range === "2w";
+  // 一週／兩週用日線，一個月以上改成每週一點
+  const daily = range === "1w" || range === "2w";
+  const sampling: "daily" | "weekly" = daily ? "daily" : "weekly";
 
   let rows: PriceRow[];
-  {
-    const res = withSeries
-      ? await readRange(baseDate, today)
-      : await (async () => {
-          // 起算日當天可能是假日，往後開一個窗口找第一個有交易的日子
-          const [a, b] = await Promise.all([
-            readRange(baseDate, shift(baseDate, WINDOW_DAYS)),
-            readRange(shift(today, -WINDOW_DAYS), today),
-          ]);
-          return { rows: [...a.rows, ...b.rows], error: a.error ?? b.error };
-        })();
-    if (res.error) {
-      return NextResponse.json({ ok: false, error: res.error }, { status: 500 });
-    }
+  let seriesDates: string[] = [];
+
+  if (daily) {
+    const res = await readRange(baseDate, today);
+    if (res.error) return NextResponse.json({ ok: false, error: res.error }, { status: 500 });
     rows = res.rows;
+  } else {
+    const cal = await readTradingDays(baseDate, today);
+    if (cal.error) return NextResponse.json({ ok: false, error: cal.error }, { status: 500 });
+    seriesDates = weeklyDates(cal.dates);
+
+    // 每週那一點之外，另外讀起算日與最近各 14 天兩個窗口：
+    // 個別個股停牌或資料落後時，它的起算價與最新價不見得落在週取樣日上
+    const [weekly, base, latest] = await Promise.all([
+      readDates(seriesDates),
+      readRange(baseDate, shift(baseDate, WINDOW_DAYS)),
+      readRange(shift(today, -WINDOW_DAYS), today),
+    ]);
+    const err = weekly.error ?? base.error ?? latest.error;
+    if (err) return NextResponse.json({ ok: false, error: err }, { status: 500 });
+    rows = [...weekly.rows, ...base.rows, ...latest.rows];
   }
 
   // 每檔的每日收盤，以及該檔的起算價（區間內第一筆）與最新價（最後一筆）
@@ -127,10 +199,16 @@ export async function GET(req: NextRequest) {
   // 一定保留最後一天，線的末端才會對得上顯示的漲跌幅。
   const MAX_POINTS = 120;
   const allDates = [...dateSet].sort();
-  const step = Math.max(1, Math.ceil(allDates.length / MAX_POINTS));
-  const sampled = withSeries ? allDates.filter((_, i) => i % step === 0) : [];
-  if (withSeries && allDates.length > 0 && sampled[sampled.length - 1] !== allDates[allDates.length - 1]) {
-    sampled.push(allDates[allDates.length - 1]);
+  let sampled: string[];
+  if (daily) {
+    const step = Math.max(1, Math.ceil(allDates.length / MAX_POINTS));
+    sampled = allDates.filter((_, i) => i % step === 0);
+    if (allDates.length > 0 && sampled[sampled.length - 1] !== allDates[allDates.length - 1]) {
+      sampled.push(allDates[allDates.length - 1]);
+    }
+  } else {
+    // 週取樣日裡實際有資料的那些（沒讀到資料的日期畫出來會是斷點）
+    sampled = seriesDates.filter((d) => dateSet.has(d));
   }
 
   const missing: { ticker: string; name: string }[] = [];
@@ -213,7 +291,8 @@ export async function GET(req: NextRequest) {
     baseDate,
     asOf: lastDates[lastDates.length - 1] ?? null,
     baseAsOf: baseDates[0] ?? null,
-    hasSeries: withSeries,
+    hasSeries: true,
+    sampling,
     dates: sampled,
     tiers,
     missing,

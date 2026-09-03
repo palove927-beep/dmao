@@ -275,7 +275,7 @@ export const sectorTiers: SectorTier[] = [
           { ticker: "1615", name: "大山" },
           { ticker: "1618", name: "合機" },
           { ticker: "1603", name: "華電" },
-          { ticker: "1441", name: "大東" },
+          { ticker: "1623", name: "大東電" },
         ],
       },
       {
