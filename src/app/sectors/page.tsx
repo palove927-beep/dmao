@@ -85,11 +85,18 @@ function StaleDate({ date, reference }: { date: string | null; reference: string
 // 所有族群共用同一個 y 軸範圍（domain），線的陡峭程度才能互相比較——
 // 各自縮放的話，漲 1% 和漲 30% 會畫成一樣的形狀。
 const SPARK_W = 150;
-// preserveAspectRatio="none" 會把 viewBox 拉滿容器，所以真正決定線看起來
-// 陡不陡的是這個 px 高度，不是 viewBox 的長寬比。
-const SPARK_H = 44;
+const SPARK_H = 26;
 
-function Sparkline({ series, domain }: { series: (number | null)[]; domain: [number, number] }) {
+function Sparkline({
+  series,
+  dates,
+  domain,
+}: {
+  series: (number | null)[];
+  dates: string[];
+  domain: [number, number];
+}) {
+  const [hover, setHover] = useState<number | null>(null);
   const points = series
     .map((v, i) => ({ v, i }))
     .filter((p): p is { v: number; i: number } => p.v !== null);
@@ -109,21 +116,81 @@ function Sparkline({ series, domain }: { series: (number | null)[]; domain: [num
   const zeroY = y(0);
   const showZero = 0 >= lo && 0 <= hi;
 
+  // 滑鼠位置換算成最近的取樣點。svg 用 preserveAspectRatio="none" 撐滿容器，
+  // 所以要拿實際的 client 寬度來換算，不能用 viewBox 的座標。
+  const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (rect.width === 0) return;
+    const ratio = (e.clientX - rect.left) / rect.width;
+    const raw = Math.round(ratio * (series.length - 1));
+    // 該點沒有值（當天全員停牌）就往兩側找最近的有值點
+    let best: number | null = null;
+    let bestDist = Infinity;
+    for (const p of points) {
+      const dist = Math.abs(p.i - raw);
+      if (dist < bestDist) { bestDist = dist; best = p.i; }
+    }
+    setHover(best);
+  };
+
+  const hv = hover === null ? null : series[hover];
+  const hoverDate = hover === null ? null : dates[hover];
+
   return (
-    <svg
-      width="100%"
-      height={SPARK_H}
-      viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
-      preserveAspectRatio="none"
-      style={{ display: "block", overflow: "visible" }}
-      aria-hidden
+    <div
+      style={{ position: "relative" }}
+      onMouseMove={onMove}
+      onMouseLeave={() => setHover(null)}
     >
-      {showZero && (
-        <line x1={0} y1={zeroY} x2={SPARK_W} y2={zeroY} stroke="#cbd5e1" strokeWidth={1} strokeDasharray="2 2" vectorEffect="non-scaling-stroke" />
+      <svg
+        width="100%"
+        height={SPARK_H}
+        viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
+        preserveAspectRatio="none"
+        style={{ display: "block", overflow: "visible" }}
+        aria-hidden
+      >
+        {showZero && (
+          <line x1={0} y1={zeroY} x2={SPARK_W} y2={zeroY} stroke="#cbd5e1" strokeWidth={1} strokeDasharray="2 2" vectorEffect="non-scaling-stroke" />
+        )}
+        <path d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        {hover !== null && hv !== null && hv !== undefined && (
+          <>
+            <line
+              x1={x(hover)} y1={0} x2={x(hover)} y2={SPARK_H}
+              stroke="#94a3b8" strokeWidth={1} vectorEffect="non-scaling-stroke"
+            />
+            <circle cx={x(hover)} cy={y(hv)} r={3} fill="#fff" stroke={changeColor(hv)} strokeWidth={2} vectorEffect="non-scaling-stroke" />
+          </>
+        )}
+        <circle cx={x(points[points.length - 1].i)} cy={y(last)} r={2} fill={color} vectorEffect="non-scaling-stroke" />
+      </svg>
+
+      {hover !== null && hv !== null && hv !== undefined && (
+        <div
+          style={{
+            position: "absolute",
+            // 往上移出圖外才不會蓋住線，但不能超過族群列的 10px 上留白——
+            // 外層清單是 overflow:hidden，超出去第一列的提示框會被裁掉
+            top: -10,
+            // 貼著游標但夾在容器內，最左最右的點才不會被切掉
+            left: `${Math.min(88, Math.max(12, (hover / Math.max(1, series.length - 1)) * 100))}%`,
+            transform: "translateX(-50%)",
+            padding: "1px 6px",
+            borderRadius: 4,
+            background: "rgba(15,23,42,.88)",
+            color: "#fff",
+            fontSize: 11,
+            fontVariantNumeric: "tabular-nums",
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+          }}
+        >
+          {hoverDate ? `${hoverDate.slice(5).replace("-", "/")} ` : ""}
+          {formatPercent(hv)}
+        </div>
       )}
-      <path d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-      <circle cx={x(points[points.length - 1].i)} cy={y(last)} r={2} fill={color} vectorEffect="non-scaling-stroke" />
-    </svg>
+    </div>
   );
 }
 
@@ -326,7 +393,7 @@ export default function SectorsPage() {
                     style={{
                       width: "100%", display: "grid",
                       gridTemplateColumns: "52px minmax(96px, 1fr) 1.5fr 84px 56px",
-                      alignItems: "center", gap: 10, padding: "8px 12px",
+                      alignItems: "center", gap: 10, padding: "10px 12px",
                       background: isOpen ? "#eff6ff" : "#fff",
                       border: "none", borderLeft: `3px solid ${tierStyle(g.tier).bar}`,
                       cursor: "pointer", textAlign: "left", font: "inherit",
@@ -345,7 +412,7 @@ export default function SectorsPage() {
                       />
                       {g.label}
                     </span>
-                    <Sparkline series={g.series} domain={domain} />
+                    <Sparkline series={g.series} dates={data.dates} domain={domain} />
                     <span style={{ textAlign: "right", fontWeight: "bold", fontVariantNumeric: "tabular-nums", color: changeColor(g.changePercent) }}>
                       {formatPercent(g.changePercent)}
                     </span>
