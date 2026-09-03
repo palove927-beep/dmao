@@ -32,25 +32,17 @@ function baseDateFor(range: RangeKey, now = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
 
-function shift(date: string, days: number): string {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 type PriceRow = { ticker: string; date: string; close: number | string };
 
-// 只取兩個窗口的收盤價，而不是整段區間：起算日往後、以及最近這幾天。
-// 一年區間全撈是四萬多列，這樣壓到約兩千列，聚合結果完全相同。
-const WINDOW_DAYS = 14;
-
+// 走勢圖要每一天的收盤，所以整段區間都得讀（原本只讀頭尾兩個窗口）。
+// 讀進來的列數與區間長度成正比：一個月約四千列、一年約四萬列。
 const allTickers = allSectorStocks.map((s) => s.ticker);
 
 // 代碼分批帶入 in()，避免 181 檔一次塞進 query string 讓 URL 過長
 // （/api/annotations 的 mates 查詢也是同樣理由分批）
 const TICKER_CHUNK = 100;
 
-async function readWindow(from: string, to: string): Promise<{ rows: PriceRow[]; error: string | null }> {
+async function readRange(from: string, to: string): Promise<{ rows: PriceRow[]; error: string | null }> {
   const rows: PriceRow[] = [];
   for (let i = 0; i < allTickers.length; i += TICKER_CHUNK) {
     const ids = allTickers.slice(i, i + TICKER_CHUNK);
@@ -79,32 +71,43 @@ export async function GET(req: NextRequest) {
   const baseDate = baseDateFor(range);
   const today = new Date().toISOString().slice(0, 10);
 
-  const [baseRes, latestRes] = await Promise.all([
-    // 起算日當天可能是假日，往後開一個窗口找第一個有交易的日子
-    readWindow(baseDate, shift(baseDate, WINDOW_DAYS)),
-    readWindow(shift(today, -WINDOW_DAYS), today),
-  ]);
-
-  const error = baseRes.error ?? latestRes.error;
+  // 起算日當天可能是假日，往後多讀幾天才找得到第一個交易日
+  const { rows, error } = await readRange(baseDate, today);
   if (error) {
     return NextResponse.json({ ok: false, error }, { status: 500 });
   }
 
-  // 起算價＝窗口內最早一筆；最新價＝窗口內最晚一筆
-  const pick = (rows: PriceRow[], keepEarliest: boolean) => {
-    const out = new Map<string, { date: string; close: number }>();
-    for (const r of rows) {
-      const close = Number(r.close);
-      if (!(close > 0)) continue;
-      const cur = out.get(r.ticker);
-      const better = !cur || (keepEarliest ? r.date < cur.date : r.date > cur.date);
-      if (better) out.set(r.ticker, { date: r.date, close });
-    }
-    return out;
-  };
+  // 每檔的每日收盤，以及該檔的起算價（區間內第一筆）與最新價（最後一筆）
+  const closesByTicker = new Map<string, Map<string, number>>();
+  const basePrice = new Map<string, { date: string; close: number }>();
+  const lastPrice = new Map<string, { date: string; close: number }>();
+  const dateSet = new Set<string>();
 
-  const basePrice = pick(baseRes.rows, true);
-  const lastPrice = pick(latestRes.rows, false);
+  for (const r of rows) {
+    const close = Number(r.close);
+    if (!(close > 0)) continue;
+    dateSet.add(r.date);
+
+    let byDate = closesByTicker.get(r.ticker);
+    if (!byDate) { byDate = new Map(); closesByTicker.set(r.ticker, byDate); }
+    byDate.set(r.date, close);
+
+    const b = basePrice.get(r.ticker);
+    if (!b || r.date < b.date) basePrice.set(r.ticker, { date: r.date, close });
+    const l = lastPrice.get(r.ticker);
+    if (!l || r.date > l.date) lastPrice.set(r.ticker, { date: r.date, close });
+  }
+
+  // 走勢圖的取樣點：交易日可能有兩百多天，抽稀到最多 120 點，
+  // 畫在幾十像素寬的迷你圖上看不出差別，回傳量卻少一半以上。
+  // 一定保留最後一天，線的末端才會對得上顯示的漲跌幅。
+  const MAX_POINTS = 120;
+  const allDates = [...dateSet].sort();
+  const step = Math.max(1, Math.ceil(allDates.length / MAX_POINTS));
+  const sampled = allDates.filter((_, i) => i % step === 0);
+  if (allDates.length > 0 && sampled[sampled.length - 1] !== allDates[allDates.length - 1]) {
+    sampled.push(allDates[allDates.length - 1]);
+  }
 
   const missing: { ticker: string; name: string }[] = [];
   // 完全沒有資料、或最新一筆已經落後的個股，交給前端逐檔補。
@@ -144,6 +147,24 @@ export async function GET(req: NextRequest) {
           ? covered.reduce((sum, s) => sum + s.changePercent!, 0) / covered.length
           : null;
 
+      // 走勢：每個取樣日都用「當天有報價的成分股」重算一次等權平均漲幅。
+      // 當天沒報價的個股（停牌、尚未補到資料）不列入該點的分母。
+      const members = g.stocks
+        .map((s) => ({ base: basePrice.get(s.ticker)?.close, closes: closesByTicker.get(s.ticker) }))
+        .filter((m): m is { base: number; closes: Map<string, number> } => !!m.base && !!m.closes);
+
+      const series = sampled.map((d) => {
+        let sum = 0;
+        let n = 0;
+        for (const m of members) {
+          const c = m.closes.get(d);
+          if (c === undefined) continue;
+          sum += ((c - m.base) / m.base) * 100;
+          n += 1;
+        }
+        return n > 0 ? Number((sum / n).toFixed(2)) : null;
+      });
+
       return {
         id: g.id,
         label: g.label,
@@ -151,6 +172,7 @@ export async function GET(req: NextRequest) {
         changePercent,
         total: stocks.length,
         covered: covered.length,
+        series,
         stocks,
       };
     }),
@@ -167,6 +189,7 @@ export async function GET(req: NextRequest) {
     baseDate,
     asOf: lastDates[lastDates.length - 1] ?? null,
     baseAsOf: baseDates[0] ?? null,
+    dates: sampled,
     tiers,
     missing,
     stale,

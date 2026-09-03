@@ -24,6 +24,7 @@ type SectorGroupRow = {
   changePercent: number | null;
   total: number;
   covered: number;
+  series: (number | null)[];
   stocks: SectorStockRow[];
 };
 
@@ -33,6 +34,7 @@ type ApiResult = {
   baseDate: string;
   asOf: string | null;
   baseAsOf: string | null;
+  dates: string[];
   tiers: { tier: string; groups: SectorGroupRow[] }[];
   missing: { ticker: string; name: string }[];
   stale: string[];
@@ -77,25 +79,47 @@ function StaleDate({ date, reference }: { date: string | null; reference: string
   );
 }
 
-// 漲跌幅長條：以本頁最大絕對漲跌幅為滿格，從中線往兩側長
-function ChangeBar({ value, max }: { value: number | null; max: number }) {
-  const width = value === null || max === 0 ? 0 : (Math.abs(value) / max) * 50;
-  const up = (value ?? 0) >= 0;
+// 族群走勢：起算日到最新收盤的累積漲跌幅曲線。
+// 所有族群共用同一個 y 軸範圍（domain），線的陡峭程度才能互相比較——
+// 各自縮放的話，漲 1% 和漲 30% 會畫成一樣的形狀。
+const SPARK_W = 150;
+const SPARK_H = 26;
+
+function Sparkline({ series, domain }: { series: (number | null)[]; domain: [number, number] }) {
+  const points = series
+    .map((v, i) => ({ v, i }))
+    .filter((p): p is { v: number; i: number } => p.v !== null);
+
+  if (points.length < 2) {
+    return <div style={{ height: SPARK_H }} aria-hidden />;
+  }
+
+  const [lo, hi] = domain;
+  const span = hi - lo || 1;
+  const x = (i: number) => (series.length < 2 ? 0 : (i / (series.length - 1)) * SPARK_W);
+  const y = (v: number) => SPARK_H - ((v - lo) / span) * SPARK_H;
+
+  const last = points[points.length - 1].v;
+  const color = changeColor(last);
+  const d = points.map((p, k) => `${k === 0 ? "M" : "L"}${x(p.i).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
+  const zeroY = y(0);
+  const showZero = 0 >= lo && 0 <= hi;
+
   return (
-    <div style={{ position: "relative", height: 10, background: "#f1f5f9", borderRadius: 3 }}>
-      <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "#cbd5e1" }} />
-      <div
-        style={{
-          position: "absolute",
-          top: 1,
-          bottom: 1,
-          left: up ? "50%" : `${50 - width}%`,
-          width: `${width}%`,
-          background: changeColor(value),
-          borderRadius: 2,
-        }}
-      />
-    </div>
+    <svg
+      width="100%"
+      height={SPARK_H}
+      viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
+      preserveAspectRatio="none"
+      style={{ display: "block", overflow: "visible" }}
+      aria-hidden
+    >
+      {showZero && (
+        <line x1={0} y1={zeroY} x2={SPARK_W} y2={zeroY} stroke="#cbd5e1" strokeWidth={1} strokeDasharray="2 2" vectorEffect="non-scaling-stroke" />
+      )}
+      <path d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      <circle cx={x(points[points.length - 1].i)} cy={y(last)} r={2} fill={color} vectorEffect="non-scaling-stroke" />
+    </svg>
   );
 }
 
@@ -188,10 +212,15 @@ export default function SectorsPage() {
     });
   }, [data, tier, sort]);
 
-  const maxAbs = useMemo(
-    () => Math.max(...groups.map((g) => Math.abs(g.changePercent ?? 0)), 0.01),
-    [groups]
-  );
+  // 目前顯示中的族群，所有走勢點的最小／最大值，當作共用 y 軸範圍
+  const domain = useMemo<[number, number]>(() => {
+    const values = groups.flatMap((g) => g.series).filter((v): v is number => v !== null);
+    if (values.length === 0) return [-1, 1];
+    const lo = Math.min(0, ...values);
+    const hi = Math.max(0, ...values);
+    const pad = (hi - lo) * 0.08 || 1;
+    return [lo - pad, hi + pad];
+  }, [groups]);
 
   const btn = (active: boolean) => ({
     padding: "6px 14px",
@@ -281,16 +310,13 @@ export default function SectorsPage() {
                     aria-expanded={isOpen}
                     style={{
                       width: "100%", display: "grid",
-                      gridTemplateColumns: "28px 52px minmax(96px, 1.1fr) 1fr 84px 56px",
+                      gridTemplateColumns: "52px minmax(96px, 1fr) 1.5fr 84px 56px",
                       alignItems: "center", gap: 10, padding: "10px 12px",
                       background: isOpen ? "#eff6ff" : "#fff",
                       border: "none", borderLeft: `3px solid ${tierStyle(g.tier).bar}`,
                       cursor: "pointer", textAlign: "left", font: "inherit",
                     }}
                   >
-                    <span style={{ color: "#9ca3af", fontSize: 12, textAlign: "center" }}>
-                      {sort === "change" ? i + 1 : ""}
-                    </span>
                     <span style={{
                       fontSize: 11, borderRadius: 4, padding: "2px 6px", textAlign: "center",
                       color: tierStyle(g.tier).fg, background: tierStyle(g.tier).bg, fontWeight: 600,
@@ -304,7 +330,7 @@ export default function SectorsPage() {
                       />
                       {g.label}
                     </span>
-                    <ChangeBar value={g.changePercent} max={maxAbs} />
+                    <Sparkline series={g.series} domain={domain} />
                     <span style={{ textAlign: "right", fontWeight: "bold", fontVariantNumeric: "tabular-nums", color: changeColor(g.changePercent) }}>
                       {formatPercent(g.changePercent)}
                     </span>
@@ -377,6 +403,9 @@ export default function SectorsPage() {
             <span style={{ color: TEMP_COLOR.hot, fontWeight: 600 }}>熱水區</span>、
             <span style={{ color: TEMP_COLOR.warm, fontWeight: 600 }}>溫水區</span>、
             <span style={{ color: "#1f2937" }}>冷水區</span>，與即時漲跌幅無關。
+            <br />
+            走勢是起算日到最新收盤的累積漲跌幅，所有族群共用同一個縱軸範圍，
+            線的陡峭程度可以直接互相比較。
             <br />
             族群漲幅為成分股漲幅的等權平均（未按市值加權）。右側 n/m 是有價格資料的檔數／成分股總數。
             {data.missing.length > 0 && !sync && (
