@@ -139,8 +139,9 @@ async function readRange(from: string, to: string): Promise<{ rows: PriceRow[]; 
 
 export async function GET(req: NextRequest) {
   const rangeParam = req.nextUrl.searchParams.get("range");
+  // 未指定或指定了無效值時的預設，與頁面的預設區間一致
   const range: RangeKey =
-    RANGES.find((r) => r.key === rangeParam)?.key ?? "1m";
+    RANGES.find((r) => r.key === rangeParam)?.key ?? "2w";
 
   const baseDate = baseDateFor(range);
   const today = new Date().toISOString().slice(0, 10);

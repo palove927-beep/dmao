@@ -195,7 +195,8 @@ function Sparkline({
 }
 
 export default function SectorsPage() {
-  const [range, setRange] = useState<RangeKey>("1m");
+  // 預設兩週：屬於日線取樣，走勢圖點數夠密、讀取量也還輕
+  const [range, setRange] = useState<RangeKey>("2w");
   const [tier, setTier] = useState<string>("全部");
   const [sort, setSort] = useState<SortKey>("change");
   const [data, setData] = useState<ApiResult | null>(null);
