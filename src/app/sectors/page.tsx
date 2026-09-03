@@ -81,7 +81,7 @@ function StaleDate({ date, reference }: { date: string | null; reference: string
   );
 }
 
-// 族群走勢：起算日到最新收盤的累積漲跌幅曲線。
+// 族群走勢：起算日到最後一個收盤日的累積漲跌幅曲線。
 // 所有族群共用同一個 y 軸範圍（domain），線的陡峭程度才能互相比較——
 // 各自縮放的話，漲 1% 和漲 30% 會畫成一樣的形狀。
 const SPARK_W = 150;
@@ -427,8 +427,22 @@ export default function SectorsPage() {
                         <thead>
                           <tr style={{ color: "#64748b", fontSize: 12 }}>
                             <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: 500 }}>個股</th>
-                            <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: 500 }}>起算收盤</th>
-                            <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: 500 }}>最新收盤</th>
+                            <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: 500 }}>
+                              起算收盤
+                              {data.baseAsOf && (
+                                <span style={{ marginLeft: 4, color: "#94a3b8", fontWeight: 400 }}>
+                                  {shortDate(data.baseAsOf)}
+                                </span>
+                              )}
+                            </th>
+                            <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: 500 }}>
+                              昨日收盤
+                              {data.asOf && (
+                                <span style={{ marginLeft: 4, color: "#94a3b8", fontWeight: 400 }}>
+                                  {shortDate(data.asOf)}
+                                </span>
+                              )}
+                            </th>
                             <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: 500 }}>漲跌幅</th>
                           </tr>
                         </thead>
@@ -477,7 +491,7 @@ export default function SectorsPage() {
           </div>
 
           <div style={{ marginTop: 14, fontSize: 12, color: "#94a3b8", lineHeight: 1.7 }}>
-            表中價格為<strong>日收盤價</strong>，不是盤中即時報價 —— 盤中看到的最新收盤通常是昨收。
+            表中價格為<strong>日收盤價</strong>，不是盤中即時報價。欄名旁的日期是該欄實際的收盤日。
             個股的基準日與多數人不同時，會在價格旁以
             <span style={{ color: "#b45309" }}>橘色日期</span>標出。
             <br />
@@ -486,7 +500,7 @@ export default function SectorsPage() {
             <span style={{ color: TEMP_COLOR.warm, fontWeight: 600 }}>溫水區</span>、
             <span style={{ color: "#1f2937" }}>冷水區</span>，與即時漲跌幅無關。
             <br />
-            走勢是起算日到最新收盤的累積漲跌幅，所有族群共用同一個縱軸範圍，
+            走勢是起算日到最後一個收盤日的累積漲跌幅，所有族群共用同一個縱軸範圍，
             線的陡峭程度可以直接互相比較。
             {data.sampling === "weekly" &&
               "一個月以上的區間改用週線取樣（每週最後一個交易日），讀取量約降到四分之一，形狀幾乎不受影響。"}
