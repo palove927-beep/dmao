@@ -3,6 +3,7 @@ import { getSupabase } from "@/lib/supabase";
 import { fetchAllRows } from "@/lib/supabase-paginate";
 import { sectorTiers, allSectorStocks } from "@/lib/sector-groups";
 import { RANGES, type RangeKey } from "@/lib/sector-range";
+import { isStale } from "@/lib/market-day";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ function monthsAgo(d: Date, n: number): Date {
 function baseDateFor(range: RangeKey, now = new Date()): string {
   const d = new Date(now);
   if (range === "1w") d.setUTCDate(d.getUTCDate() - 7);
+  else if (range === "2w") d.setUTCDate(d.getUTCDate() - 14);
   else if (range === "1m") return monthsAgo(d, 1).toISOString().slice(0, 10);
   else if (range === "3m") return monthsAgo(d, 3).toISOString().slice(0, 10);
   else if (range === "6m") return monthsAgo(d, 6).toISOString().slice(0, 10);
@@ -105,6 +107,14 @@ export async function GET(req: NextRequest) {
   const lastPrice = pick(latestRes.rows, false);
 
   const missing: { ticker: string; name: string }[] = [];
+  // 完全沒有資料、或最新一筆已經落後的個股，交給前端逐檔補。
+  // 補的動作走 /api/stock-history，那支本來就是增量的：
+  // 它會從 DB 最新日期往後抓，所以隔一週才開也會把整週補齊。
+  const stale: string[] = [];
+  for (const s2 of allSectorStocks) {
+    const l = lastPrice.get(s2.ticker);
+    if (!l || isStale(l.date)) stale.push(s2.ticker);
+  }
 
   const tiers = sectorTiers.map((tier) => ({
     tier: tier.tier,
@@ -159,5 +169,6 @@ export async function GET(req: NextRequest) {
     baseAsOf: baseDates[0] ?? null,
     tiers,
     missing,
+    stale,
   });
 }

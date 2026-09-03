@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, RefreshCw } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { RANGES, type RangeKey } from "@/lib/sector-range";
@@ -35,6 +35,7 @@ type ApiResult = {
   baseAsOf: string | null;
   tiers: { tier: string; groups: SectorGroupRow[] }[];
   missing: { ticker: string; name: string }[];
+  stale: string[];
 };
 
 type SortKey = "change" | "table";
@@ -106,6 +107,9 @@ export default function SectorsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [sync, setSync] = useState<{ done: number; total: number } | null>(null);
+  // 同一次瀏覽只自動補一輪，避免補完重抓後又觸發下一輪
+  const syncedRef = useRef(false);
 
   // 換區間時的 loading／error 重設放在點擊當下，effect 只負責抓資料，
   // 否則會在 effect 內同步 setState、觸發連鎖 render
@@ -116,19 +120,57 @@ export default function SectorsPage() {
     setRange(key);
   };
 
+  const load = useCallback(async (key: RangeKey): Promise<ApiResult | null> => {
+    try {
+      const res = await fetch(`/api/sector-returns?range=${key}`);
+      const json: ApiResult & { error?: string } = await res.json();
+      if (json.ok) { setData(json); return json; }
+      setError(json.error ?? "讀取失敗");
+    } catch {
+      setError("讀取失敗");
+    } finally {
+      setLoading(false);
+    }
+    return null;
+  }, []);
+
+  // 資料落後的個股逐檔補。/api/stock-history 是增量的——它從 DB 最新
+  // 日期往後抓，所以隔一週才開也會一次補齊整週，不是只補一天。
+  // 這裡由瀏覽器逐檔發請求而不是在 server 背景跑：serverless function
+  // 回應送出後就會被回收，背景工作不保證跑得完。
+  const backfill = useCallback(async (tickers: string[]) => {
+    const CONCURRENCY = 3; // 外部行情站對連線數敏感，別開太大
+    let done = 0;
+    setSync({ done: 0, total: tickers.length });
+    const queue = [...tickers];
+    const worker = async () => {
+      // 明確比對 undefined：用真假值判斷的話，代碼是空字串就會整條佇列提早停
+      for (let t = queue.shift(); t !== undefined; t = queue.shift()) {
+        try {
+          await fetch(`/api/stock-history/${t}?sync=1`);
+        } catch {
+          // 單檔失敗就跳過，不要擋住其他檔
+        }
+        done += 1;
+        setSync({ done, total: tickers.length });
+      }
+    };
+    await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+    setSync(null);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/sector-returns?range=${range}`)
-      .then((r) => r.json())
-      .then((json: ApiResult & { error?: string }) => {
-        if (cancelled) return;
-        if (json.ok) setData(json);
-        else setError(json.error ?? "讀取失敗");
-      })
-      .catch(() => { if (!cancelled) setError("讀取失敗"); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+    (async () => {
+      const json = await load(range);
+      if (cancelled || !json) return;
+      if (syncedRef.current || json.stale.length === 0) return;
+      syncedRef.current = true;
+      await backfill(json.stale);
+      if (!cancelled) await load(range);
+    })();
     return () => { cancelled = true; };
-  }, [range]);
+  }, [range, load, backfill]);
 
   const tiers = useMemo(() => ["全部", ...(data?.tiers.map((t) => t.tier) ?? [])], [data]);
 
@@ -204,6 +246,25 @@ export default function SectorsPage() {
           {sort === "change" ? "依漲幅排序" : "依表格順序"}
         </button>
       </div>
+
+      {sync && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10, marginBottom: 12,
+          padding: "8px 12px", background: "#eff6ff", border: "1px solid #bfdbfe",
+          borderRadius: 6, fontSize: 13, color: "#1e40af",
+        }}>
+          <RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} />
+          正在補抓落後的股價 {sync.done}/{sync.total}⋯（可繼續操作，補完會自動更新）
+          <span style={{ flex: 1 }} />
+          <span style={{ width: 120, height: 6, background: "#dbeafe", borderRadius: 3, overflow: "hidden" }}>
+            <span style={{
+              display: "block", height: "100%", borderRadius: 3, background: "#3b82f6",
+              width: `${sync.total ? (sync.done / sync.total) * 100 : 0}%`, transition: "width .2s",
+            }} />
+          </span>
+        </div>
+      )}
+      <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
 
       {loading && <div style={{ textAlign: "center", padding: 40, color: "#999" }}>載入中...</div>}
       {error && <div style={{ padding: 16, background: "#fef2f2", color: "#b91c1c", borderRadius: 6 }}>{error}</div>}
@@ -318,15 +379,16 @@ export default function SectorsPage() {
             <span style={{ color: "#1f2937" }}>冷水區</span>，與即時漲跌幅無關。
             <br />
             族群漲幅為成分股漲幅的等權平均（未按市值加權）。右側 n/m 是有價格資料的檔數／成分股總數。
-            {data.missing.length > 0 && (
+            {data.missing.length > 0 && !sync && (
               <>
                 <br />
                 <RefreshCw size={11} style={{ verticalAlign: -1, marginRight: 4 }} />
-                有 {data.missing.length} 檔還沒有歷史股價，可執行
+                仍有 {data.missing.length} 檔取不到價格（可能是剛掛牌、長期停牌，或外部行情站暫時失敗）。
+                重新整理會再試一次；要一次補齊也可執行
                 <code style={{ margin: "0 4px", background: "#f1f5f9", padding: "1px 5px", borderRadius: 3 }}>
                   /api/stock-refresh-all?source=sectors
                 </code>
-                補抓後重新整理。
+                。
               </>
             )}
           </div>

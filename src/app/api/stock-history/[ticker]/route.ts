@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { categories } from "@/lib/stock-list";
 import { stockNameOr } from "@/lib/stock-name";
+import { taiwanToday, isStale } from "@/lib/market-day";
 import { getSupabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -241,26 +242,6 @@ function buildMonthRange(sinceDate?: string): { year: number; month: number }[] 
   });
 }
 
-function taiwanToday(): string {
-  const tw = new Date(Date.now() + 8 * 3600 * 1000);
-  return tw.toISOString().slice(0, 10);
-}
-
-function isStale(latestDate: string): boolean {
-  const today = taiwanToday();
-  if (latestDate >= today) return false;
-  const twNow = new Date(Date.now() + 8 * 3600 * 1000);
-  const dayOfWeek = twNow.getUTCDay();
-  // Saturday: latest should be Friday (1 day ago)
-  // Sunday: latest should be Friday (2 days ago)
-  // Monday before 15:00: latest should be Friday (3 days ago at most)
-  const diff = (new Date(today).getTime() - new Date(latestDate).getTime()) / (24 * 3600 * 1000);
-  if (dayOfWeek === 6) return diff > 1; // Saturday
-  if (dayOfWeek === 0) return diff > 2; // Sunday
-  if (dayOfWeek === 1 && twNow.getUTCHours() < 7) return diff > 3; // Monday before 15:00 TW (07:00 UTC)
-  return diff > 1;
-}
-
 // ─── Fetch external data (TWSE/TPEX + Fugle fallback) ───
 
 // 未列在 stock-list 的代碼（比價頁可自由加入）無從得知上市或上櫃，
@@ -342,6 +323,17 @@ export async function GET(
           }
         }
       }
+    }
+
+    // ?sync=1：只補資料、不回傳整年價格。族群頁要一次補上百檔，
+    // 每檔都回一整年的日線會讓瀏覽器收到幾 MB 的無用資料。
+    if (req.nextUrl.searchParams.get("sync") === "1") {
+      return NextResponse.json({
+        ok: true,
+        ticker,
+        latestDate: await getLatestDate(ticker),
+        fetched: needsFetch,
+      });
     }
 
     // 3. Read full dataset from DB
