@@ -108,7 +108,9 @@ function ChangeBar({ value, max }: { value: number | null; max: number }) {
 // 所有族群共用同一個 y 軸範圍（domain），線的陡峭程度才能互相比較——
 // 各自縮放的話，漲 1% 和漲 30% 會畫成一樣的形狀。
 const SPARK_W = 150;
-const SPARK_H = 26;
+// preserveAspectRatio="none" 會把 viewBox 拉滿容器，所以真正決定線看起來
+// 陡不陡的是這個 px 高度，不是 viewBox 的長寬比。
+const SPARK_H = 44;
 
 function Sparkline({ series, domain }: { series: (number | null)[]; domain: [number, number] }) {
   const points = series
@@ -341,7 +343,7 @@ export default function SectorsPage() {
                     style={{
                       width: "100%", display: "grid",
                       gridTemplateColumns: "52px minmax(96px, 1fr) 1.5fr 84px 56px",
-                      alignItems: "center", gap: 10, padding: "10px 12px",
+                      alignItems: "center", gap: 10, padding: "8px 12px",
                       background: isOpen ? "#eff6ff" : "#fff",
                       border: "none", borderLeft: `3px solid ${tierStyle(g.tier).bar}`,
                       cursor: "pointer", textAlign: "left", font: "inherit",
