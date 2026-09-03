@@ -1,13 +1,13 @@
 "use client";
 
-import { Fragment, useEffect } from "react";
-import { sectorTiers } from "@/lib/sector-groups";
+import { useEffect } from "react";
 
-// 原始的「一到三線類股及水溫狀況」對照表。
-// 直接用 sector-groups.ts 畫出來而不是放一張圖：資料就是頁面在用的那一份，
-// 之後改水溫或增減成分股，這張表會跟著變，不會有圖跟資料對不上的問題。
-const TEMP_COLOR: Record<string, string> = { hot: "#dc2626", warm: "#e07b1f" };
-const COLD = "#1f2937";
+// 原始的「一到三線類股及水溫狀況」對照表。目前固定用這一張，
+// 之後換圖只要覆蓋同一個檔名，或改這裡的路徑即可。
+const CHART_SRC = "/20260831-PP.png";
+const CHART_W = 1318;
+const CHART_H = 1020;
+
 const NAVY = "#1e3a5f";
 
 export default function SectorTempTable({ onClose }: { onClose: () => void }) {
@@ -39,21 +39,25 @@ export default function SectorTempTable({ onClose }: { onClose: () => void }) {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "#fff", borderRadius: 8, width: "100%", maxWidth: 1120,
+          background: "#fff", borderRadius: 8, width: "100%", maxWidth: CHART_W,
           boxShadow: "0 20px 50px rgba(0,0,0,.3)", overflow: "hidden",
         }}
       >
         <div style={{
-          background: NAVY, color: "#fff", padding: "12px 16px",
-          display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap",
+          background: NAVY, color: "#fff", padding: "10px 14px",
+          display: "flex", alignItems: "center", gap: 10,
         }}>
-          <strong style={{ fontSize: 16 }}>一到三線類股及水溫狀況</strong>
-          <span style={{ fontSize: 12, opacity: 0.9 }}>
-            熱水區：<span style={{ color: "#ff8a8a", fontWeight: 600 }}>紅字</span>、
-            溫水區：<span style={{ color: "#ffbe76", fontWeight: 600 }}>橙字</span>、
-            冷水區：<span style={{ color: "#e2e8f0", fontWeight: 600 }}>黑字</span>
-          </span>
+          <strong style={{ fontSize: 15 }}>一到三線類股及水溫狀況</strong>
           <span style={{ flex: 1 }} />
+          <a
+            href={CHART_SRC}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            style={{ color: "#bfdbfe", fontSize: 12, textDecoration: "none" }}
+          >
+            原尺寸開啟 ↗
+          </a>
           <button
             onClick={onClose}
             aria-label="關閉"
@@ -68,58 +72,16 @@ export default function SectorTempTable({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, minWidth: 640 }}>
-            <tbody>
-              {sectorTiers.map((t) => (
-                // 陣列元素要有 key，用 <> 包會拿不到，得寫成 Fragment
-                <Fragment key={t.tier}>
-                  <tr>
-                    <td
-                      colSpan={2}
-                      style={{
-                        background: "#eef2f7", color: NAVY, fontWeight: "bold",
-                        textAlign: "center", padding: "6px 10px",
-                        borderTop: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1",
-                      }}
-                    >
-                      {t.tier}
-                    </td>
-                  </tr>
-                  {t.groups.map((g) => (
-                    <tr key={g.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
-                      <th
-                        scope="row"
-                        style={{
-                          width: 132, minWidth: 112, textAlign: "center", fontWeight: 500,
-                          padding: "8px 10px", borderRight: "1px solid #e5e7eb",
-                          verticalAlign: "middle", whiteSpace: "nowrap",
-                        }}
-                      >
-                        {g.label}
-                      </th>
-                      <td style={{ padding: "8px 12px", lineHeight: 1.9 }}>
-                        {g.stocks.map((s, i) => (
-                          <span key={s.ticker}>
-                            {i > 0 && <span style={{ color: "#94a3b8" }}>、</span>}
-                            <span
-                              title={s.ticker}
-                              style={{
-                                color: TEMP_COLOR[s.temp ?? ""] ?? COLD,
-                                fontWeight: s.temp ? 700 : 400,
-                              }}
-                            >
-                              {s.name}
-                            </span>
-                          </span>
-                        ))}
-                      </td>
-                    </tr>
-                  ))}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
+        {/* 圖比多數螢幕寬，容器內橫向可捲；圖本身維持原比例不變形 */}
+        <div style={{ overflowX: "auto", background: "#fff" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={CHART_SRC}
+            alt="一到三線類股及水溫狀況對照表"
+            width={CHART_W}
+            height={CHART_H}
+            style={{ display: "block", width: "100%", height: "auto", minWidth: 720 }}
+          />
         </div>
       </div>
     </div>
