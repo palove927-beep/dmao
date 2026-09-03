@@ -32,10 +32,19 @@ function baseDateFor(range: RangeKey, now = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
 
+function shift(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 type PriceRow = { ticker: string; date: string; close: number | string };
 
-// 走勢圖要每一天的收盤，所以整段區間都得讀（原本只讀頭尾兩個窗口）。
-// 讀進來的列數與區間長度成正比：一個月約四千列、一年約四萬列。
+// 讀取策略依區間而定：
+// 短區間（一週／兩週）要畫走勢圖，整段每日收盤都得讀，約一到兩千列。
+// 長區間只需要頭尾兩個端點，讀整段是四萬列起跳，因此只讀起算日與
+// 最近各 14 天兩個窗口——聚合出來的漲跌幅完全相同。
+const WINDOW_DAYS = 14;
 const allTickers = allSectorStocks.map((s) => s.ticker);
 
 // 代碼分批帶入 in()，避免 181 檔一次塞進 query string 讓 URL 過長
@@ -71,10 +80,25 @@ export async function GET(req: NextRequest) {
   const baseDate = baseDateFor(range);
   const today = new Date().toISOString().slice(0, 10);
 
-  // 起算日當天可能是假日，往後多讀幾天才找得到第一個交易日
-  const { rows, error } = await readRange(baseDate, today);
-  if (error) {
-    return NextResponse.json({ ok: false, error }, { status: 500 });
+  // 走勢圖只在短區間提供，長區間讀整段太重
+  const withSeries = range === "1w" || range === "2w";
+
+  let rows: PriceRow[];
+  {
+    const res = withSeries
+      ? await readRange(baseDate, today)
+      : await (async () => {
+          // 起算日當天可能是假日，往後開一個窗口找第一個有交易的日子
+          const [a, b] = await Promise.all([
+            readRange(baseDate, shift(baseDate, WINDOW_DAYS)),
+            readRange(shift(today, -WINDOW_DAYS), today),
+          ]);
+          return { rows: [...a.rows, ...b.rows], error: a.error ?? b.error };
+        })();
+    if (res.error) {
+      return NextResponse.json({ ok: false, error: res.error }, { status: 500 });
+    }
+    rows = res.rows;
   }
 
   // 每檔的每日收盤，以及該檔的起算價（區間內第一筆）與最新價（最後一筆）
@@ -104,8 +128,8 @@ export async function GET(req: NextRequest) {
   const MAX_POINTS = 120;
   const allDates = [...dateSet].sort();
   const step = Math.max(1, Math.ceil(allDates.length / MAX_POINTS));
-  const sampled = allDates.filter((_, i) => i % step === 0);
-  if (allDates.length > 0 && sampled[sampled.length - 1] !== allDates[allDates.length - 1]) {
+  const sampled = withSeries ? allDates.filter((_, i) => i % step === 0) : [];
+  if (withSeries && allDates.length > 0 && sampled[sampled.length - 1] !== allDates[allDates.length - 1]) {
     sampled.push(allDates[allDates.length - 1]);
   }
 
@@ -189,6 +213,7 @@ export async function GET(req: NextRequest) {
     baseDate,
     asOf: lastDates[lastDates.length - 1] ?? null,
     baseAsOf: baseDates[0] ?? null,
+    hasSeries: withSeries,
     dates: sampled,
     tiers,
     missing,
