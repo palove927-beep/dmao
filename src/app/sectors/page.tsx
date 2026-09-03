@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, RefreshCw } from "lucide-react";
+import { ChevronRight, RefreshCw, Table2 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
+import SectorTempTable from "@/components/SectorTempTable";
 import { RANGES, type RangeKey } from "@/lib/sector-range";
 
 type SectorStockRow = {
@@ -204,6 +205,7 @@ export default function SectorsPage() {
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [sync, setSync] = useState<{ done: number; total: number } | null>(null);
+  const [showChart, setShowChart] = useState(false);
   // 同一次瀏覽只自動補一輪，避免補完重抓後又觸發下一輪
   const syncedRef = useRef(false);
 
@@ -311,13 +313,28 @@ export default function SectorsPage() {
         subtitle={data?.asOf ? `收盤 ${data.baseAsOf ?? data.baseDate} → ${data.asOf}` : undefined}
       />
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10, alignItems: "center" }}>
         {RANGES.map((r) => (
           <button key={r.key} onClick={() => selectRange(r.key)} style={btn(range === r.key)}>
             {r.label}
           </button>
         ))}
+        <span style={{ flex: 1 }} />
+        <button
+          onClick={() => setShowChart(true)}
+          title="看原始的類股與水溫對照表"
+          style={{
+            ...btn(false),
+            display: "inline-flex", alignItems: "center", gap: 5,
+            borderColor: "#cbd5e1", color: "#475569",
+          }}
+        >
+          <Table2 size={14} />
+          水溫對照表
+        </button>
       </div>
+
+      {showChart && <SectorTempTable onClose={() => setShowChart(false)} />}
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16, alignItems: "center" }}>
         {tiers.map((t) => (
