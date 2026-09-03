@@ -212,7 +212,6 @@ export default function StockPage() {
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       <PageHeader
-        title="股票即時報價"
         subtitle={updatedAt ? new Date(updatedAt).toLocaleString("zh-TW") : undefined}
         actions={
           <>

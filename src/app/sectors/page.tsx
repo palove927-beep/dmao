@@ -307,7 +307,6 @@ export default function SectorsPage() {
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
       <PageHeader
-        title="族群比較"
         subtitle={data?.asOf ? `收盤 ${data.baseAsOf ?? data.baseDate} → ${data.asOf}` : undefined}
       />
 

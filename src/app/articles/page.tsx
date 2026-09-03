@@ -71,7 +71,7 @@ export default function ArticlesPage() {
 
   return (
     <div style={{ maxWidth: 700, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
-      <PageHeader title="文章列表" />
+      <PageHeader />
 
       {/* 搜尋列 */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>

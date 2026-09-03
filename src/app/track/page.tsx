@@ -1076,7 +1076,6 @@ export default function TrackPage() {
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
       <PageHeader
-        title="股票追蹤"
         subtitle={updatedAt ? new Date(updatedAt).toLocaleString("zh-TW") : undefined}
         actions={
           <button

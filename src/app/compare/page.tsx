@@ -745,7 +745,6 @@ export default function ComparePage() {
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
       <PageHeader
-        title="股價比價"
         subtitle={`${formatDateFull(start)} ~ ${formatDateFull(end)}`}
         actions={
           <button

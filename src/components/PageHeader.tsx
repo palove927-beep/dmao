@@ -27,12 +27,11 @@ function activeHref(pathname: string): string {
 }
 
 export default function PageHeader({
-  title,
   subtitle,
   actions,
 }: {
-  // 個股／ETF／文章這類內文自帶大標題的頁面可不給 title，頁首就只有導覽列
-  title?: ReactNode;
+  // 頁面標題不放在頁首——導覽列本身已經標出所在頁面，再放一次大標只是佔寬度。
+  // subtitle 用來擺更新時間、日期區間這類跟著資料變動的小字。
   subtitle?: ReactNode;
   actions?: ReactNode;
 }) {
@@ -53,17 +52,11 @@ export default function PageHeader({
         <House size={20} strokeWidth={1.75} />
       </Link>
 
-      {title === undefined ? (
-        <div style={{ flex: 1 }} />
-      ) : (
-        // 版面窄時（如 700px 寬的文章頁）讓導覽列換到下一行，而不是把標題擠扁
-        <div style={{ flex: "1 1 220px", textAlign: "center" }}>
-          <h1 style={{ fontSize: 24, fontWeight: "bold", margin: 0, display: "inline" }}>{title}</h1>
-          {subtitle !== undefined && subtitle !== null && subtitle !== "" && (
-            <span style={{ fontSize: 13, color: "#999", marginLeft: 10 }}>{subtitle}</span>
-          )}
-        </div>
-      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {subtitle !== undefined && subtitle !== null && subtitle !== "" && (
+          <span style={{ fontSize: 13, color: "#999", marginLeft: 4 }}>{subtitle}</span>
+        )}
+      </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         {NAV_ITEMS.filter((item) => !item.editorOnly || editor).map((item) => {

@@ -655,7 +655,7 @@ export default function DmaoPage() {
       style={{ maxWidth: 700, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}
       onPaste={step === 1 ? handlePaste : undefined}
     >
-      <PageHeader title={step === 1 ? "貼上文章" : "審核標記"} />
+      <PageHeader />
 
       {step === 1 && (
         <>
