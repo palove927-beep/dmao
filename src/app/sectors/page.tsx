@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, RefreshCw, Table2 } from "lucide-react";
+import { ChevronRight, RefreshCw, Image as ImageIcon } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import SectorTempTable from "@/components/SectorTempTable";
 import { RANGES, type RangeKey } from "@/lib/sector-range";
@@ -322,15 +322,15 @@ export default function SectorsPage() {
         <span style={{ flex: 1 }} />
         <button
           onClick={() => setShowChart(true)}
-          title="看原始的類股與水溫對照表"
+          title="水溫對照表"
+          aria-label="水溫對照表"
           style={{
             ...btn(false),
-            display: "inline-flex", alignItems: "center", gap: 5,
-            borderColor: "#cbd5e1", color: "#475569",
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            padding: "6px 10px", borderColor: "#cbd5e1", color: "#475569",
           }}
         >
-          <Table2 size={14} />
-          水溫對照表
+          <ImageIcon size={16} />
         </button>
       </div>
 
