@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, RefreshCw, Image as ImageIcon } from "lucide-react";
+import { ChevronRight, RefreshCw, Image as ImageIcon, Maximize2, Minimize2 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import SectorTempTable from "@/components/SectorTempTable";
 import { RANGES, type RangeKey } from "@/lib/sector-range";
@@ -203,7 +203,8 @@ export default function SectorsPage() {
   const [data, setData] = useState<ApiResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  // 展開中的族群。原本只存單一 id（一次只能開一個），改成集合才能一次全開
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [sync, setSync] = useState<{ done: number; total: number } | null>(null);
   const [showChart, setShowChart] = useState(false);
   // 同一次瀏覽只自動補一輪，避免補完重抓後又觸發下一輪
@@ -286,6 +287,19 @@ export default function SectorsPage() {
     });
   }, [data, tier, sort]);
 
+  const toggleOne = (id: string) =>
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  // 以「目前篩選出來的族群」為準：全開了就整批收合，否則整批展開
+  const allExpanded = groups.length > 0 && groups.every((g) => expandedIds.has(g.id));
+  const toggleAll = () =>
+    setExpandedIds(allExpanded ? new Set() : new Set(groups.map((g) => g.id)));
+
   // 目前顯示中的族群，所有走勢點的最小／最大值，當作共用 y 軸範圍
   const domain = useMemo<[number, number]>(() => {
     const values = groups.flatMap((g) => g.series).filter((v): v is number => v !== null);
@@ -320,6 +334,21 @@ export default function SectorsPage() {
           </button>
         ))}
         <span style={{ flex: 1 }} />
+        <button
+          onClick={toggleAll}
+          title={allExpanded ? "收合所有族群" : "展開所有族群"}
+          aria-label={allExpanded ? "收合所有族群" : "展開所有族群"}
+          aria-pressed={allExpanded}
+          style={{
+            ...btn(false),
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            padding: "6px 10px",
+            borderColor: allExpanded ? "#1a56db" : "#cbd5e1",
+            color: allExpanded ? "#1a56db" : "#475569",
+          }}
+        >
+          {allExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+        </button>
         <button
           onClick={() => setShowChart(true)}
           title="水溫對照表"
@@ -401,11 +430,11 @@ export default function SectorsPage() {
 
           <div style={{ border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
             {groups.map((g, i) => {
-              const isOpen = expanded === g.id;
+              const isOpen = expandedIds.has(g.id);
               return (
                 <div key={g.id} style={{ borderTop: i === 0 ? "none" : "1px solid #f1f5f9" }}>
                   <button
-                    onClick={() => setExpanded(isOpen ? null : g.id)}
+                    onClick={() => toggleOne(g.id)}
                     aria-expanded={isOpen}
                     style={{
                       width: "100%", display: "grid",
