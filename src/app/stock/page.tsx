@@ -545,30 +545,31 @@ export default function StockPage() {
                                   </div>
                                 </div>
                               )}
-                              {stockAnnotations.map((ann) => (
-                                <div key={ann.id} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid #e5e7eb" }}>
-                                  <div style={{ fontSize: 13, color: "#666", marginBottom: 4 }}>
-                                    <strong>{ann.dmao_articles?.title || "無標題"}</strong>
-                                    {ann.dmao_articles?.created_at && (
-                                      <span style={{ marginLeft: 8 }}>
-                                        {new Date(ann.dmao_articles.created_at).toLocaleDateString("zh-TW")}
+                              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                {stockAnnotations.map((ann) => (
+                                  <div key={ann.id} style={annotationCardStyle}>
+                                    <div style={annotationHeadStyle}>
+                                      <span style={{ minWidth: 0, flex: "1 1 auto" }}>
+                                        <strong style={{ color: "#1e3a5f" }}>{ann.dmao_articles?.title || "無標題"}</strong>
+                                        {ann.dmao_articles?.created_at && (
+                                          <span style={{ marginLeft: 8, color: "#9ca3af", fontSize: 12 }}>
+                                            {new Date(ann.dmao_articles.created_at).toLocaleDateString("zh-TW")}
+                                          </span>
+                                        )}
                                       </span>
-                                    )}
-                                    <a
-                                      href={`/articles/${ann.article_id}`}
-                                      style={{ marginLeft: 8, color: "#1a56db", fontSize: 12 }}
-                                    >
-                                      查看全文 →
-                                    </a>
+                                      <a href={`/articles/${ann.article_id}`} style={annotationLinkStyle}>
+                                        查看全文 →
+                                      </a>
+                                    </div>
+                                    <div style={{ fontSize: 14, color: "#333", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+                                      {ann.is_summary && (
+                                        <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "#fef3c7", color: "#92400e", marginRight: 6 }}>AI 摘要</span>
+                                      )}
+                                      {renderParagraph(ann.paragraph, annotationKeywords(ann))}
+                                    </div>
                                   </div>
-                                  <div style={{ fontSize: 14, color: "#333", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
-                                    {ann.is_summary && (
-                                      <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "#fef3c7", color: "#92400e", marginRight: 6 }}>AI 摘要</span>
-                                    )}
-                                    {renderParagraph(ann.paragraph, annotationKeywords(ann))}
-                                  </div>
-                                </div>
-                              ))}
+                                ))}
+                              </div>
                             </>)}
                           </div>
                         </td>
@@ -591,6 +592,36 @@ export default function StockPage() {
     </div>
   );
 }
+
+// 標記段落卡片：每則獨立成卡，避免相鄰文章之間界線不明顯
+const annotationCardStyle: React.CSSProperties = {
+  background: "#fff",
+  border: "1px solid #e5e7eb",
+  borderLeft: "3px solid #1a56db",
+  borderRadius: 8,
+  padding: "10px 14px",
+  boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
+};
+
+const annotationHeadStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
+  justifyContent: "space-between",
+  gap: 12,
+  fontSize: 13,
+  color: "#666",
+  marginBottom: 8,
+  paddingBottom: 8,
+  borderBottom: "1px solid #f1f5f9",
+};
+
+const annotationLinkStyle: React.CSSProperties = {
+  flex: "0 0 auto",
+  color: "#1a56db",
+  fontSize: 12,
+  textDecoration: "none",
+  whiteSpace: "nowrap",
+};
 
 const thStyle: React.CSSProperties = {
   padding: "10px 10px",
