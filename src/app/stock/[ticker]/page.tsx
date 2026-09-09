@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { annotationKeywords, renderParagraph } from "@/lib/highlight";
@@ -205,26 +205,10 @@ function CandlestickShape(props: any) {
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function CandlestickTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.[0]) return null;
-  const d = payload[0].payload as CandleData;
-  return (
-    <div style={{
-      background: "#fff", border: "1px solid #e5e7eb", borderRadius: 6,
-      padding: "8px 12px", fontSize: 13, lineHeight: 1.7,
-    }}>
-      <div style={{ fontWeight: "bold", marginBottom: 2 }}>{formatDateFull(label)}</div>
-      <div>開盤：<b>{d.open.toFixed(2)}</b></div>
-      <div>最高：<b style={{ color: "#dc2626" }}>{d.high.toFixed(2)}</b></div>
-      <div>最低：<b style={{ color: "#16a34a" }}>{d.low.toFixed(2)}</b></div>
-      <div>收盤：<b>{d.close.toFixed(2)}</b></div>
-      {d.volume != null && d.volume > 0 && (
-        <div>成交量：<b>{(d.volume / 1000).toLocaleString()}張</b></div>
-      )}
-    </div>
-  );
-}
+// 游標讀值改顯示在圖表上方的固定列，tooltip 本身只負責畫十字游標、不畫卡片，
+// 免得浮動卡片蓋住游標附近的走勢
+const noTooltipCard = () => null;
+const tooltipCursor = { stroke: "#94a3b8", strokeDasharray: "3 3" };
 
 export default function StockDetailPage() {
   const { ticker } = useParams() as { ticker: string };
@@ -239,8 +223,20 @@ export default function StockDetailPage() {
   const [annotationRows, setAnnotationRows] = useState<AnnotationRow[]>([]);
   // wrapW 在 hover 當下量測並存起來，render 期間不去讀 ref
   const [hoverPin, setHoverPin] = useState<{ pin: ArticlePinGroup; x: number; y: number; wrapW: number } | null>(null);
+  // 游標停在哪一根 K 棒（null = 沒有 hover，讀值列顯示最新一日）
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chartWrapRef = useRef<HTMLDivElement>(null);
+
+  // recharts 的 onMouseMove 會帶目前游標對應的資料索引；
+  // v3 給的是字串（"18"）、v2 是數字，兩種都接
+  const handleChartMove = useCallback((state: { activeTooltipIndex?: unknown }) => {
+    const raw = state?.activeTooltipIndex;
+    const parsed = typeof raw === "number" ? raw : typeof raw === "string" && raw !== "" ? Number(raw) : NaN;
+    const idx = Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+    setHoverIdx((prev) => (prev === idx ? prev : idx));
+  }, []);
+  const handleChartLeave = useCallback(() => setHoverIdx(null), []);
 
   const showPinPopup = useCallback((pin: ArticlePinGroup, x: number, y: number) => {
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
@@ -392,6 +388,13 @@ export default function StockDetailPage() {
   }));
   const maxVolume = Math.max(...volumeData.map((v) => v.volume), 0);
 
+  // 圖表上方的游標讀值列：沒有 hover 時顯示最新一日
+  const readoutIdx = hoverIdx != null && hoverIdx < candleData.length ? hoverIdx : candleData.length - 1;
+  const readout = candleData[readoutIdx];
+  const readoutPrev = candleData[readoutIdx - 1];
+  const readoutChange = readout && readoutPrev ? readout.close - readoutPrev.close : null;
+  const readoutPct = readoutChange != null && readoutPrev ? (readoutChange / readoutPrev.close) * 100 : null;
+
   function formatVolume(v: number) {
     if (v >= 1e8) return `${(v / 1e8).toFixed(1)}億`;
     if (v >= 1e4) return `${(v / 1e4).toFixed(0)}萬`;
@@ -407,6 +410,47 @@ export default function StockDetailPage() {
     cursor: "pointer",
     fontWeight: active ? "bold" : "normal",
   });
+
+  // 標記段落內容只跟 annotationRows 有關；獨立 memo 起來，游標在圖表上移動
+  // 觸發 re-render 時就不會重跑每張卡片的關鍵字標色
+  const annotationSection = useMemo(() => {
+    if (annotationRows.length === 0) return null;
+    return (
+      <div style={{ marginTop: 32 }}>
+        <h2 style={{ fontSize: 17, fontWeight: "bold", margin: "0 0 12px", color: "#1e3a5f" }}>
+          標記段落
+          <span style={{ marginLeft: 8, fontSize: 13, fontWeight: "normal", color: "#9ca3af" }}>
+            {annotationRows.length} 筆
+          </span>
+        </h2>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {annotationRows.map((ann) => (
+            <div key={ann.id} style={annotationCardStyle}>
+              <div style={annotationHeadStyle}>
+                <span style={{ minWidth: 0, flex: "1 1 auto" }}>
+                  <strong style={{ color: "#1e3a5f" }}>{ann.dmao_articles?.title || "無標題"}</strong>
+                  {ann.dmao_articles?.article_date && (
+                    <span style={{ marginLeft: 8, color: "#9ca3af", fontSize: 12 }}>
+                      {new Date(ann.dmao_articles.article_date).toLocaleDateString("zh-TW")}
+                    </span>
+                  )}
+                </span>
+                <a href={`/articles/${ann.article_id}`} style={annotationLinkStyle}>
+                  查看全文 →
+                </a>
+              </div>
+              <div style={{ fontSize: 14, color: "#333", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+                {ann.is_summary && (
+                  <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "#fef3c7", color: "#92400e", marginRight: 6 }}>AI 摘要</span>
+                )}
+                {renderParagraph(ann.paragraph, annotationKeywords(ann))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }, [annotationRows]);
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
@@ -535,18 +579,48 @@ export default function StockDetailPage() {
               </div>
             </div>
 
+            {readout && (
+              <div style={{
+                display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "2px 14px",
+                fontSize: 13, color: "#374151", minHeight: 22, marginBottom: 2,
+                fontVariantNumeric: "tabular-nums",
+              }}>
+                <span style={{ fontWeight: "bold", color: "#1e3a5f" }}>{formatDateFull(readout.date)}</span>
+                {hasOhlc && (
+                  <>
+                    <span>開 <b>{readout.open.toFixed(2)}</b></span>
+                    <span>高 <b style={{ color: "#dc2626" }}>{readout.high.toFixed(2)}</b></span>
+                    <span>低 <b style={{ color: "#15803d" }}>{readout.low.toFixed(2)}</b></span>
+                  </>
+                )}
+                <span>收 <b>{readout.close.toFixed(2)}</b></span>
+                {readoutChange != null && readoutPct != null && (
+                  <span style={{ fontWeight: "bold", color: readoutChange > 0 ? "#dc2626" : readoutChange < 0 ? "#15803d" : "#6b7280" }}>
+                    {readoutChange > 0 ? "+" : ""}{readoutChange.toFixed(2)}（{readoutChange > 0 ? "+" : ""}{readoutPct.toFixed(2)}%）
+                  </span>
+                )}
+                {readout.volume != null && readout.volume > 0 && (
+                  <span>量 <b>{(readout.volume / 1000).toLocaleString()}</b> 張</span>
+                )}
+                {hoverIdx == null && (
+                  <span style={{ color: "#9ca3af", fontSize: 12 }}>最新一日 · 滑過圖表看當日</span>
+                )}
+              </div>
+            )}
+
             <div ref={chartWrapRef} style={{ position: "relative" }}>
             {chartMode === "candlestick" && hasOhlc ? (
               <ResponsiveContainer width="100%" height={300}>
                 <ComposedChart data={candleData} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}
                   barGap={0} barCategoryGap="10%"
+                  onMouseMove={handleChartMove} onMouseLeave={handleChartLeave}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="date" hide />
                   <YAxis domain={[yMin, yMax]} tick={{ fontSize: 11, fill: "#9ca3af" }}
                     axisLine={false} tickLine={false} width={56}
                     tickFormatter={(v) => v.toLocaleString()} />
-                  <Tooltip content={<CandlestickTooltip />} />
+                  <Tooltip content={noTooltipCard} cursor={tooltipCursor} />
                   <Bar dataKey="bodyLow" stackId="candle" fill="transparent" stroke="none" isAnimationActive={false} />
                   <Bar dataKey="candleBody" stackId="candle" shape={<CandlestickShape />} isAnimationActive={false} />
                   {pinGroups.map((pin) => (
@@ -564,7 +638,9 @@ export default function StockDetailPage() {
               </ResponsiveContainer>
             ) : (
               <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={prices} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
+                <AreaChart data={prices} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}
+                  onMouseMove={handleChartMove} onMouseLeave={handleChartLeave}
+                >
                   <defs>
                     <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#1a56db" stopOpacity={0.15} />
@@ -576,11 +652,7 @@ export default function StockDetailPage() {
                   <YAxis domain={[yMin, yMax]} tick={{ fontSize: 11, fill: "#9ca3af" }}
                     axisLine={false} tickLine={false} width={56}
                     tickFormatter={(v) => v.toLocaleString()} />
-                  <Tooltip
-                    formatter={(value: unknown) => [(value as number).toFixed(2), "收盤價"]}
-                    labelFormatter={(label) => formatDateFull(label as string)}
-                    contentStyle={{ fontSize: 13, borderRadius: 6, border: "1px solid #e5e7eb" }}
-                  />
+                  <Tooltip content={noTooltipCard} cursor={tooltipCursor} />
                   <Area type="monotone" dataKey="close" stroke="#1a56db" strokeWidth={1.5}
                     fill="url(#grad)" dot={false} activeDot={{ r: 4 }} />
                   {pinGroups.map((pin) => (
@@ -692,42 +764,7 @@ export default function StockDetailPage() {
               <span>共 {prices.length} 筆資料（{allPrices.length} 筆總計）</span>
             </div>
 
-            {/* 標記段落 */}
-            {annotationRows.length > 0 && (
-              <div style={{ marginTop: 32 }}>
-                <h2 style={{ fontSize: 17, fontWeight: "bold", margin: "0 0 12px", color: "#1e3a5f" }}>
-                  標記段落
-                  <span style={{ marginLeft: 8, fontSize: 13, fontWeight: "normal", color: "#9ca3af" }}>
-                    {annotationRows.length} 筆
-                  </span>
-                </h2>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {annotationRows.map((ann) => (
-                    <div key={ann.id} style={annotationCardStyle}>
-                      <div style={annotationHeadStyle}>
-                        <span style={{ minWidth: 0, flex: "1 1 auto" }}>
-                          <strong style={{ color: "#1e3a5f" }}>{ann.dmao_articles?.title || "無標題"}</strong>
-                          {ann.dmao_articles?.article_date && (
-                            <span style={{ marginLeft: 8, color: "#9ca3af", fontSize: 12 }}>
-                              {new Date(ann.dmao_articles.article_date).toLocaleDateString("zh-TW")}
-                            </span>
-                          )}
-                        </span>
-                        <a href={`/articles/${ann.article_id}`} style={annotationLinkStyle}>
-                          查看全文 →
-                        </a>
-                      </div>
-                      <div style={{ fontSize: 14, color: "#333", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
-                        {ann.is_summary && (
-                          <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "#fef3c7", color: "#92400e", marginRight: 6 }}>AI 摘要</span>
-                        )}
-                        {renderParagraph(ann.paragraph, annotationKeywords(ann))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {annotationSection}
           </>
         )}
       </div>
