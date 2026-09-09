@@ -300,6 +300,9 @@ export default function ArticlePage() {
           if (imgMatch) {
             return (
               <div key={i} style={{ margin: "12px 0" }}>
+                {/* 內文圖片為使用者上傳／貼上的任意來源網址，尺寸未知，
+                    不適用 next/image 的最佳化流程 */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={imgMatch[2]}
                   alt={imgMatch[1] || "image"}

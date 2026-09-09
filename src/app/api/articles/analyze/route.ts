@@ -16,17 +16,6 @@ const stockListText = allStocks
 // Complements AI detection by scanning text for known stock names/tickers.
 // This catches stocks that the AI model might miss.
 
-// Terms that look like tickers but are NOT companies
-const NON_STOCK_TERMS = new Set([
-  "GaAs", "InP", "GaN", "SiC", "III-V",
-  "CPO", "AOC", "RF", "VCSEL", "EML", "PD",
-  "800G", "1.6T", "100G", "200G", "400G",
-  "CW", "LED", "LCD", "OLED", "USB", "PCB",
-  "AI", "AR", "VR", "IoT", "5G", "6G",
-  "M3", // Apple chip, not company - M3 is also a JP stock ticker but rarely mentioned in TW articles
-  "AGC", "SMC", // Too ambiguous as abbreviations
-]);
-
 // 英文／數字的名稱與別名必須是「獨立的詞」才算命中。
 // 純 includes 會誤判：EMC(台光電) 命中 SEMCO、SMC 命中 SMCI、ASE(日月光) 命中 PHASE。
 // 中文沒有詞界可言，維持子字串比對。

@@ -172,7 +172,6 @@ export default function DmaoPage() {
   const [formTitle, setFormTitle] = useState("");
   const [formDate, setFormDate] = useState(today);
   const [formContent, setFormContent] = useState("");
-  const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState<{ message: string; persistent?: boolean } | null>(null);
   const [docxLoading, setDocxLoading] = useState(false);
   const pendingImagesRef = useRef<Map<string, File | string>>(new Map());
@@ -682,13 +681,12 @@ export default function DmaoPage() {
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                disabled={uploading}
                 style={{
                   padding: "6px 16px", fontSize: 13, border: "1px solid #ccc", borderRadius: 4,
-                  background: "#fff", cursor: uploading ? "not-allowed" : "pointer",
+                  background: "#fff", cursor: "pointer",
                 }}
               >
-                {uploading ? "上傳中..." : "插入圖片"}
+                插入圖片
               </button>
               <span style={{ fontSize: 12, color: "#999", marginLeft: 8 }}>
                 或 Ctrl+V 貼上圖片（會插入在游標位置）
@@ -787,6 +785,9 @@ export default function DmaoPage() {
                   <div style={{ fontSize: 11, color: "#999", marginBottom: 4 }}>段落 {i + 1}</div>
                   {imgMatch ? (
                     <div style={{ margin: "8px 0" }}>
+                      {/* 預覽圖可能是 blob:（尚未上傳）或任意來源網址，尺寸未知，
+                          不適用 next/image 的最佳化流程 */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={imgMatch[2]}
                         alt={imgMatch[1] || "image"}
