@@ -602,9 +602,6 @@ export default function StockDetailPage() {
                 {readout.volume != null && readout.volume > 0 && (
                   <span>量 <b>{(readout.volume / 1000).toLocaleString()}</b> 張</span>
                 )}
-                {hoverIdx == null && (
-                  <span style={{ color: "#9ca3af", fontSize: 12 }}>最新一日 · 滑過圖表看當日</span>
-                )}
               </div>
             )}
 
