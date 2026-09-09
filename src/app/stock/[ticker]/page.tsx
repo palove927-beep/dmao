@@ -82,10 +82,8 @@ type AnnotationRow = {
 const annotationCardStyle: React.CSSProperties = {
   background: "#fff",
   border: "1px solid #e5e7eb",
-  borderLeft: "3px solid #1a56db",
   borderRadius: 8,
   padding: "12px 16px",
-  boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
 };
 
 const annotationHeadStyle: React.CSSProperties = {

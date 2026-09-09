@@ -68,7 +68,7 @@ export default function StockPage() {
   const [latestEps2027, setLatestEps2027] = useState<Record<string, LatestEpsInfo>>({});
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
   const [loadingAnnotations, setLoadingAnnotations] = useState<string | null>(null);
-  const [timeRange, setTimeRange] = useState<TimeRange>("all");
+  const [timeRange, setTimeRange] = useState<TimeRange>("1m");
 
   const fetchAnnotationCounts = useCallback(async (range: TimeRange) => {
     try {
@@ -129,32 +129,44 @@ export default function StockPage() {
     return () => clearInterval(interval);
   }, [fetchPrices, fetchAnnotationCounts, fetchLatestEps, timeRange]);
 
-  const fetchAnnotationsForTicker = async (ticker: string) => {
-    if (expandedTicker === ticker) {
-      setExpandedTicker(null);
-      return;
-    }
-    setExpandedTicker(ticker);
-    if (annotations[ticker]) return;
-
-    setLoadingAnnotations(ticker);
-    try {
-      const [annRes, epsRes] = await Promise.all([
-        fetch(`/api/annotations?ticker=${ticker}`).then((r) => r.json()),
-        fetch(`/api/eps-forecasts?ticker=${ticker}`).then((r) => r.json()),
-      ]);
-      if (annRes.ok) {
-        setAnnotations((prev) => ({ ...prev, [ticker]: annRes.annotations }));
-      }
-      if (epsRes.ok) {
-        setEpsForecasts((prev) => ({ ...prev, [ticker]: epsRes.forecasts }));
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoadingAnnotations(null);
-    }
+  const toggleTicker = (ticker: string) => {
+    setExpandedTicker((prev) => (prev === ticker ? null : ticker));
   };
+
+  // 展開的標記清單跟著「標記區間」走，否則徽章筆數與清單內容會對不起來；
+  // 也因此不快取結果——區間一改就得重抓，直接依 expandedTicker/timeRange 載入。
+  useEffect(() => {
+    if (!expandedTicker) return;
+    const ticker = expandedTicker;
+    let cancelled = false;
+
+    (async () => {
+      setLoadingAnnotations(ticker);
+      try {
+        const since = getSinceDate(timeRange);
+        const annUrl = since
+          ? `/api/annotations?ticker=${ticker}&since=${since}`
+          : `/api/annotations?ticker=${ticker}`;
+        const [annRes, epsRes] = await Promise.all([
+          fetch(annUrl).then((r) => r.json()),
+          fetch(`/api/eps-forecasts?ticker=${ticker}`).then((r) => r.json()),
+        ]);
+        if (cancelled) return;
+        if (annRes.ok) {
+          setAnnotations((prev) => ({ ...prev, [ticker]: annRes.annotations }));
+        }
+        if (epsRes.ok) {
+          setEpsForecasts((prev) => ({ ...prev, [ticker]: epsRes.forecasts }));
+        }
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setLoadingAnnotations(null);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [expandedTicker, timeRange]);
 
   const formatPrice = (p: number | null) => {
     if (p === null || p === 0) return "-";
@@ -498,7 +510,7 @@ export default function StockPage() {
                           const count = annotationCounts[stock.ticker] || 0;
                           return count > 0 ? (
                             <button
-                              onClick={() => fetchAnnotationsForTicker(stock.ticker)}
+                              onClick={() => toggleTicker(stock.ticker)}
                               style={{
                                 padding: "2px 10px",
                                 fontSize: 13,
@@ -522,7 +534,7 @@ export default function StockPage() {
                     {isExpanded && (
                       <tr key={`ann-${stock.ticker}`}>
                         <td colSpan={COL_COUNT} style={{ padding: 0 }}>
-                          <div style={{ background: "#f8fafc", borderLeft: "3px solid #1a56db", margin: "0 14px 8px", padding: "12px 16px" }}>
+                          <div style={{ background: "#f8fafc", margin: "0 14px 8px", padding: "12px 14px" }}>
                             {isLoadingThis ? (
                               <div style={{ color: "#999", fontSize: 13 }}>載入中...</div>
                             ) : stockAnnotations.length === 0 && stockEps.length === 0 ? (
@@ -597,10 +609,8 @@ export default function StockPage() {
 const annotationCardStyle: React.CSSProperties = {
   background: "#fff",
   border: "1px solid #e5e7eb",
-  borderLeft: "3px solid #1a56db",
   borderRadius: 8,
   padding: "10px 14px",
-  boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
 };
 
 const annotationHeadStyle: React.CSSProperties = {
