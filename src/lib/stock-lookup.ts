@@ -207,6 +207,9 @@ export const scanStocks: ScanStock[] = [
   { ticker: "603228.SS",  name: "景旺電子",               aliases: ["景旺"] },
   { ticker: "603986.SS",  name: "兆易創新" },
   { ticker: "688396.SS",  name: "華潤微" },
+  { ticker: "688825.SS",  name: "長鑫科技",                 aliases: ["長鑫存儲", "長鑫", "CXMT"] },
+  // ─── 港股 ────────────────────────────────────────────────
+  { ticker: "1810.HK",    name: "小米",                   aliases: ["小米集團", "Xiaomi"] },
   // ─── 日股 ────────────────────────────────────────────────
   { ticker: "3407.T",     name: "旭化成(Asahi Kasei)",     aliases: ["旭化成", "Asahi Kasei", "Asahi"] },
   { ticker: "3110.T",     name: "日東紡(Nittobo)",          aliases: ["日東紡", "Nittobo"] },
