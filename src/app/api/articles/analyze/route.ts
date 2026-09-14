@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
       : paragraphList;
 
     const { object: result } = await generateObject({
-      model: process.env.ANALYZE_MODEL || "inception/mercury-2.5",
+      model: process.env.ANALYZE_MODEL || "meta/muse-spark-1.1",
       experimental_repairText: async ({ text, error }) => {
         console.warn("[analyze] 模型輸出形狀不符，嘗試修正：", error.message.slice(0, 300));
         return repairAnalysisJson(text);
@@ -193,7 +193,8 @@ ${stockListText}
    - 公司自己公布的當季實際EPS（如「non-GAAP EPS -0.01美元」）
    - 公司自己給出的下季財測區間（如「EPS區間-0.09~0美元」）
    - 這些是公司的guidance，不是定錨的年度財測EPS預估
-8. 如果文章中沒有定錨給出的年度財測EPS，回傳空陣列 []
+8. 每一筆都必須帶 ticker 與 stock_name（個股分析就填主角股票），不可只給年度與 EPS
+9. 如果文章中沒有定錨給出的年度財測EPS，回傳空陣列 []
 
 文章標題：${title}
 
