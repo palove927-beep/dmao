@@ -46,20 +46,44 @@ function highlightStocksInText(text: string, stocks: StockTag[]) {
 }
 
 // ─── Toast ──────────────────────────────────────────────
-function Toast({ message, persistent, onClose }: { message: string; persistent?: boolean; onClose: () => void }) {
+// 一般訊息看一眼就夠，錯誤訊息（常常還帶上游 API 的原因）要留久一點，
+// 才來得及讀完；讀完可以點一下提早關掉。
+const TOAST_MS = 3000;
+const TOAST_ERROR_MS = 20000;
+
+function Toast({ message, persistent, tone, onClose }: {
+  message: string;
+  persistent?: boolean;
+  tone?: "error";
+  onClose: () => void;
+}) {
+  const isError = tone === "error";
+  const dismissible = !persistent;
+
   useEffect(() => {
     if (persistent) return;
-    const t = setTimeout(onClose, 3000);
+    const t = setTimeout(onClose, isError ? TOAST_ERROR_MS : TOAST_MS);
     return () => clearTimeout(t);
-  }, [onClose, persistent]);
+  }, [onClose, persistent, isError]);
 
   return (
-    <div style={{
-      position: "fixed", bottom: 40, left: "50%", transform: "translateX(-50%)",
-      background: "#222", color: "#fff", padding: "12px 28px", borderRadius: 8,
-      fontSize: 14, zIndex: 9999, boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-    }}>
+    <div
+      onClick={dismissible ? onClose : undefined}
+      style={{
+        position: "fixed", bottom: 40, left: "50%", transform: "translateX(-50%)",
+        background: isError ? "#7f1d1d" : "#222", color: "#fff",
+        padding: "12px 28px", borderRadius: 8,
+        fontSize: 14, lineHeight: 1.6, zIndex: 9999,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+        maxWidth: "min(680px, calc(100vw - 32px))",
+        whiteSpace: "pre-wrap", wordBreak: "break-word",
+        cursor: dismissible ? "pointer" : "default",
+      }}
+    >
       {message}
+      {isError && (
+        <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>點一下關閉</div>
+      )}
     </div>
   );
 }
@@ -172,7 +196,7 @@ export default function DmaoPage() {
   const [formTitle, setFormTitle] = useState("");
   const [formDate, setFormDate] = useState(today);
   const [formContent, setFormContent] = useState("");
-  const [toast, setToast] = useState<{ message: string; persistent?: boolean } | null>(null);
+  const [toast, setToast] = useState<{ message: string; persistent?: boolean; tone?: "error" } | null>(null);
   const [docxLoading, setDocxLoading] = useState(false);
   const pendingImagesRef = useRef<Map<string, File | string>>(new Map());
   const autoAnalyzeRef = useRef(false);
@@ -196,6 +220,7 @@ export default function DmaoPage() {
 
   const clearToast = useCallback(() => setToast(null), []);
   const showToast = useCallback((message: string, persistent?: boolean) => setToast({ message, persistent }), []);
+  const showError = useCallback((message: string) => setToast({ message, tone: "error" }), []);
 
   // ─── Import handlers ───
   const queueLocalFile = (file: File): string => {
@@ -224,7 +249,7 @@ export default function DmaoPage() {
       autoAnalyzeRef.current = true;
       showToast(`已匯入「${title || "無標題"}」，開始分析...`);
     } catch (err) {
-      showToast(`匯入失敗：${err instanceof Error ? err.message : "未知錯誤"}`);
+      showError(`匯入失敗：${err instanceof Error ? err.message : "未知錯誤"}`);
     } finally {
       setDocxLoading(false);
     }
@@ -436,10 +461,10 @@ export default function DmaoPage() {
         setStep(2);
         showToast(`分析完成，共 ${paras.length} 個段落`);
       } else {
-        showToast(`分析失敗：${json.error}`);
+        showError(`分析失敗：${json.error}`);
       }
     } catch (err) {
-      showToast(`分析失敗：${err instanceof Error ? err.message : "未知錯誤"}`);
+      showError(`分析失敗：${err instanceof Error ? err.message : "未知錯誤"}`);
     } finally {
       setAnalyzing(false);
     }
@@ -593,10 +618,10 @@ export default function DmaoPage() {
         showToast(`已儲存，標記了 ${json.annotationCount} 個股票提及`);
         setTimeout(() => router.push("/articles"), 1500);
       } else {
-        showToast(`錯誤：${json.error}`);
+        showError(`錯誤：${json.error}`);
       }
     } catch (err) {
-      showToast(`儲存失敗：${err instanceof Error ? err.message : "未知錯誤"}`);
+      showError(`儲存失敗：${err instanceof Error ? err.message : "未知錯誤"}`);
     } finally {
       setSubmitting(false);
     }
@@ -924,7 +949,7 @@ export default function DmaoPage() {
         </>
       )}
 
-      {toast && <Toast message={toast.message} persistent={toast.persistent} onClose={clearToast} />}
+      {toast && <Toast message={toast.message} persistent={toast.persistent} tone={toast.tone} onClose={clearToast} />}
     </div>
   );
 }
