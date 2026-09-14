@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { splitParagraphs } from "@/lib/paragraphs";
 import { lookupStock, scanStocks } from "@/lib/stock-lookup";
 import { isEditor } from "@/lib/auth";
 import PageHeader from "@/components/PageHeader";
+import Toast, { useToast } from "@/components/Toast";
 
 // ─── Types ──────────────────────────────────────────────
 type StockTag = { ticker: string; stock_name: string };
@@ -43,49 +44,6 @@ function highlightStocksInText(text: string, stocks: StockTag[]) {
     }
     return <span key={i}>{applyStockHighlight(seg, kw, String(i))}</span>;
   });
-}
-
-// ─── Toast ──────────────────────────────────────────────
-// 一般訊息看一眼就夠，錯誤訊息（常常還帶上游 API 的原因）要留久一點，
-// 才來得及讀完；讀完可以點一下提早關掉。
-const TOAST_MS = 3000;
-const TOAST_ERROR_MS = 20000;
-
-function Toast({ message, persistent, tone, onClose }: {
-  message: string;
-  persistent?: boolean;
-  tone?: "error";
-  onClose: () => void;
-}) {
-  const isError = tone === "error";
-  const dismissible = !persistent;
-
-  useEffect(() => {
-    if (persistent) return;
-    const t = setTimeout(onClose, isError ? TOAST_ERROR_MS : TOAST_MS);
-    return () => clearTimeout(t);
-  }, [onClose, persistent, isError]);
-
-  return (
-    <div
-      onClick={dismissible ? onClose : undefined}
-      style={{
-        position: "fixed", bottom: 40, left: "50%", transform: "translateX(-50%)",
-        background: isError ? "#7f1d1d" : "#222", color: "#fff",
-        padding: "12px 28px", borderRadius: 8,
-        fontSize: 14, lineHeight: 1.6, zIndex: 9999,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-        maxWidth: "min(680px, calc(100vw - 32px))",
-        whiteSpace: "pre-wrap", wordBreak: "break-word",
-        cursor: dismissible ? "pointer" : "default",
-      }}
-    >
-      {message}
-      {isError && (
-        <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>點一下關閉</div>
-      )}
-    </div>
-  );
 }
 
 // ─── StockChips (per-paragraph stock tags with add/remove) ─
@@ -196,7 +154,7 @@ export default function DmaoPage() {
   const [formTitle, setFormTitle] = useState("");
   const [formDate, setFormDate] = useState(today);
   const [formContent, setFormContent] = useState("");
-  const [toast, setToast] = useState<{ message: string; persistent?: boolean; tone?: "error" } | null>(null);
+  const { toast, showToast, showError, clearToast } = useToast();
   const [docxLoading, setDocxLoading] = useState(false);
   const pendingImagesRef = useRef<Map<string, File | string>>(new Map());
   const autoAnalyzeRef = useRef(false);
@@ -218,9 +176,6 @@ export default function DmaoPage() {
     setFormDate(m ? `${m[1]}-${m[2]}-${m[3]}` : today);
   };
 
-  const clearToast = useCallback(() => setToast(null), []);
-  const showToast = useCallback((message: string, persistent?: boolean) => setToast({ message, persistent }), []);
-  const showError = useCallback((message: string) => setToast({ message, tone: "error" }), []);
 
   // ─── Import handlers ───
   const queueLocalFile = (file: File): string => {
@@ -423,7 +378,7 @@ export default function DmaoPage() {
 
     try {
       setFinalContent(formContent);
-      showToast("AI 分析段落中...", true);
+      showToast("分析段落中...", true);
 
       const paras = splitParagraphs(formContent);
       // Strip image markdown before sending to AI (images aren't meaningful for text analysis)

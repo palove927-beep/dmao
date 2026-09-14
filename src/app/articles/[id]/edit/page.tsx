@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { splitParagraphs } from "@/lib/paragraphs";
 import { lookupStock } from "@/lib/stocks";
 import PageHeader from "@/components/PageHeader";
+import Toast, { useToast } from "@/components/Toast";
 
 // ─── Types ──────────────────────────────────────────────
 type StockTag = { ticker: string; stock_name: string };
@@ -23,24 +24,6 @@ type EpsForecast = {
   forecast_year: number;
   eps: number;
 };
-
-// ─── Toast ──────────────────────────────────────────────
-function Toast({ message, onClose }: { message: string; onClose: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onClose, 3000);
-    return () => clearTimeout(t);
-  }, [onClose]);
-
-  return (
-    <div style={{
-      position: "fixed", bottom: 40, left: "50%", transform: "translateX(-50%)",
-      background: "#222", color: "#fff", padding: "12px 28px", borderRadius: 8,
-      fontSize: 14, zIndex: 9999, boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-    }}>
-      {message}
-    </div>
-  );
-}
 
 // ─── StockChips (per-paragraph stock tags with add/remove) ─
 function StockChips({
@@ -140,13 +123,12 @@ export default function EditAnnotationsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
   const [articleTitle, setArticleTitle] = useState("");
   const [paragraphs, setParagraphs] = useState<ParagraphData[]>([]);
   const [originalAnnotations, setOriginalAnnotations] = useState<Annotation[]>([]);
   const [epsForecasts, setEpsForecasts] = useState<EpsForecast[]>([]);
 
-  const clearToast = useCallback(() => setToast(null), []);
+  const { toast, showToast, showError, clearToast } = useToast();
 
   // Load article + annotations, then match annotations to paragraphs
   useEffect(() => {
@@ -322,11 +304,11 @@ export default function EditAnnotationsPage() {
       }
       await Promise.all(createPromises);
 
-      setToast("標記已儲存");
+      showToast("標記已儲存");
       // Navigate back to article detail after short delay
       setTimeout(() => router.push(`/articles/${id}`), 1000);
     } catch {
-      alert("儲存失敗");
+      showError("儲存失敗");
     } finally {
       setSaving(false);
     }
@@ -480,7 +462,7 @@ export default function EditAnnotationsPage() {
         </button>
       </div>
 
-      {toast && <Toast message={toast} onClose={clearToast} />}
+      {toast && <Toast message={toast.message} persistent={toast.persistent} tone={toast.tone} onClose={clearToast} />}
     </div>
   );
 }
