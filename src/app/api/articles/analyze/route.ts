@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { scanStocks, lookupStock } from "@/lib/stock-lookup";
 import { generateObject } from "ai";
 import { z } from "zod";
+import { repairAnalysisJson } from "@/lib/analyze-repair";
 
 const allStocks = scanStocks;
 
@@ -111,6 +112,10 @@ export async function POST(req: NextRequest) {
 
     const { object: result } = await generateObject({
       model: process.env.ANALYZE_MODEL || "inception/mercury-2.5",
+      experimental_repairText: async ({ text, error }) => {
+        console.warn("[analyze] 模型輸出形狀不符，嘗試修正：", error.message.slice(0, 300));
+        return repairAnalysisJson(text);
+      },
       schema: z.object({
         article_type: z.enum(["stock", "weekly", "macro", "industry", "other"])
           .describe("文章分類：stock=個股分析, weekly=產業週報, macro=總經分析, industry=產業分析, other=其他"),
@@ -169,7 +174,9 @@ ${stockListText}
 4. 每個段落獨立判斷，只回傳在該段落中實際出現的股票。嚴格比對：股票名稱或代碼必須逐字出現在該段落的文字中，不可因為其他段落提到就標記到這個段落
 5. 如果某段落沒有提及任何股票，不需要回傳該段落。注意：很多段落確實不含任何公司名稱，這是正常的，不要勉強標記
 6. 重要：當段落開頭以股票名稱作為主角（例如「6. 威剛(3260)：2025Q4營收...」），該主角股票也必須被標記
-7. 重要：以下這些不是公司，絕對不要標記為股票：
+7. paragraph_stocks 必須是「陣列」，每筆為 {"index": 段落索引, "stocks": [...]}，不可回傳以索引為 key 的物件
+8. 所有 ticker 一律用字串，台股代碼也要加引號（"6894" 而非 6894）
+9. 重要：以下這些不是公司，絕對不要標記為股票：
    - 化學材料與化合物：GaAs（砷化鎵）、InP（磷化銦）、GaN（氮化鎵）、SiC（碳化矽）、III-V族化合物半導體等
    - 技術與產品術語：CW Laser、PD（光偵測器）、EML、CPO（共封裝光學）、AOC、RF、VCSEL等
    - 產業規格：800G、1.6T、100G、200G等
