@@ -189,6 +189,12 @@ export const scanStocks: ScanStock[] = [
   { ticker: "7795",       name: "長廣" },
   { ticker: "7828",       name: "創新服務" },
   { ticker: "7928",       name: "合聖科技",              aliases: ["合聖"] },
+  // ─── 探針卡 ──────────────────────────────────────────────
+  // 台廠與日、義同業放在一起，文章談探針卡時常常四家並列
+  { ticker: "6217",       name: "中探針" },
+  { ticker: "7899",       name: "景美",                   aliases: ["景美科技"] },
+  { ticker: "6871.T",     name: "MJC",                    aliases: ["Micronics Japan", "Micronics"] },
+  { ticker: "TPRO.MI",    name: "Technoprobe",            aliases: ["TPRO"] },
   // ─── 中國 A 股 ──────────────────────────────────────────
   { ticker: "000636.SZ",  name: "風華高科" },
   { ticker: "002138.SZ",  name: "順絡電子",                aliases: ["順絡"] },
