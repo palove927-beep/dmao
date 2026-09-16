@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
 
     const { object: result } = await generateObject({
       model: process.env.ANALYZE_MODEL || "meta/muse-spark-1.1",
-      experimental_repairText: async ({ text, error }) => {
+      repairText: async ({ text, error }) => {
         console.warn("[analyze] 模型輸出形狀不符，嘗試修正：", error.message.slice(0, 300));
         return repairAnalysisJson(text);
       },
