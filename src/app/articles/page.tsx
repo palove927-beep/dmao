@@ -70,56 +70,60 @@ export default function ArticlesPage() {
   };
 
   return (
-    <div style={{ maxWidth: 700, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
+    // 外框跟即時報價等頁面一樣寬，頁首才會對齊；
+    // 清單本身維持原本的窄版，長標題不會拉成一整行難讀
+    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px 24px", fontFamily: "sans-serif", background: "#fff", color: "#222", minHeight: "100vh" }}>
       <PageHeader />
 
-      {/* 搜尋列 */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        <input
-          ref={inputRef}
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          placeholder="搜尋文章內容（如：台積電、碳化矽）"
-          style={{
-            flex: 1,
-            padding: "8px 12px",
-            fontSize: 14,
-            border: "1px solid #d1d5db",
-            borderRadius: 6,
-            outline: "none",
-          }}
-        />
-        <button
-          onClick={handleSearch}
-          style={{
-            padding: "8px 18px",
-            fontSize: 14,
-            border: "none",
-            borderRadius: 6,
-            background: "#1a56db",
-            color: "#fff",
-            cursor: "pointer",
-          }}
-        >
-          搜尋
-        </button>
-        {activeQuery && (
-          <button
-            onClick={handleClear}
+      <div style={{ maxWidth: 700, margin: "0 auto" }}>
+
+        {/* 搜尋列 */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          <input
+            ref={inputRef}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            placeholder="搜尋文章內容（如：台積電、碳化矽）"
             style={{
-              padding: "8px 14px",
+              flex: 1,
+              padding: "8px 12px",
               fontSize: 14,
               border: "1px solid #d1d5db",
               borderRadius: 6,
-              background: "#fff",
-              color: "#374151",
+              outline: "none",
+            }}
+          />
+          <button
+            onClick={handleSearch}
+            style={{
+              padding: "8px 18px",
+              fontSize: 14,
+              border: "none",
+              borderRadius: 6,
+              background: "#1a56db",
+              color: "#fff",
               cursor: "pointer",
             }}
           >
-            清除
+            搜尋
           </button>
-        )}
+          {activeQuery && (
+            <button
+              onClick={handleClear}
+              style={{
+                padding: "8px 14px",
+                fontSize: 14,
+                border: "1px solid #d1d5db",
+                borderRadius: 6,
+                background: "#fff",
+                color: "#374151",
+                cursor: "pointer",
+              }}
+            >
+              清除
+            </button>
+          )}
       </div>
 
       {/* 搜尋結果摘要 */}
@@ -180,6 +184,7 @@ export default function ArticlesPage() {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }
