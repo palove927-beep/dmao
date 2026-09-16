@@ -1,12 +1,15 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { RefreshCw, SquarePen, Trash2, Copy, Check, Import, GripVertical } from "lucide-react";
 import { scanStocks } from "@/lib/stock-lookup";
 import type { TrackQuote } from "@/app/api/track/route";
 import { encodeGroup, decodeGroup } from "@/lib/group-share";
 import PageHeader from "@/components/PageHeader";
+import {
+  createParsedSnapshot, subscribeStorage, useStoredChoice, useStoredString, writeStored,
+} from "@/lib/client-store";
 
 // ─── Watchlist persistence (localStorage) ────────────────
 // 群組為主的結構：每個群組各自持有一份股票清單（同一支股票若跨群組，會分別存於各群組）
@@ -16,6 +19,8 @@ type Group = { name: string; holding?: boolean; stocks: Stock[] };
 
 const STORAGE_KEY = "dmao_track_groups_v2";
 const ACTIVE_GROUP_KEY = "dmao_track_active_group";
+const SORT_KEY = "dmao_track_sort";
+const VIEW_KEY = "dmao_track_view";
 
 const DEFAULT_GROUP = "群組1";
 
@@ -65,11 +70,17 @@ function loadGroups(): Group[] {
 }
 
 function saveGroups(groups: Group[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
-  } catch {
-    // ignore
-  }
+  // writeStored 會順便發出變更事件，訂閱群組的元件才會重繪
+  writeStored(STORAGE_KEY, JSON.stringify(groups));
+}
+
+// 群組資料直接訂閱 localStorage，不再另外存一份 React state：
+// 寫入一律走 saveGroups，讀取由 useSyncExternalStore 取得最新值。
+const groupsSnapshot = createParsedSnapshot(STORAGE_KEY, loadGroups);
+
+function useGroups(): Group[] | null {
+  // 伺服器端沒有 localStorage，先回 null 代表「還沒載入」，與原本的初值一致
+  return useSyncExternalStore(subscribeStorage, groupsSnapshot, () => null);
 }
 
 // 只有台股（純數字代碼）才有報價來源
@@ -343,10 +354,15 @@ function PortfolioSummary({
   const [hover, setHover] = useState<number | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const key = holdings.map((x) => `${x.ticker}:${x.lots}`).join(",");
+  // 現在時間在 render 期間讀會被當成不純函式，掛載時取一次即可；
+  // 只影響跨午夜仍停在頁面上的邊界情況，重新整理就會更新。
+  const [mountedAt] = useState(() => Date.now());
 
   useEffect(() => {
+    // 沒有持股就不用抓，也不在這裡把 state 清成 null —— 那是同步改狀態，
+    // 會多觸發一輪 render。畫面那邊直接把「沒有持股」算成沒有資料。
+    if (holdings.length === 0) return;
     let cancelled = false;
-    if (holdings.length === 0) { setFullSeries(null); return; }
     Promise.all(
       holdings.map((x) =>
         fetch(`/api/stock-history/${x.ticker}`)
@@ -389,10 +405,10 @@ function PortfolioSummary({
     { key: "3m" as const, label: "3個月", days: 92 },
   ];
   const rangeDays = RANGES.find((r) => r.key === range)!.days;
-  const sinceStr = new Date(Date.now() - rangeDays * 86400000).toISOString().slice(0, 10);
+  const sinceStr = new Date(mountedAt - rangeDays * 86400000).toISOString().slice(0, 10);
   // 台灣時區今日（UTC+8），與歷史資料的日期字串格式一致
-  const twToday = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
-  const past = (fullSeries ?? []).filter((p) => p.date >= sinceStr);
+  const twToday = new Date(mountedAt + 8 * 3600 * 1000).toISOString().slice(0, 10);
+  const past = (holdings.length === 0 ? [] : fullSeries ?? []).filter((p) => p.date >= sinceStr);
   // 歷史日收盤要收盤後才更新，補上今日即時總市值，讓走勢包含今天
   const series =
     currentValue != null && (past.length === 0 || past[past.length - 1].date < twToday)
@@ -521,15 +537,20 @@ function PortfolioSummary({
 }
 
 export default function TrackPage() {
-  const [groupsData, setGroupsData] = useState<Group[] | null>(null);
+  const groupsData = useGroups();
   const [quotes, setQuotes] = useState<Record<string, TrackQuote>>({});
   const [loading, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<string>("");
-  const [sortMode, setSortMode] = useState<SortMode>("custom");
-  const [viewMode, setViewMode] = useState<"card" | "list">("card");
+  const sortMode = useStoredChoice<SortMode>(SORT_KEY, ["custom", "gainers", "losers"], "custom");
+  const viewMode = useStoredChoice<"card" | "list">(VIEW_KEY, ["card", "list"], "card");
 
   // ─── 群組（群組為主）───
-  const [activeGroup, setActiveGroup] = useState<string>("");
+  const storedActiveGroup = useStoredString(ACTIVE_GROUP_KEY);
+  // 存下來的群組若已被刪掉（或還沒選過），就退回第一個群組
+  const activeGroup =
+    storedActiveGroup && (groupsData ?? []).some((g) => g.name === storedActiveGroup)
+      ? storedActiveGroup
+      : (groupsData?.[0]?.name ?? "");
   const [showGroupInput, setShowGroupInput] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [renamingGroup, setRenamingGroup] = useState<string | null>(null); // 正在改名的群組
@@ -547,42 +568,7 @@ export default function TrackPage() {
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState(false);
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("dmao_track_view");
-      if (saved === "list" || saved === "card") setViewMode(saved);
-      const savedSort = localStorage.getItem("dmao_track_sort");
-      if (savedSort === "custom" || savedSort === "gainers" || savedSort === "losers") {
-        setSortMode(savedSort);
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  const changeActiveGroup = (g: string) => {
-    setActiveGroup(g);
-    try {
-      localStorage.setItem(ACTIVE_GROUP_KEY, g);
-    } catch {
-      // ignore
-    }
-  };
-
-  // 載入群組資料（localStorage 為 client-only）
-  useEffect(() => {
-    const g = loadGroups();
-    setGroupsData(g);
-    const names = g.map((x) => x.name);
-    let active = "";
-    try {
-      const savedActive = localStorage.getItem(ACTIVE_GROUP_KEY);
-      if (savedActive && names.includes(savedActive)) active = savedActive;
-    } catch {
-      // ignore
-    }
-    setActiveGroup(active || names[0] || "");
-  }, []);
+  const changeActiveGroup = (g: string) => writeStored(ACTIVE_GROUP_KEY, g);
 
   const cloneGroups = (gs: Group[]): Group[] =>
     gs.map((g) => ({ name: g.name, holding: g.holding, stocks: g.stocks.map((s) => ({ ...s })) }));
@@ -654,7 +640,6 @@ export default function TrackPage() {
   const saveEdit = () => {
     // 沒有股票的群組不儲存（等同移除）
     const cleaned = draftGroups.filter((g) => g.stocks.length > 0);
-    setGroupsData(cleaned);
     saveGroups(cleaned);
     setEditMode(false);
     setShowGroupInput(false);
@@ -753,23 +738,9 @@ export default function TrackPage() {
     );
   };
 
-  const changeSortMode = (mode: SortMode) => {
-    setSortMode(mode);
-    try {
-      localStorage.setItem("dmao_track_sort", mode);
-    } catch {
-      // ignore
-    }
-  };
-
-  const changeViewMode = (mode: "card" | "list") => {
-    setViewMode(mode);
-    try {
-      localStorage.setItem("dmao_track_view", mode);
-    } catch {
-      // ignore
-    }
-  };
+  // 偏好設定直接寫進 localStorage，畫面由 useStoredChoice 訂閱後自行更新
+  const changeSortMode = (mode: SortMode) => writeStored(SORT_KEY, mode);
+  const changeViewMode = (mode: "card" | "list") => writeStored(VIEW_KEY, mode);
 
   const [query, setQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -853,6 +824,26 @@ export default function TrackPage() {
     return [...set];
   }, [groupsData]);
 
+  // 報價會帶回真實股名，把群組裡的佔位名稱（新增時先塞代碼）補成正式名稱。
+  // 在報價回來的當下就做，不另外開一個 effect 監看 quotes —— 那等於同步在
+  // effect 裡改狀態，會多觸發一輪 render。
+  const backfillNames = useCallback((data: Record<string, TrackQuote>) => {
+    if (!groupsData) return;
+    let changed = false;
+    const next = groupsData.map((g) => ({
+      ...g,
+      stocks: g.stocks.map((s) => {
+        const q = data[s.ticker];
+        if (q?.name && s.name === s.ticker) {
+          changed = true;
+          return { ...s, name: q.name };
+        }
+        return s;
+      }),
+    }));
+    if (changed) saveGroups(next);
+  }, [groupsData]);
+
   const fetchQuotes = useCallback(async () => {
     if (tickers.length === 0) {
       setQuotes({});
@@ -866,41 +857,23 @@ export default function TrackPage() {
       if (json.ok) {
         setQuotes(json.data);
         setUpdatedAt(json.updatedAt);
+        backfillNames(json.data);
       }
     } catch {
       // ignore
     } finally {
       setLoading(false);
     }
-  }, [tickers]);
+  }, [tickers, backfillNames]);
 
+  // setState 都在 await 之後，包一層本地 async 讓非同步的事實看得出來
   useEffect(() => {
     if (groupsData === null) return;
-    fetchQuotes();
+    const run = async () => { await fetchQuotes(); };
+    run();
     const interval = setInterval(fetchQuotes, 30000);
     return () => clearInterval(interval);
   }, [groupsData, fetchQuotes]);
-
-  // 報價回來後，把佔位名稱（=代碼）換成真實股名（於所有群組內更新）
-  useEffect(() => {
-    if (!groupsData) return;
-    let changed = false;
-    const next = groupsData.map((g) => ({
-      ...g,
-      stocks: g.stocks.map((s) => {
-        const q = quotes[s.ticker];
-        if (q?.name && s.name === s.ticker) {
-          changed = true;
-          return { ...s, name: q.name };
-        }
-        return s;
-      }),
-    }));
-    if (changed) {
-      setGroupsData(next);
-      saveGroups(next);
-    }
-  }, [quotes, groupsData]);
 
   // Close suggestions on outside click
   useEffect(() => {

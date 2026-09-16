@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { RefreshCw, User } from "lucide-react";
 import { categories } from "@/lib/stock-list";
-import { isEditor, loginEditor, logoutEditor } from "@/lib/auth";
+import { useIsEditor, loginEditor, logoutEditor } from "@/lib/auth";
 import { annotationKeywords, renderParagraph } from "@/lib/highlight";
 import PageHeader from "@/components/PageHeader";
 import type { StockPrice } from "@/app/api/stock/route";
@@ -54,12 +54,13 @@ export default function StockPage() {
   const [prices, setPrices] = useState<PriceMap>({});
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<string>("");
-  const [editor, setEditor] = useState(false);
+  const editor = useIsEditor();
+  // 現在時間在 render 期間讀會被當成不純函式（同一次 render 可能拿到不同值）。
+  // 這裡只拿來分「幾天前」的色階，掛載時取一次就夠。
+  const [mountedAt] = useState(() => Date.now());
   const [showLogin, setShowLogin] = useState(false);
   const [loginCode, setLoginCode] = useState("");
   const [loginError, setLoginError] = useState(false);
-
-  useEffect(() => { setEditor(isEditor()); }, []);
 
   const [annotations, setAnnotations] = useState<Record<string, Annotation[]>>({});
   const [epsForecasts, setEpsForecasts] = useState<Record<string, EpsForecast[]>>({});
@@ -120,11 +121,18 @@ export default function StockPage() {
     }
   }, []);
 
+  // 首次載入的四組資料各自獨立，平行發出即可。setState 都在 await 之後，
+  // 包一層本地 async 才看得出這是非同步工作、不是同步在 effect 裡改狀態。
   useEffect(() => {
-    fetchPrices();
-    fetchAnnotationCounts(timeRange);
-    fetchLatestEps(2026, setLatestEps2026);
-    fetchLatestEps(2027, setLatestEps2027);
+    const run = async () => {
+      await Promise.all([
+        fetchPrices(),
+        fetchAnnotationCounts(timeRange),
+        fetchLatestEps(2026, setLatestEps2026),
+        fetchLatestEps(2027, setLatestEps2027),
+      ]);
+    };
+    run();
     const interval = setInterval(fetchPrices, 30000);
     return () => clearInterval(interval);
   }, [fetchPrices, fetchAnnotationCounts, fetchLatestEps, timeRange]);
@@ -204,7 +212,7 @@ export default function StockPage() {
 
   const dateAgeColor = (dateStr: string | null): string => {
     if (!dateStr) return "#ccc";
-    const diff = (Date.now() - new Date(dateStr).getTime()) / (24 * 3600 * 1000);
+    const diff = (mountedAt - new Date(dateStr).getTime()) / (24 * 3600 * 1000);
     if (diff <= 14) return "#16a34a";
     if (diff <= 30) return "#2563eb";
     if (diff <= 90) return "#ea580c";
@@ -248,7 +256,6 @@ export default function StockPage() {
               onClick={() => {
                 if (editor) {
                   logoutEditor();
-                  setEditor(false);
                 } else {
                   setShowLogin(true);
                   setLoginCode("");
@@ -290,7 +297,6 @@ export default function StockPage() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   if (loginEditor(loginCode)) {
-                    setEditor(true);
                     setShowLogin(false);
                   } else {
                     setLoginError(true);
@@ -316,7 +322,6 @@ export default function StockPage() {
               <button
                 onClick={() => {
                   if (loginEditor(loginCode)) {
-                    setEditor(true);
                     setShowLogin(false);
                   } else {
                     setLoginError(true);

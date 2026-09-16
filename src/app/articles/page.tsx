@@ -52,7 +52,12 @@ export default function ArticlesPage() {
     }
   }, []);
 
-  useEffect(() => { fetchArticles(""); }, [fetchArticles]);
+  // 首次載入。setState 都發生在 await 之後，但規則看不穿 useCallback 的邊界，
+  // 包一層本地 async 才看得出這是非同步工作、不是同步在 effect 裡改狀態。
+  useEffect(() => {
+    const run = async () => { await fetchArticles(""); };
+    run();
+  }, [fetchArticles]);
 
   const handleSearch = () => {
     const q = searchInput.trim();

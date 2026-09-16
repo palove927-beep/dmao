@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { scanStocks } from "@/lib/stock-lookup";
 import { renderParagraph } from "@/lib/highlight";
 import PageHeader from "@/components/PageHeader";
-import { isEditor } from "@/lib/auth";
+import { useIsEditor } from "@/lib/auth";
 
 type Article = {
   id: string;
@@ -49,9 +49,7 @@ export default function ArticlePage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [expandedStock, setExpandedStock] = useState<string | null>(null);
-  const [editor, setEditor] = useState(false);
-
-  useEffect(() => { setEditor(isEditor()); }, []);
+  const editor = useIsEditor();
 
   useEffect(() => {
     if (!id) return;

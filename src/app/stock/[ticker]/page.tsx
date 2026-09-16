@@ -321,7 +321,11 @@ export default function StockDetailPage() {
     }
   }, [ticker]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  // 同上：setState 都在 await 之後，包一層本地 async 讓非同步的事實看得出來
+  useEffect(() => {
+    const run = async () => { await fetchData(); };
+    run();
+  }, [fetchData]);
 
   const allPrices = data?.prices ?? [];
   const prices = filterByRange(allPrices, dateRange);
