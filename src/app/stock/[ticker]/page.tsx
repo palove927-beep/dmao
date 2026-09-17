@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { annotationKeywords, renderParagraph } from "@/lib/highlight";
 import { stockNameOr } from "@/lib/stock-name";
@@ -114,18 +114,20 @@ type ArticlePinGroup = { date: string; articles: ArticleEvent[] };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ArticlePinShape(props: any) {
-  const { cx, cy, pin, onHover, onLeave } = props as {
+  // 導航交給呼叫端（它拿得到 router），這裡維持單純的圖形元件
+  const { cx, cy, pin, onHover, onLeave, onSelect } = props as {
     cx?: number;
     cy?: number;
     pin: ArticlePinGroup;
     onHover: (pin: ArticlePinGroup, x: number, y: number) => void;
     onLeave: () => void;
+    onSelect: (articleId: string) => void;
   };
   if (cx == null || cy == null) return null;
   return (
     <g
       style={{ cursor: "pointer" }}
-      onClick={() => { window.location.href = `/articles/${pin.articles[0].id}`; }}
+      onClick={() => onSelect(pin.articles[0].id)}
       onMouseEnter={() => onHover(pin, cx, cy)}
       onMouseLeave={onLeave}
     >
@@ -212,6 +214,11 @@ const tooltipCursor = { stroke: "#94a3b8", strokeDasharray: "3 3" };
 
 export default function StockDetailPage() {
   const { ticker } = useParams() as { ticker: string };
+  const router = useRouter();
+  // 站內換頁走 router，不要用 window.location（那會整頁重載）
+  const openArticle = useCallback((articleId: string) => {
+    router.push(`/articles/${articleId}`);
+  }, [router]);
   const [data, setData] = useState<HistoryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -632,7 +639,7 @@ export default function StockDetailPage() {
                       key={`d-${pin.date}`}
                       x={pin.date}
                       y={yMax}
-                      shape={<ArticlePinShape pin={pin} onHover={showPinPopup} onLeave={hidePinPopupSoon} />}
+                      shape={<ArticlePinShape pin={pin} onHover={showPinPopup} onLeave={hidePinPopupSoon} onSelect={openArticle} />}
                     />
                   ))}
                 </ComposedChart>
@@ -664,7 +671,7 @@ export default function StockDetailPage() {
                       key={`d-${pin.date}`}
                       x={pin.date}
                       y={yMax}
-                      shape={<ArticlePinShape pin={pin} onHover={showPinPopup} onLeave={hidePinPopupSoon} />}
+                      shape={<ArticlePinShape pin={pin} onHover={showPinPopup} onLeave={hidePinPopupSoon} onSelect={openArticle} />}
                     />
                   ))}
                 </AreaChart>
