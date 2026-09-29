@@ -232,6 +232,11 @@ export const scanStocks: ScanStock[] = [
   { ticker: "7120.T",     name: "SHINKO",                   aliases: ["Shinko", "shinko", "新光電氣"] },
   // 同理，SUMCO／Sumco 兩種寫法都列進別名
   { ticker: "3436.T",     name: "SUMCO",                    aliases: ["Sumco", "sumco"] },
+  { ticker: "6361.T",     name: "Ebara",                    aliases: ["荏原製作所"] },
+  { ticker: "3445.T",     name: "RS Technologies" },
+  // ─── 歐股 ────────────────────────────────────────────────
+  // 比對大小寫敏感且需詞界，ASM 不會誤中 ASML
+  { ticker: "ASM.AS",     name: "ASM International",        aliases: ["ASM"] },
   // ─── 韓股 ────────────────────────────────────────────────
   { ticker: "000157.KS",  name: "斗山(Doosan)",             aliases: ["斗山", "Doosan"] },
   // ─── 沙烏地 ──────────────────────────────────────────────
@@ -873,7 +878,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "9432.T", name: "NTT" },
   { ticker: "9984.T", name: "SoftBank Group" },
   { ticker: "6501.T", name: "Hitachi" },
-  { ticker: "8035.T", name: "Tokyo Electron" },
+  { ticker: "8035.T", name: "Tokyo Electron", aliases: ["TEL", "東京威力科創"] },
   { ticker: "4063.T", name: "Shin-Etsu Chemical" },
   { ticker: "6902.T", name: "Denso" },
   { ticker: "7741.T", name: "HOYA" },
