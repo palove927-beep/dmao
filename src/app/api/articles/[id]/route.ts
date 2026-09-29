@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getR2, R2_BUCKET, R2_PUBLIC_URL } from "@/lib/r2";
+import { requireEditor } from "@/lib/editor-auth";
 
 export async function GET(
   _req: NextRequest,
@@ -26,9 +27,12 @@ export async function GET(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = requireEditor(req);
+  if (denied) return denied;
+
   const { id } = await params;
   const supabase = getSupabase();
 

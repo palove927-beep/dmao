@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { fetchAllRows } from "@/lib/supabase-paginate";
+import { requireEditor } from "@/lib/editor-auth";
 
 type ArticleRow = {
   id: string;
@@ -59,6 +60,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = requireEditor(req);
+  if (denied) return denied;
+
   try {
     const { title, content, source, article_date, images, article_type, annotations, eps_forecasts } = await req.json();
 

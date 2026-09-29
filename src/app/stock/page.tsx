@@ -62,6 +62,14 @@ export default function StockPage() {
   const [loginCode, setLoginCode] = useState("");
   const [loginError, setLoginError] = useState(false);
 
+  const submitLogin = async () => {
+    if (await loginEditor(loginCode)) {
+      setShowLogin(false);
+    } else {
+      setLoginError(true);
+    }
+  };
+
   const [annotations, setAnnotations] = useState<Record<string, Annotation[]>>({});
   const [epsForecasts, setEpsForecasts] = useState<Record<string, EpsForecast[]>>({});
   const [annotationCounts, setAnnotationCounts] = useState<Record<string, number>>({});
@@ -296,11 +304,7 @@ export default function StockPage() {
               onChange={(e) => { setLoginCode(e.target.value); setLoginError(false); }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  if (loginEditor(loginCode)) {
-                    setShowLogin(false);
-                  } else {
-                    setLoginError(true);
-                  }
+                  void submitLogin();
                 }
               }}
               placeholder="代碼"
@@ -321,11 +325,7 @@ export default function StockPage() {
               </button>
               <button
                 onClick={() => {
-                  if (loginEditor(loginCode)) {
-                    setShowLogin(false);
-                  } else {
-                    setLoginError(true);
-                  }
+                  void submitLogin();
                 }}
                 style={{ padding: "6px 16px", fontSize: 14, border: "none", borderRadius: 6, background: "#1a56db", color: "#fff", cursor: "pointer" }}
               >

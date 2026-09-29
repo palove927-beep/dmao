@@ -3,6 +3,7 @@ import { scanStocks, lookupStock } from "@/lib/stock-lookup";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { repairAnalysisJson } from "@/lib/analyze-repair";
+import { requireEditor } from "@/lib/editor-auth";
 
 const allStocks = scanStocks;
 
@@ -90,6 +91,9 @@ function escapeRegex(s: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = requireEditor(req);
+  if (denied) return denied;
+
   try {
     const { title, paragraphs } = await req.json();
 

@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { scanStocks } from "@/lib/stock-lookup";
 import { fetchAllRows } from "@/lib/supabase-paginate";
+import { requireEditor } from "@/lib/editor-auth";
 
 const aliasMap = new Map<string, string[]>(
   scanStocks.filter((s) => s.aliases).map((s) => [s.ticker, s.aliases!])
 );
 
 export async function POST(req: NextRequest) {
+  const denied = requireEditor(req);
+  if (denied) return denied;
+
   try {
     const { article_id, ticker, stock_name, paragraph, is_summary } = await req.json();
 
@@ -36,6 +40,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const denied = requireEditor(req);
+  if (denied) return denied;
+
   const annId = req.nextUrl.searchParams.get("id");
 
   if (!annId) {
@@ -85,24 +92,41 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, counts });
   }
 
-  let query = getSupabase()
-    .from("dmao_annotations")
-    .select("*, dmao_articles(id, title, article_date)")
-    .order("created_at", { ascending: false });
-
-  if (ticker) query = query.eq("ticker", ticker);
-  if (articleId) query = query.eq("article_id", articleId);
-
-  const { data, error } = await query;
+  // 熱門個股的標記早就超過單次回傳上限，不分頁會被無聲截斷（較舊的標記直接消失）。
+  // since 也放進查詢條件，而不是讀回來才篩，否則截斷後再篩結果仍不完整。
+  type AnnotationRow = {
+    id: string;
+    article_id: string;
+    ticker: string;
+    stock_name: string;
+    paragraph: string;
+    is_summary: boolean;
+    created_at: string;
+    dmao_articles: { id: string; title: string; article_date: string | null } | null;
+  };
+  const { rows: data, error } = await fetchAllRows<AnnotationRow>((from, to) => {
+    let query = getSupabase()
+      .from("dmao_annotations")
+      .select(
+        since
+          ? "*, dmao_articles!inner(id, title, article_date)"
+          : "*, dmao_articles(id, title, article_date)",
+      );
+    if (since) query = query.gte("dmao_articles.article_date", since);
+    if (ticker) query = query.eq("ticker", ticker);
+    if (articleId) query = query.eq("article_id", articleId);
+    return query.order("id", { ascending: true }).range(from, to);
+  });
 
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error }, { status: 500 });
   }
 
-  const sorted = [...(data || [])].sort((a, b) => {
+  const sorted = [...data].sort((a, b) => {
     const dateA = a.dmao_articles?.article_date ?? a.created_at ?? "";
     const dateB = b.dmao_articles?.article_date ?? b.created_at ?? "";
-    return dateB.localeCompare(dateA);
+    // 同一天的維持原本「新建立的在前」
+    return dateB.localeCompare(dateA) || (b.created_at ?? "").localeCompare(a.created_at ?? "");
   });
 
   const filtered = since

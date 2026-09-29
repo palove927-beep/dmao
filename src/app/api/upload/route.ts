@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getR2, R2_BUCKET, R2_PUBLIC_URL } from "@/lib/r2";
 import crypto from "crypto";
+import { requireEditor } from "@/lib/editor-auth";
 
 export async function POST(req: NextRequest) {
+  const denied = requireEditor(req);
+  if (denied) return denied;
+
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
