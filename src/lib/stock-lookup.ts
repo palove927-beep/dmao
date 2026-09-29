@@ -188,11 +188,13 @@ export const scanStocks: ScanStock[] = [
   { ticker: "6830",       name: "汎銓",                   aliases: ["汎銓科技", "MA-tek", "MA-Tek"] },
   { ticker: "6983",       name: "華洋精機" },
   { ticker: "7728",       name: "光焱科技",              aliases: ["光焱"] },
+  { ticker: "7768",       name: "頌勝科技",              aliases: ["頌勝"] },
   { ticker: "7769",       name: "鴻勁",                   aliases: ["鴻勁精密"] },
   { ticker: "7788",       name: "松川精密",              aliases: ["松川"] },
   { ticker: "7795",       name: "長廣" },
   { ticker: "7828",       name: "創新服務" },
   { ticker: "7928",       name: "合聖科技",              aliases: ["合聖"] },
+  { ticker: "8028",       name: "昇陽半導體",            aliases: ["昇陽半"] },
   // ─── 探針卡 ──────────────────────────────────────────────
   // 台廠與日、義同業放在一起，文章談探針卡時常常整組並列
   { ticker: "6217",       name: "中探針" },
@@ -558,7 +560,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "INTC",  name: "Intel" },
   { ticker: "MU",    name: "Micron" },
   { ticker: "QCOM",  name: "Qualcomm" },
-  { ticker: "AMAT",  name: "Applied Materials" },
+  { ticker: "AMAT",  name: "Applied Materials", aliases: ["應用材料"] },
   { ticker: "LRCX",  name: "Lam Research" },
   { ticker: "KLAC",  name: "KLA" },
   { ticker: "ASML",  name: "ASML" },
