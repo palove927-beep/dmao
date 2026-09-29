@@ -9,6 +9,8 @@ export type ScanStock = {
   ticker: string;
   name: string;
   aliases?: string[];
+  // 名稱本身是常用詞（例如「大量」）：單獨出現不算命中，
+  // 只認別名或「名稱(代碼)」這種帶代碼的寫法
   tickerOnly?: true;
 };
 
@@ -177,6 +179,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "6435",       name: "大中" },
   { ticker: "6770",       name: "力積電" },
   { ticker: "7712",       name: "博盛半導體" },
+  { ticker: "3167",       name: "大量",                   aliases: ["大量科技"], tickerOnly: true },
   { ticker: "3055",       name: "蔚華科" },
   { ticker: "3211",       name: "順達" },
   { ticker: "3485",       name: "敘豐" },

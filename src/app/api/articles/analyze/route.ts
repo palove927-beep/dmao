@@ -69,7 +69,7 @@ function scanParagraphForStocks(text: string): { ticker: string; stock_name: str
   // 1. Scan all known stocks — match by name, aliases, or ticker in parentheses
   for (const s of scanStocks) {
     if (found.has(s.ticker)) continue;
-    if (termHits(text, s.name, s.ticker)) {
+    if (!s.tickerOnly && termHits(text, s.name, s.ticker)) {
       found.set(s.ticker, { ticker: s.ticker, stock_name: s.name });
       continue;
     }
@@ -77,13 +77,16 @@ function scanParagraphForStocks(text: string): { ticker: string; stock_name: str
       found.set(s.ticker, { ticker: s.ticker, stock_name: s.name });
       continue;
     }
-    const tickerInParens = new RegExp(`[（(]${escapeRegex(s.ticker)}[)）]`);
-    if (tickerInParens.test(text)) {
+    if (tickerInParens(text, s.ticker)) {
       found.set(s.ticker, { ticker: s.ticker, stock_name: s.name });
     }
   }
 
   return Array.from(found.values());
+}
+
+function tickerInParens(text: string, ticker: string): boolean {
+  return new RegExp(`[（(]${escapeRegex(ticker)}[)）]`).test(text);
 }
 
 function escapeRegex(s: string): string {
@@ -218,6 +221,15 @@ ${trimmedList}`,
       text: string,
       stock: { ticker: string; stock_name: string },
     ) => {
+      // 名稱是常用詞的個股（tickerOnly）：只認別名或「名稱(代碼)」，
+      // 否則「大量出貨」會被當成 大量(3167)
+      const known = scanStocks.find((s) => s.ticker === stock.ticker);
+      if (known?.tickerOnly) {
+        return (
+          !!known.aliases?.some((a) => termHits(text, a, known.ticker)) ||
+          tickerInParens(text, known.ticker)
+        );
+      }
       if (
         termHits(text, stock.stock_name, stock.ticker) ||
         textHasTerm(text, stock.ticker)
