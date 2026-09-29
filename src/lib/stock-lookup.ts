@@ -878,7 +878,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "9432.T", name: "NTT" },
   { ticker: "9984.T", name: "SoftBank Group" },
   { ticker: "6501.T", name: "Hitachi" },
-  { ticker: "8035.T", name: "Tokyo Electron", aliases: ["TEL", "東京威力科創"] },
+  { ticker: "8035.T", name: "Tokyo Electron", aliases: ["TEL", "東京威力"] },
   { ticker: "4063.T", name: "Shin-Etsu Chemical" },
   { ticker: "6902.T", name: "Denso" },
   { ticker: "7741.T", name: "HOYA" },
