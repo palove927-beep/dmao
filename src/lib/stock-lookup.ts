@@ -566,7 +566,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "MU",    name: "Micron" },
   { ticker: "QCOM",  name: "Qualcomm" },
   { ticker: "AMAT",  name: "Applied Materials", aliases: ["應用材料"] },
-  { ticker: "LRCX",  name: "Lam Research" },
+  { ticker: "LRCX",  name: "Lam Research", aliases: ["LAM", "科林研發"] },
   { ticker: "KLAC",  name: "KLA" },
   { ticker: "ASML",  name: "ASML" },
   { ticker: "MRVL",  name: "Marvell" },
