@@ -144,6 +144,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "MPWR",       name: "Monolithic Power Systems", aliases: ["MPS"] },
   { ticker: "FN",         name: "Fabrinet" },
   { ticker: "APH",        name: "Amphenol" },
+  { ticker: "VRT",        name: "Vertiv Holdings",        aliases: ["Vertiv", "VRT"] },
   // ─── 台股（非 /stock 頁面）──────────────────────────────
   // ─── 石化/化工 ──────────────────────────────────────────
   { ticker: "1101",       name: "台泥" },
@@ -198,6 +199,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "7828",       name: "創新服務" },
   { ticker: "7928",       name: "合聖科技",              aliases: ["合聖"] },
   { ticker: "8028",       name: "昇陽半導體",            aliases: ["昇陽半"] },
+  { ticker: "6173",       name: "信昌電" },
   // ─── 探針卡 ──────────────────────────────────────────────
   // 台廠與日、義同業放在一起，文章談探針卡時常常整組並列
   { ticker: "6217",       name: "中探針" },
