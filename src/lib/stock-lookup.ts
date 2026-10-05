@@ -144,7 +144,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "MPWR",       name: "Monolithic Power Systems", aliases: ["MPS"] },
   { ticker: "FN",         name: "Fabrinet" },
   { ticker: "APH",        name: "Amphenol" },
-  { ticker: "VRT",        name: "Vertiv Holdings",        aliases: ["Vertiv"] },
+  { ticker: "VRT",        name: "Vertiv Holdings",        aliases: ["Vertiv", "VRT"] },
   // ─── 台股（非 /stock 頁面）──────────────────────────────
   // ─── 石化/化工 ──────────────────────────────────────────
   { ticker: "1101",       name: "台泥" },
