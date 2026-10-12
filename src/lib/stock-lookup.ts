@@ -200,6 +200,9 @@ export const scanStocks: ScanStock[] = [
   { ticker: "7928",       name: "合聖科技",              aliases: ["合聖"] },
   { ticker: "8028",       name: "昇陽半導體",            aliases: ["昇陽半"] },
   { ticker: "6173",       name: "信昌電" },
+  { ticker: "8039",       name: "台虹" },
+  { ticker: "1597",       name: "直得" },
+  { ticker: "3265",       name: "台星科" },
   // ─── 探針卡 ──────────────────────────────────────────────
   // 台廠與日、義同業放在一起，文章談探針卡時常常整組並列
   { ticker: "6217",       name: "中探針" },
