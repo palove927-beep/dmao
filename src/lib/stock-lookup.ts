@@ -608,8 +608,8 @@ export const scanStocks: ScanStock[] = [
   { ticker: "ONTO",  name: "Onto Innovation" },
   { ticker: "POWI",  name: "Power Integrations" },
   { ticker: "ALGM",  name: "Allegro MicroSystems" },
-  // 官方寫法為全大寫 GLOBALFOUNDRIES，比對大小寫敏感，GlobalFoundries 列進別名
-  { ticker: "GFS",   name: "GLOBALFOUNDRIES", aliases: ["GlobalFoundries", "格芯", "GFS"] },
+  // 比對大小寫敏感，官方全大寫寫法 GLOBALFOUNDRIES 列進別名
+  { ticker: "GFS",   name: "GlobalFoundries", aliases: ["GLOBALFOUNDRIES", "格芯", "GFS"] },
   { ticker: "UMC",   name: "UMC (ADR)" },
   { ticker: "ASX",   name: "ASE Technology (ADR)" },
   { ticker: "IFX",   name: "Infineon" },
