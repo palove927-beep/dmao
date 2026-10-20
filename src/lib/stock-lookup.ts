@@ -235,7 +235,9 @@ export const scanStocks: ScanStock[] = [
   { ticker: "285A.T",     name: "鎧俠(Kioxia)",             aliases: ["鎧俠", "Kioxia"] },
   { ticker: "6383.T",     name: "大福(Daifuku)",             aliases: ["大福", "Daifuku"] },
   { ticker: "6976.T",     name: "太陽誘電(Taiyo Yuden)",     aliases: ["太陽誘電", "Taiyo Yuden"] },
-  { ticker: "6997.T",     name: "佳美工(Chemi-Con)",         aliases: ["佳美工", "Chemi-Con", "ChemiCon"] },
+  // 比對大小寫敏感，Chemi-Con／Chemi-con 兩種常見寫法都列進別名
+  { ticker: "6997.T",     name: "佳美工(Chemi-Con)",         aliases: ["佳美工", "Chemi-Con", "Chemi-con", "ChemiCon"] },
+  { ticker: "6996.T",     name: "尼吉康(Nichicon)",          aliases: ["尼吉康", "Nichicon", "NICHICON"] },
   // 比對大小寫敏感，Shinko／shinko 兩種常見寫法都列進別名
   { ticker: "7120.T",     name: "SHINKO",                   aliases: ["Shinko", "shinko", "新光電氣"] },
   // 同理，SUMCO／Sumco 兩種寫法都列進別名
@@ -606,7 +608,8 @@ export const scanStocks: ScanStock[] = [
   { ticker: "ONTO",  name: "Onto Innovation" },
   { ticker: "POWI",  name: "Power Integrations" },
   { ticker: "ALGM",  name: "Allegro MicroSystems" },
-  { ticker: "GFS",   name: "GlobalFoundries" },
+  // 官方寫法為全大寫 GLOBALFOUNDRIES，比對大小寫敏感，兩種都列
+  { ticker: "GFS",   name: "GlobalFoundries", aliases: ["GLOBALFOUNDRIES", "格芯", "GFS"] },
   { ticker: "UMC",   name: "UMC (ADR)" },
   { ticker: "ASX",   name: "ASE Technology (ADR)" },
   { ticker: "IFX",   name: "Infineon" },
