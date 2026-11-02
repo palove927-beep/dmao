@@ -71,6 +71,8 @@ export default function StockPage() {
   };
 
   const [annotations, setAnnotations] = useState<Record<string, Annotation[]>>({});
+  // 選的區間內沒有標記時，展開清單改列全部期間的標記；記下哪些個股是這種情況
+  const [annotationsAllTime, setAnnotationsAllTime] = useState<Record<string, boolean>>({});
   const [epsForecasts, setEpsForecasts] = useState<Record<string, EpsForecast[]>>({});
   const [annotationCounts, setAnnotationCounts] = useState<Record<string, number>>({});
   const [latestEps2026, setLatestEps2026] = useState<Record<string, LatestEpsInfo>>({});
@@ -163,13 +165,19 @@ export default function StockPage() {
         const annUrl = since
           ? `/api/annotations?ticker=${ticker}&since=${since}`
           : `/api/annotations?ticker=${ticker}`;
-        const [annRes, epsRes] = await Promise.all([
+        const [rangeRes, epsRes] = await Promise.all([
           fetch(annUrl).then((r) => r.json()),
           fetch(`/api/eps-forecasts?ticker=${ticker}`).then((r) => r.json()),
         ]);
+        // 區間內沒有標記 → 退回全部期間，讓標記數 0 的個股展開後仍看得到過去的段落
+        const allTime = !!since && rangeRes.ok && rangeRes.annotations.length === 0;
+        const annRes = allTime
+          ? await fetch(`/api/annotations?ticker=${ticker}`).then((r) => r.json())
+          : rangeRes;
         if (cancelled) return;
         if (annRes.ok) {
           setAnnotations((prev) => ({ ...prev, [ticker]: annRes.annotations }));
+          setAnnotationsAllTime((prev) => ({ ...prev, [ticker]: allTime }));
         }
         if (epsRes.ok) {
           setEpsForecasts((prev) => ({ ...prev, [ticker]: epsRes.forecasts }));
@@ -503,26 +511,26 @@ export default function StockPage() {
                       </td>
                       <td style={{ ...tdStyle, textAlign: "center" }}>
                         {(() => {
+                          // 區間內沒有標記也顯示 0 並可展開（會改列全部期間的標記）
                           const count = annotationCounts[stock.ticker] || 0;
-                          return count > 0 ? (
+                          return (
                             <button
                               onClick={() => toggleTicker(stock.ticker)}
+                              title={count === 0 ? "此區間無標記，點開看全部期間" : undefined}
                               style={{
                                 padding: "2px 10px",
                                 fontSize: 13,
                                 fontWeight: "bold",
                                 border: "none",
                                 borderRadius: 10,
-                                background: isExpanded ? "#1a56db" : "#e0e7ff",
-                                color: isExpanded ? "#fff" : "#1a56db",
+                                background: isExpanded ? "#1a56db" : count > 0 ? "#e0e7ff" : "#f3f4f6",
+                                color: isExpanded ? "#fff" : count > 0 ? "#1a56db" : "#9ca3af",
                                 cursor: "pointer",
                                 minWidth: 28,
                               }}
                             >
                               {count}
                             </button>
-                          ) : (
-                            <span style={{ color: "#ccc", fontSize: 13 }}>-</span>
                           );
                         })()}
                       </td>
@@ -536,6 +544,11 @@ export default function StockPage() {
                             ) : stockAnnotations.length === 0 && stockEps.length === 0 ? (
                               <div style={{ color: "#999", fontSize: 13 }}>尚無標記段落</div>
                             ) : (<>
+                              {annotationsAllTime[stock.ticker] && stockAnnotations.length > 0 && (
+                                <div style={{ color: "#9ca3af", fontSize: 12, marginBottom: 10 }}>
+                                  此區間沒有標記，以下列出全部期間的標記段落
+                                </div>
+                              )}
                               {stockEps.length > 0 && (
                                 <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid #e5e7eb" }}>
                                   <div style={{ fontSize: 13, fontWeight: "bold", color: "#b45309", marginBottom: 6 }}>財測 EPS</div>
