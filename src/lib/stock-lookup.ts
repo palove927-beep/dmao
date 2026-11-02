@@ -145,6 +145,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "FN",         name: "Fabrinet" },
   { ticker: "APH",        name: "Amphenol" },
   { ticker: "VRT",        name: "Vertiv Holdings",        aliases: ["Vertiv", "VRT"] },
+  { ticker: "CLS",        name: "Celestica",              aliases: ["CLS", "天弘"] },
   // ─── 台股（非 /stock 頁面）──────────────────────────────
   // ─── 石化/化工 ──────────────────────────────────────────
   { ticker: "1101",       name: "台泥" },
@@ -224,6 +225,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "688825.SS",  name: "長鑫科技",                 aliases: ["長鑫存儲", "長鑫", "CXMT"] },
   // ─── 港股 ────────────────────────────────────────────────
   { ticker: "1810.HK",    name: "小米",                   aliases: ["小米集團", "Xiaomi"] },
+  { ticker: "6088.HK",    name: "鴻騰精密(FIT Hon Teng)",  aliases: ["鴻騰精密", "FIT Hon Teng", "FIT HON TENG", "鴻騰"] },
   // ─── 日股 ────────────────────────────────────────────────
   { ticker: "3407.T",     name: "旭化成(Asahi Kasei)",     aliases: ["旭化成", "Asahi Kasei", "Asahi"] },
   { ticker: "3110.T",     name: "日東紡(Nittobo)",          aliases: ["日東紡", "Nittobo"] },
@@ -545,7 +547,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "V",     name: "Visa" },
   { ticker: "PG",    name: "Procter & Gamble" },
   { ticker: "MA",    name: "Mastercard" },
-  { ticker: "AVGO",  name: "Broadcom" },
+  { ticker: "AVGO",  name: "Broadcom", aliases: ["博通", "AVGO"] },
   { ticker: "HD",    name: "Home Depot" },
   { ticker: "CVX",   name: "Chevron" },
   { ticker: "MRK",   name: "Merck" },
