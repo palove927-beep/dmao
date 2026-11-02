@@ -240,6 +240,7 @@ export const scanStocks: ScanStock[] = [
   // 比對大小寫敏感，Chemi-Con／Chemi-con 兩種常見寫法都列進別名
   { ticker: "6997.T",     name: "佳美工(Chemi-Con)",         aliases: ["佳美工", "Chemi-Con", "Chemi-con", "ChemiCon"] },
   { ticker: "6996.T",     name: "尼吉康(Nichicon)",          aliases: ["尼吉康", "Nichicon", "NICHICON"] },
+  { ticker: "5016.T",     name: "JX Advanced Metals",        aliases: ["JX金屬", "JX Advanced Metals"] },
   // 比對大小寫敏感，Shinko／shinko 兩種常見寫法都列進別名
   { ticker: "7120.T",     name: "SHINKO",                   aliases: ["Shinko", "shinko", "新光電氣"] },
   // 同理，SUMCO／Sumco 兩種寫法都列進別名
