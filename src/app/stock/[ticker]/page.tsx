@@ -23,6 +23,7 @@ type PricePoint = {
 type HistoryData = {
   ticker: string;
   name: string;
+  currency?: "TWD" | "USD";
   prices: PricePoint[];
 };
 
@@ -295,11 +296,14 @@ export default function StockDetailPage() {
 
   // 今日即時報價（含當日漲跌）
   useEffect(() => {
-    if (!/^\d{4,6}$/.test(ticker)) return;
+    const isTw = /^\d{4,6}$/.test(ticker);
+    const isUs = /^[A-Za-z][A-Za-z0-9.-]*$/.test(ticker);
+    if (!isTw && !isUs) return;
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch(`/api/track?tickers=${ticker}`);
+        // 台股走 /api/track，美股走 /api/us-quote，兩者回傳形狀相同
+        const res = await fetch(isTw ? `/api/track?tickers=${ticker}` : `/api/us-quote?ticker=${ticker}`);
         const json = await res.json();
         if (!cancelled && json.ok && json.data[ticker]) setQuote(json.data[ticker]);
       } catch {
@@ -397,6 +401,8 @@ export default function StockDetailPage() {
     volume: p.volume ?? 0,
     isUp: p.isUp,
   }));
+  // 台股成交量以「張」（千股）計，美股沒有張的概念，改標「千股」
+  const volumeUnit = data?.currency === "USD" ? "千股" : "張";
   const maxVolume = Math.max(...volumeData.map((v) => v.volume), 0);
 
   // 圖表上方的游標讀值列：沒有 hover 時顯示最新一日
@@ -486,7 +492,7 @@ export default function StockDetailPage() {
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 15, color: "#6b7280" }}>
                 {ticker}
                 <a
-                  href={`https://tw.stock.yahoo.com/quote/${ticker}`}
+                  href={/^\d+$/.test(ticker) ? `https://tw.stock.yahoo.com/quote/${ticker}` : `https://finance.yahoo.com/quote/${ticker}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   title={`在 Yahoo 股市查看 ${ticker}`}
@@ -611,7 +617,7 @@ export default function StockDetailPage() {
                   </span>
                 )}
                 {readout.volume != null && readout.volume > 0 && (
-                  <span>量 <b>{(readout.volume / 1000).toLocaleString()}</b> 張</span>
+                  <span>量 <b>{(readout.volume / 1000).toLocaleString()}</b> {volumeUnit}</span>
                 )}
               </div>
             )}
@@ -748,7 +754,7 @@ export default function StockDetailPage() {
                   axisLine={false} tickLine={false} width={56}
                   tickFormatter={formatVolume} />
                 <Tooltip
-                  formatter={(value: unknown) => [`${((value as number) / 1000).toLocaleString()}張`, "成交量"]}
+                  formatter={(value: unknown) => [`${((value as number) / 1000).toLocaleString()}${volumeUnit}`, "成交量"]}
                   labelFormatter={(label) => formatDateFull(label as string)}
                   contentStyle={{ fontSize: 13, borderRadius: 6, border: "1px solid #e5e7eb" }}
                 />

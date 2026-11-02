@@ -59,3 +59,80 @@ export async function fetchUsQuotes(tickers: string[]): Promise<UsQuote[]> {
   );
   return results.filter((q): q is UsQuote => q !== null);
 }
+
+// ─── 日線歷史（/stock/[ticker] 的 K 線圖用）──────────────────
+export type UsPriceRow = {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+};
+
+const ONE_YEAR_MS = 366 * 24 * 3600 * 1000;
+
+async function fetchYahooHistory(ticker: string): Promise<UsPriceRow[]> {
+  try {
+    const res = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=1y&interval=1d`,
+      { headers: UA, cache: "no-store", signal: AbortSignal.timeout(8000) },
+    );
+    if (!res.ok) return [];
+    const r = (await res.json())?.chart?.result?.[0];
+    const ts: number[] = r?.timestamp ?? [];
+    const q = r?.indicators?.quote?.[0];
+    // 時間戳是 UTC 秒；加上交易所時差才落在美東的交易日
+    const offset: number = r?.meta?.gmtoffset ?? 0;
+    const rows: UsPriceRow[] = [];
+    ts.forEach((t, i) => {
+      const close = num(q?.close?.[i]);
+      if (close === null) return;
+      rows.push({
+        date: new Date((t + offset) * 1000).toISOString().slice(0, 10),
+        open: num(q?.open?.[i]) ?? close,
+        high: num(q?.high?.[i]) ?? close,
+        low: num(q?.low?.[i]) ?? close,
+        close,
+        volume: Number(q?.volume?.[i]) || 0,
+      });
+    });
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
+// Stooq 日線 CSV：Date,Open,High,Low,Close,Volume（全部歷史，只留近一年）
+async function fetchStooqHistory(ticker: string): Promise<UsPriceRow[]> {
+  try {
+    const res = await fetch(
+      `https://stooq.com/q/d/l/?s=${encodeURIComponent(ticker.toLowerCase())}.us&i=d`,
+      { headers: UA, cache: "no-store", signal: AbortSignal.timeout(8000) },
+    );
+    if (!res.ok) return [];
+    const since = new Date(Date.now() - ONE_YEAR_MS).toISOString().slice(0, 10);
+    const rows: UsPriceRow[] = [];
+    for (const line of (await res.text()).trim().split(/\r?\n/).slice(1)) {
+      const [date, o, h, l, c, v] = line.split(",");
+      const close = num(c);
+      if (!date || date < since || close === null) continue;
+      rows.push({
+        date,
+        open: num(o) ?? close,
+        high: num(h) ?? close,
+        low: num(l) ?? close,
+        close,
+        volume: Number(v) || 0,
+      });
+    }
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchUsHistory(ticker: string): Promise<UsPriceRow[]> {
+  const yahoo = await fetchYahooHistory(ticker);
+  return yahoo.length > 0 ? yahoo : fetchStooqHistory(ticker);
+}

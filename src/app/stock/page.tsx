@@ -227,8 +227,6 @@ export default function StockPage() {
     return "#9ca3af";
   };
 
-  const isTwStock = (ticker: string) => /^\d+$/.test(ticker);
-
   const timeRanges: { key: TimeRange; label: string }[] = [
     { key: "all", label: "全部" },
     { key: "1w", label: "一周" },
@@ -421,20 +419,12 @@ export default function StockPage() {
                     >
                       <td style={{ ...tdStyle, color: "#9ca3af", fontSize: 13, textAlign: "center" }}>{stock.code}</td>
                       <td style={tdStyle}>
-                        {isTwStock(stock.ticker) ? (
-                          <a href={`/stock/${stock.ticker}`} style={{ color: "#1a56db", textDecoration: "none", fontWeight: 500 }}>
-                            {stock.ticker}
-                          </a>
-                        ) : (
-                          <span style={{ fontWeight: 500 }}>{stock.ticker}</span>
-                        )}
-                        {isTwStock(stock.ticker) ? (
-                          <a href={`/stock/${stock.ticker}`} style={{ marginLeft: 12, color: "inherit", textDecoration: "none" }}>
-                            {hasPrice ? p.name || stock.name : stock.name}
-                          </a>
-                        ) : (
-                          <span style={{ marginLeft: 12 }}>{stock.name}</span>
-                        )}
+                        <a href={`/stock/${stock.ticker}`} style={{ color: "#1a56db", textDecoration: "none", fontWeight: 500 }}>
+                          {stock.ticker}
+                        </a>
+                        <a href={`/stock/${stock.ticker}`} style={{ marginLeft: 12, color: "inherit", textDecoration: "none" }}>
+                          {hasPrice ? p.name || stock.name : stock.name}
+                        </a>
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", fontVariantNumeric: "tabular-nums" }}>
                         {!hasPrice ? "-" : p.limit ? (

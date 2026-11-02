@@ -3,6 +3,7 @@ import { categories } from "@/lib/stock-list";
 import { stockNameOr } from "@/lib/stock-name";
 import { taiwanToday, isStale } from "@/lib/market-day";
 import { getSupabase } from "@/lib/supabase";
+import { fetchUsHistory } from "@/lib/us-quote";
 
 export const dynamic = "force-dynamic";
 
@@ -269,6 +270,22 @@ export async function GET(
 ) {
   const { ticker } = await params;
   const isTpex = tpexSet.has(ticker);
+
+  // 美股（非數字代碼）：直接向 Yahoo／Stooq 取近一年日線，不寫進資料庫
+  if (!/^\d+$/.test(ticker)) {
+    const prices = await fetchUsHistory(ticker.toUpperCase());
+    if (prices.length === 0) {
+      return NextResponse.json({ ok: false, error: "查無資料" }, { status: 404 });
+    }
+    return NextResponse.json({
+      ok: true,
+      ticker,
+      name: stockNameOr(ticker),
+      currency: "USD",
+      prices,
+      source: "api",
+    });
+  }
 
   // ?debug=1 returns diagnostic info
   if (req.nextUrl.searchParams.get("debug") === "1") {
