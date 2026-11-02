@@ -35,6 +35,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "1560", name: "中砂",      aliases: ["KINIK"] },
   { ticker: "1727", name: "中華化",    aliases: ["中華化學"] },
   { ticker: "3680", name: "家登",      aliases: ["Gudeng"] },
+  { ticker: "4770", name: "上品" },
   { ticker: "6488", name: "環球晶",    aliases: ["GlobalWafers"] },
   // ─── F 半導體廠務 ────────────────────────────────────────
   { ticker: "2404", name: "漢唐" },

@@ -51,7 +51,8 @@ export const categories: Category[] = [
     stocks: [
       { code: "E1", ticker: "1560", name: "中砂" },
       { code: "E2", ticker: "3680", name: "家登", market: "tpex" },
-      { code: "E3", ticker: "6488", name: "環球晶", market: "tpex" },
+      { code: "E3", ticker: "4770", name: "上品" },
+      { code: "E4", ticker: "6488", name: "環球晶", market: "tpex" },
     ],
   },
   {
@@ -211,15 +212,6 @@ export const categories: Category[] = [
     stocks: [
       { code: "S1", ticker: "6894", name: "衛司特", market: "tpex" },
       { code: "S2", ticker: "8936", name: "國統", market: "tpex" },
-    ],
-  },
-  {
-    id: "T",
-    label: "紡織製鞋",
-    stocks: [
-      { code: "T1", ticker: "6768", name: "志強-KY" },
-      { code: "T2", ticker: "6890", name: "來億-KY" },
-      { code: "T3", ticker: "9938", name: "百和" },
     ],
   },
 ];
