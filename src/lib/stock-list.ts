@@ -214,6 +214,11 @@ export const categories: Category[] = [
       { code: "S2", ticker: "8936", name: "國統", market: "tpex" },
     ],
   },
+  {
+    id: "T",
+    label: "美股",
+    stocks: [{ code: "T1", ticker: "CLS", name: "Celestica" }],
+  },
 ];
 
 export function getTwseStockCodes(): string[] {

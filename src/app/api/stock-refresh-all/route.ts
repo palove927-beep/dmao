@@ -19,7 +19,8 @@ const nameMap = new Map(
 
 // ?source=list（預設，/stock 清單）｜sectors（族群成分股）｜all（兩者聯集）
 function tickersFor(source: string): string[] {
-  const list = listStocks.map((s) => s.ticker);
+  // 歷史股價只抓得到台股（TWSE／TPEx），美股等非數字代碼略過
+  const list = listStocks.map((s) => s.ticker).filter((t) => /^\d+$/.test(t));
   const sectors = allSectorStocks.map((s) => s.ticker);
   if (source === "sectors") return [...new Set(sectors)];
   if (source === "all") return [...new Set([...list, ...sectors])];
