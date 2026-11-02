@@ -27,7 +27,7 @@ export function annotationKeywords(ann: AnnotationLike): string[] {
 // 固定標成外框標籤的詞（不論段落有沒有標記個股都會標）。
 // 比對時長的優先，所以「根據定錨研調」會整段標成一個標籤；
 // 不在這些片語裡的「定錨」仍單獨標。
-const TAG_TERMS = ["根據定錨研調", "定錨預估", "定錨觀點", "定錨認為", "定錨"];
+const TAG_TERMS = ["根據定錨研調", "定錨預估", "定錨預測", "定錨觀點", "定錨認為", "定錨"];
 const TAG_STYLE: React.CSSProperties = {
   color: "#1d4ed8",
   background: "#eff6ff",
