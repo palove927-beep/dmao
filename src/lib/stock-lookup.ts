@@ -145,7 +145,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "FN",         name: "Fabrinet" },
   { ticker: "APH",        name: "Amphenol" },
   { ticker: "VRT",        name: "Vertiv Holdings",        aliases: ["Vertiv", "VRT"] },
-  { ticker: "CLS",        name: "Celestica",              aliases: ["CLS", "天弘"] },
+  { ticker: "CLS",        name: "Celestica",              aliases: ["CLS", "天弘科技"] },
   // ─── 台股（非 /stock 頁面）──────────────────────────────
   // ─── 石化/化工 ──────────────────────────────────────────
   { ticker: "1101",       name: "台泥" },
