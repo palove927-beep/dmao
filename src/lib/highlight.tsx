@@ -24,13 +24,26 @@ export function annotationKeywords(ann: AnnotationLike): string[] {
   return stocks.flatMap((s) => [s.stock_name, s.ticker, ...(s.aliases ?? [])]);
 }
 
-// 把段落裡的個股名稱／代碼／別名標成紅字
+// 固定標成外框標籤的詞（不論段落有沒有標記個股都會標）
+const TAG_TERMS = ["定錨"];
+const TAG_STYLE: React.CSSProperties = {
+  color: "#1d4ed8",
+  background: "#eff6ff",
+  border: "1px solid #93c5fd",
+  borderRadius: 4,
+  padding: "0 4px",
+  margin: "0 1px",
+  fontWeight: 600,
+};
+
+// 把段落裡的個股名稱／代碼／別名標成紅字，「定錨」標成藍色外框標籤
 export function highlightKeywords(text: string, keywords: string[]): React.ReactNode[] {
-  const filtered = [...new Set(keywords.filter(Boolean))];
-  if (filtered.length === 0) return [text];
+  const tagSet = new Set(TAG_TERMS);
+  const filtered = [...new Set(keywords.filter((k) => k && !tagSet.has(k)))];
+  const all = [...filtered, ...TAG_TERMS];
   // 英數關鍵字要求前後不得接英數字元，否則 SEMCO 裡的 EMC 會被標色；
   // 中文沒有詞界，維持原樣。長的排前面，南亞科 才不會被 南亞 先吃掉。
-  const escaped = [...filtered]
+  const escaped = [...all]
     .sort((a, b) => b.length - a.length)
     .map((k) => {
       const esc = k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -39,7 +52,9 @@ export function highlightKeywords(text: string, keywords: string[]): React.React
   const regex = new RegExp(`(${escaped.join("|")})`, "g");
   const kw = new Set(filtered);
   return text.split(regex).map((part, i) =>
-    kw.has(part) ? (
+    tagSet.has(part) ? (
+      <span key={i} style={TAG_STYLE}>{part}</span>
+    ) : kw.has(part) ? (
       <span key={i} style={{ color: "#dc2626", fontWeight: 600 }}>{part}</span>
     ) : (
       part
