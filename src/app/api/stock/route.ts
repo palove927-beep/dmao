@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getTwseStockCodes } from "@/lib/stocks";
+import { categories } from "@/lib/stock-list";
+import { fetchUsQuotes } from "@/lib/us-quote";
 
 export const dynamic = "force-dynamic";
 
@@ -203,7 +205,11 @@ async function fetchAllPrices(): Promise<Map<string, Quote>> {
 
 export async function GET() {
   try {
-    const quotes = await fetchAllPrices();
+    // 清單裡的非台股代碼（美股）另外查報價，與台股平行
+    const usTickers = categories
+      .flatMap((c) => c.stocks.map((s) => s.ticker))
+      .filter((t) => !/^\d+$/.test(t));
+    const [quotes, usQuotes] = await Promise.all([fetchAllPrices(), fetchUsQuotes(usTickers)]);
     const result: Record<string, StockPrice> = {};
     for (const [ticker, data] of quotes) {
       // 兩個來源都拿不到現價 → 最後才退回昨收（顯示平盤，至少不會誤導漲跌方向）
@@ -215,6 +221,16 @@ export async function GET() {
         change: fallback ? 0 : data.change,
         changePercent: fallback ? 0 : data.changePercent,
         limit: fallback ? null : limitState(data),
+      };
+    }
+
+    for (const q of usQuotes) {
+      result[q.ticker] = {
+        ticker: q.ticker,
+        name: "",
+        price: q.price,
+        ...calcChange(q.price, q.yesterday),
+        limit: null,
       };
     }
 

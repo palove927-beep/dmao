@@ -395,7 +395,8 @@ export default function StockPage() {
               </tr>
               {cat.stocks.map((stock, i) => {
                 const p = prices[stock.ticker];
-                const hasTwData = isTwStock(stock.ticker) && p;
+                // 台股來自 TWSE／TPEx，美股來自 Yahoo／Stooq，兩者都放在同一份 prices
+                const hasPrice = !!p;
                 const isExpanded = expandedTicker === stock.ticker;
                 const stockAnnotations = annotations[stock.ticker] || [];
                 const stockEps = epsForecasts[stock.ticker] || [];
@@ -403,7 +404,7 @@ export default function StockPage() {
 
                 const eps2026 = latestEps2026[stock.ticker];
                 const eps2027 = latestEps2027[stock.ticker];
-                const price = hasTwData ? p.price : null;
+                const price = hasPrice ? p.price : null;
                 const pe2026 = calcPE(price, eps2026?.eps);
                 const pe2027 = calcPE(price, eps2027?.eps);
 
@@ -429,14 +430,14 @@ export default function StockPage() {
                         )}
                         {isTwStock(stock.ticker) ? (
                           <a href={`/stock/${stock.ticker}`} style={{ marginLeft: 12, color: "inherit", textDecoration: "none" }}>
-                            {hasTwData ? p.name || stock.name : stock.name}
+                            {hasPrice ? p.name || stock.name : stock.name}
                           </a>
                         ) : (
                           <span style={{ marginLeft: 12 }}>{stock.name}</span>
                         )}
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", fontVariantNumeric: "tabular-nums" }}>
-                        {!hasTwData ? "-" : p.limit ? (
+                        {!hasPrice ? "-" : p.limit ? (
                           <span title={p.limit === "up" ? "漲停" : "跌停"} style={limitBadgeStyle(p.limit)}>
                             {formatPrice(p.price)}
                           </span>
@@ -448,11 +449,11 @@ export default function StockPage() {
                         fontSize: 12,
                         fontWeight: 600,
                         fontVariantNumeric: "tabular-nums",
-                        color: hasTwData && p.changePercent !== null && p.changePercent !== 0
+                        color: hasPrice && p.changePercent !== null && p.changePercent !== 0
                           ? (p.changePercent > 0 ? "#dc2626" : "#15803d")
                           : "#6b7280",
                       }}>
-                        {hasTwData && p.changePercent !== null
+                        {hasPrice && p.changePercent !== null
                           ? `${p.changePercent > 0 ? "+" : ""}${p.changePercent.toFixed(2)}%`
                           : "-"}
                       </td>
