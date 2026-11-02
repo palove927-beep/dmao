@@ -368,7 +368,16 @@ export default function DmaoPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: formTitle, paragraphs: parasForAI }),
       });
-      const json = await res.json();
+      // 逾時或平台錯誤時回的是純文字錯誤頁，不是 JSON；直接 res.json() 只會得到
+      // 「Unexpected token 'A'」這種看不出原因的訊息
+      const raw = await res.text();
+      let json;
+      try {
+        json = JSON.parse(raw);
+      } catch {
+        const hint = /TIMEOUT/i.test(raw) ? "（分析逾時，文章可能太長，可拆成兩篇再試）" : "";
+        throw new Error(`伺服器回應 ${res.status}${hint}：${raw.slice(0, 120)}`);
+      }
 
       if (json.ok) {
         // Build paragraph data; image-only paragraphs get no stock tags

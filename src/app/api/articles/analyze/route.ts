@@ -5,6 +5,10 @@ import { z } from "zod";
 import { repairAnalysisJson } from "@/lib/analyze-repair";
 import { requireEditor } from "@/lib/editor-auth";
 
+// 長文（十幾檔個股＋多筆 EPS 財測）模型要跑很久，預設時限會被平台中斷，
+// 回傳的是 Vercel 的純文字錯誤頁而不是 JSON
+export const maxDuration = 300;
+
 const allStocks = scanStocks;
 
 const stockListText = allStocks
