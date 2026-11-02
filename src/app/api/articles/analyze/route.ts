@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
       : paragraphList;
 
     const { object: result } = await generateObject({
-      model: process.env.ANALYZE_MODEL || "inclusionai/ling-3.0-flash",
+      model: process.env.ANALYZE_MODEL || "inception/mercury-3",
       repairText: async ({ text, error }) => {
         console.warn("[analyze] 模型輸出形狀不符，嘗試修正：", error.message.slice(0, 300));
         return repairAnalysisJson(text);
