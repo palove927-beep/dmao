@@ -147,6 +147,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "APH",        name: "Amphenol" },
   { ticker: "VRT",        name: "Vertiv Holdings",        aliases: ["Vertiv", "VRT"] },
   { ticker: "CLS",        name: "Celestica",              aliases: ["CLS", "天弘科技"] },
+  { ticker: "MXL",        name: "MaxLinear",              aliases: ["MXL"] },
   // ─── 台股（非 /stock 頁面）──────────────────────────────
   // ─── 石化/化工 ──────────────────────────────────────────
   { ticker: "1101",       name: "台泥" },
@@ -223,6 +224,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "600601.SS",  name: "方正科技",               aliases: ["方正"] },
   { ticker: "603228.SS",  name: "景旺電子",               aliases: ["景旺"] },
   { ticker: "002938.SZ",  name: "鵬鼎控股",               aliases: ["鵬鼎"] },
+  { ticker: "600183.SS",  name: "生益科技" },
   { ticker: "603986.SS",  name: "兆易創新" },
   { ticker: "688396.SS",  name: "華潤微" },
   { ticker: "688825.SS",  name: "長鑫科技",                 aliases: ["長鑫存儲", "長鑫", "CXMT"] },
