@@ -232,7 +232,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "3110.T",     name: "日東紡(Nittobo)",          aliases: ["日東紡", "Nittobo"] },
   { ticker: "1899.T",     name: "福田(Fukuda)",             aliases: ["福田", "Fukuda"] },
   { ticker: "5706.T",     name: "三井金屬(Mitsui Kinzoku)", aliases: ["三井金屬", "Mitsui Kinzoku"] },
-  { ticker: "5801.T",     name: "古河電工(Furukawa)",        aliases: ["古河電工", "Furukawa"] },
+  { ticker: "5801.T",     name: "古河電工(Furukawa)",        aliases: ["古河電工", "古河", "Furukawa"] },
   { ticker: "4004.T",     name: "昭和電工(Resonac)",         aliases: ["昭和電工", "Resonac"] },
   { ticker: "4182.T",     name: "三菱瓦斯化學(MGC)",         aliases: ["三菱瓦斯化學", "MGC"] },
   { ticker: "285A.T",     name: "鎧俠(Kioxia)",             aliases: ["鎧俠", "Kioxia"] },
