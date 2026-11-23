@@ -154,7 +154,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "ANT",        name: "Anthropic" },
   { ticker: "BABA",       name: "阿里巴巴(Alibaba)",       aliases: ["阿里巴巴", "Alibaba"] },
   // 未上市公司沒有股票代碼，比照 OpenAI 以英文名稱當代碼
-  { ticker: "ByteDance",  name: "字節跳動(ByteDance)",     aliases: ["字節跳動", "ByteDance"] },
+  { ticker: "ByteDance",  name: "字節跳動",               aliases: ["字節跳動", "ByteDance"] },
   // ─── 台股（非 /stock 頁面）──────────────────────────────
   // ─── 石化/化工 ──────────────────────────────────────────
   { ticker: "1101",       name: "台泥" },
