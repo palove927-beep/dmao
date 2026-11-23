@@ -188,6 +188,7 @@ export const scanStocks: ScanStock[] = [
   { ticker: "3211",       name: "順達" },
   { ticker: "3485",       name: "敘豐" },
   { ticker: "6877",       name: "鏵友益" },
+  { ticker: "7917",       name: "源傑科技",               aliases: ["源傑"] },
   { ticker: "4573",       name: "高明鐵" },
   { ticker: "4749",       name: "新應材" },
   { ticker: "4768",       name: "晶呈科技",              aliases: ["晶呈科"] },
@@ -225,11 +226,14 @@ export const scanStocks: ScanStock[] = [
   { ticker: "603228.SS",  name: "景旺電子",               aliases: ["景旺"] },
   { ticker: "002938.SZ",  name: "鵬鼎控股",               aliases: ["鵬鼎"] },
   { ticker: "600183.SS",  name: "生益科技" },
+  { ticker: "300502.SZ",  name: "新易盛" },
+  { ticker: "300308.SZ",  name: "中際旭創" },
   { ticker: "603986.SS",  name: "兆易創新" },
   { ticker: "688396.SS",  name: "華潤微" },
   { ticker: "688825.SS",  name: "長鑫科技",                 aliases: ["長鑫存儲", "長鑫", "CXMT"] },
   // ─── 港股 ────────────────────────────────────────────────
   { ticker: "1810.HK",    name: "小米",                   aliases: ["小米集團", "Xiaomi"] },
+  { ticker: "0981.HK",    name: "中芯國際",               aliases: ["中芯"] },
   { ticker: "6088.HK",    name: "鴻騰精密(FIT Hon Teng)",  aliases: ["鴻騰精密", "FIT Hon Teng", "FIT HON TENG", "鴻騰"] },
   // ─── 日股 ────────────────────────────────────────────────
   { ticker: "3407.T",     name: "旭化成(Asahi Kasei)",     aliases: ["旭化成", "Asahi Kasei", "Asahi"] },
