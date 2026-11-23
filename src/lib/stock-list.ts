@@ -191,33 +191,38 @@ export const categories: Category[] = [
   },
   {
     id: "Q",
-    label: "網通系統廠",
-    stocks: [
-      { code: "Q1", ticker: "4906", name: "正文" },
-      { code: "Q2", ticker: "5388", name: "中磊" },
-      { code: "Q3", ticker: "6285", name: "啟碁" },
-    ],
+    label: "機械",
+    stocks: [{ code: "Q1", ticker: "4571", name: "鈞興-KY" }],
   },
   {
     id: "R",
-    label: "自行車",
+    label: "網通系統廠",
     stocks: [
-      { code: "R1", ticker: "9914", name: "美利達" },
-      { code: "R2", ticker: "5306", name: "桂盟" },
+      { code: "R1", ticker: "4906", name: "正文" },
+      { code: "R2", ticker: "5388", name: "中磊" },
+      { code: "R3", ticker: "6285", name: "啟碁" },
     ],
   },
   {
     id: "S",
-    label: "循環經濟",
+    label: "自行車",
     stocks: [
-      { code: "S1", ticker: "6894", name: "衛司特", market: "tpex" },
-      { code: "S2", ticker: "8936", name: "國統", market: "tpex" },
+      { code: "S1", ticker: "9914", name: "美利達" },
+      { code: "S2", ticker: "5306", name: "桂盟" },
     ],
   },
   {
     id: "T",
+    label: "循環經濟",
+    stocks: [
+      { code: "T1", ticker: "6894", name: "衛司特", market: "tpex" },
+      { code: "T2", ticker: "8936", name: "國統", market: "tpex" },
+    ],
+  },
+  {
+    id: "U",
     label: "美股",
-    stocks: [{ code: "T1", ticker: "CLS", name: "Celestica" }],
+    stocks: [{ code: "U1", ticker: "CLS", name: "Celestica" }],
   },
 ];
 
