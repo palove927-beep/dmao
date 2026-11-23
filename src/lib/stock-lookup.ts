@@ -148,6 +148,10 @@ export const scanStocks: ScanStock[] = [
   { ticker: "VRT",        name: "Vertiv Holdings",        aliases: ["Vertiv", "VRT"] },
   { ticker: "CLS",        name: "Celestica",              aliases: ["CLS", "天弘科技"] },
   { ticker: "MXL",        name: "MaxLinear",              aliases: ["MXL"] },
+  { ticker: "CRWV",       name: "CoreWeave" },
+  { ticker: "SPCX",       name: "SpaceX",                 aliases: ["SpaceXSI"] },
+  { ticker: "OpenAI",     name: "OpenAI",                 aliases: ["Open AI"] },
+  { ticker: "ANT",        name: "Anthropic" },
   // ─── 台股（非 /stock 頁面）──────────────────────────────
   // ─── 石化/化工 ──────────────────────────────────────────
   { ticker: "1101",       name: "台泥" },
