@@ -396,7 +396,37 @@ export default function StockPage() {
                   colSpan={COL_COUNT}
                   style={{ padding: "10px 10px", fontWeight: "bold", fontSize: 15, color: "#1e3a5f" }}
                 >
-                  {cat.label}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+                    <span>{cat.label}</span>
+                    {(() => {
+                      // 群組漲跌家數與平均漲跌幅：只算有報價的個股，漲跌幅 0 算平盤
+                      let up = 0, down = 0, flat = 0, sum = 0;
+                      for (const s of cat.stocks) {
+                        const cp = prices[s.ticker]?.changePercent;
+                        if (cp == null) continue;
+                        sum += cp;
+                        if (cp > 0) up++;
+                        else if (cp < 0) down++;
+                        else flat++;
+                      }
+                      const n = up + down + flat;
+                      if (n === 0) return null;
+                      const avg = sum / n;
+                      return (
+                        <span style={{ display: "inline-flex", gap: 10, fontSize: 13, fontVariantNumeric: "tabular-nums" }}>
+                          <span style={{ color: "#dc2626" }}>▲ {up}</span>
+                          <span style={{ color: "#15803d" }}>▼ {down}</span>
+                          <span style={{ color: "#6b7280" }}>— {flat}</span>
+                          <span
+                            title="群組內有報價個股的漲跌幅簡單平均"
+                            style={{ color: avg > 0 ? "#dc2626" : avg < 0 ? "#15803d" : "#6b7280" }}
+                          >
+                            平均 {avg > 0 ? "+" : ""}{avg.toFixed(2)}%
+                          </span>
+                        </span>
+                      );
+                    })()}
+                  </div>
                 </td>
               </tr>
               {cat.stocks.map((stock, i) => {
