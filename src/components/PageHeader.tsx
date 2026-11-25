@@ -34,6 +34,7 @@ const MAIN_NAV: NavItem[] = [
 // 另一份資料的頁面。標題帶的年月是水溫表本身的版次，換表時跟著改。
 const OTHER_PAGES = [
   { href: "/sectors", label: "26/08 族群熱度圖", source: "水溫表" },
+  { href: "/pcb", label: "PCB 產業鏈", source: "產業鏈" },
 ];
 
 // 第一段用主色，第二段刻意調淡，視覺上就分得出親疏
