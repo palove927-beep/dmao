@@ -8,7 +8,7 @@ import { RANGES, type RangeKey } from "@/lib/sector-range";
 import type { TrackQuote } from "@/app/api/track/route";
 
 type Returns = Record<string, { baseDate: string | null; priceDate: string | null; changePercent: number | null }>;
-type EpsMap = Record<string, number>;
+type EpsMap = Record<string, { eps: number; article_date: string | null }>;
 
 const RANGE_KEY = "dmao_pcb_range_v1";
 
@@ -17,8 +17,49 @@ const pctColor = (v: number | null | undefined) =>
   v == null || v === 0 ? "#6b7280" : v > 0 ? "#dc2626" : "#15803d";
 const fmtPct = (v: number | null | undefined) =>
   v == null ? "-" : `${v > 0 ? "+" : ""}${v.toFixed(2)}%`;
-const fmtPe = (price: number | null | undefined, eps: number | undefined) =>
-  price && eps && eps > 0 ? (price / eps).toFixed(1) : "-";
+// 以下 EPS／本益比的呈現與 /stock 頁一致
+const calcPE = (price: number | null, eps: number | undefined) =>
+  !price || !eps || eps <= 0 ? null : Math.round((price / eps) * 10) / 10;
+
+const peColor = (pe: number): string => {
+  if (pe < 15) return "#2563eb";
+  if (pe < 20) return "#16a34a";
+  if (pe < 25) return "#eab308";
+  if (pe < 35) return "#ea580c";
+  return "#dc2626";
+};
+
+const formatDate = (dateStr: string) => {
+  const d = new Date(dateStr);
+  return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
+};
+
+// 財測日期新舊：兩週內綠、一個月內藍、三個月內橘，更舊灰
+const dateAgeColor = (dateStr: string, now: number): string => {
+  const diff = (now - new Date(dateStr).getTime()) / (24 * 3600 * 1000);
+  if (diff <= 14) return "#16a34a";
+  if (diff <= 30) return "#2563eb";
+  if (diff <= 90) return "#ea580c";
+  return "#9ca3af";
+};
+
+function EpsCell({ eps, price }: { eps?: { eps: number }; price: number | null }) {
+  if (!eps) return <>-</>;
+  const pe = calcPE(price, eps.eps);
+  return (
+    <span>
+      <span style={{ color: "#b45309", fontWeight: "bold" }}>{eps.eps}</span>
+      {pe !== null && (
+        <span style={{
+          marginLeft: 6, fontSize: 12, fontWeight: "bold", color: "#fff",
+          background: peColor(pe), padding: "1px 6px", borderRadius: 4,
+        }}>
+          {pe}x
+        </span>
+      )}
+    </span>
+  );
+}
 
 // 等權平均，略過沒有資料的個股
 function avg(values: (number | null | undefined)[]): number | null {
@@ -34,6 +75,7 @@ export default function PcbPage() {
   const [eps2027, setEps2027] = useState<EpsMap>({});
   const [sync, setSync] = useState<{ done: number; total: number } | null>(null);
   const syncedRef = useRef(false);
+  const [mountedAt] = useState(() => Date.now());
 
   // 記住上次選的區間（只是個人偏好，讀不到就用預設）
   useEffect(() => {
@@ -71,7 +113,9 @@ export default function PcbPage() {
         const json = await (await fetch(`/api/eps-forecasts?forecast_year=${year}&latest=1`)).json();
         if (!json.ok) return;
         const m: EpsMap = {};
-        for (const f of json.forecasts) m[f.ticker] = Number(f.eps);
+        for (const f of json.forecasts) {
+          m[f.ticker] = { eps: Number(f.eps), article_date: f.dmao_articles?.article_date ?? null };
+        }
         set(m);
       } catch { /* ignore */ }
     };
@@ -201,10 +245,9 @@ export default function PcbPage() {
                         <th style={{ ...th, textAlign: "right" }}>現價</th>
                         <th style={{ ...th, textAlign: "right" }}>今日</th>
                         <th style={{ ...th, textAlign: "right" }}>{rangeLabel}</th>
+                        <th style={{ ...th, textAlign: "center" }}>日期</th>
                         <th style={{ ...th, textAlign: "right" }}>2026 EPS</th>
-                        <th style={{ ...th, textAlign: "right" }}>2026 本益比</th>
                         <th style={{ ...th, textAlign: "right" }}>2027 EPS</th>
-                        <th style={{ ...th, textAlign: "right" }}>2027 本益比</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -212,6 +255,9 @@ export default function PcbPage() {
                         const q = quotes[s.ticker];
                         const price = q?.price ?? null;
                         const r = returns[s.ticker]?.changePercent;
+                        const e26 = eps2026[s.ticker];
+                        const e27 = eps2027[s.ticker];
+                        const epsDate = e26?.article_date ?? e27?.article_date ?? null;
                         return (
                           <tr key={s.ticker} style={{ borderBottom: "1px solid #eee" }}>
                             <td style={td}>
@@ -221,10 +267,16 @@ export default function PcbPage() {
                             <td style={{ ...td, ...num, fontWeight: "bold" }}>{price ? price.toFixed(2) : "-"}</td>
                             <td style={{ ...td, ...num, color: pctColor(q?.changePercent) }}>{fmtPct(q?.changePercent)}</td>
                             <td style={{ ...td, ...num, color: pctColor(r), fontWeight: 600 }}>{fmtPct(r)}</td>
-                            <td style={{ ...td, ...num }}>{eps2026[s.ticker] ?? "-"}</td>
-                            <td style={{ ...td, ...num }}>{fmtPe(price, eps2026[s.ticker])}</td>
-                            <td style={{ ...td, ...num }}>{eps2027[s.ticker] ?? "-"}</td>
-                            <td style={{ ...td, ...num }}>{fmtPe(price, eps2027[s.ticker])}</td>
+                            <td style={{ ...td, textAlign: "center", fontSize: 13, color: "#666" }}>
+                              {epsDate ? (
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                                  <span style={{ width: 11, height: 11, borderRadius: "50%", background: dateAgeColor(epsDate, mountedAt), flexShrink: 0 }} />
+                                  {formatDate(epsDate)}
+                                </span>
+                              ) : "-"}
+                            </td>
+                            <td style={{ ...td, ...num }}><EpsCell eps={e26} price={price} /></td>
+                            <td style={{ ...td, ...num }}><EpsCell eps={e27} price={price} /></td>
                           </tr>
                         );
                       })}
@@ -249,7 +301,7 @@ export default function PcbPage() {
 
       <p style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.7 }}>
         平均為環節內個股的等權平均（不按市值加權），沒有報價的個股不列入。EPS 為定錨文章中最新一次的財測，
-        本益比＝現價 ÷ 財測 EPS。南亞同時列在銅箔與銅箔基板兩個環節。
+        EPS 旁的色塊是本益比（現價 ÷ 財測 EPS）；日期是該筆財測的文章日期。南亞同時列在銅箔與銅箔基板兩個環節。
       </p>
     </div>
   );
