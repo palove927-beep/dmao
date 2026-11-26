@@ -22,11 +22,14 @@ async function fetchYahoo(ticker: string): Promise<UsQuote | null> {
     );
     if (!res.ok) return null;
     const json = await res.json();
-    const meta = json?.chart?.result?.[0]?.meta;
+    const r = json?.chart?.result?.[0];
+    const meta = r?.meta;
     const price = num(meta?.regularMarketPrice);
     if (price === null) return null;
-    // previousClose 是前一交易日收盤；chartPreviousClose 是查詢區間起點前的收盤，只當備援
-    const yesterday = num(meta?.previousClose) ?? num(meta?.chartPreviousClose);
+    // 昨收：previousClose 常常沒給；chartPreviousClose 是 5 天區間起點前的收盤，不是昨收
+    // （曾因此把費半今日 -0.65% 算成 -9.1%）。改取日線倒數第二筆，最後一筆是今天（或最近）的交易日
+    const closes = ((r?.indicators?.quote?.[0]?.close ?? []) as unknown[]).map(num).filter((v): v is number => v !== null);
+    const yesterday = num(meta?.previousClose) ?? (closes.length >= 2 ? closes[closes.length - 2] : null);
     return { ticker, price, yesterday };
   } catch {
     return null;
@@ -82,8 +85,9 @@ async function fetchYahooHistory(ticker: string): Promise<UsPriceRow[]> {
     const r = (await res.json())?.chart?.result?.[0];
     const ts: number[] = r?.timestamp ?? [];
     const q = r?.indicators?.quote?.[0];
-    // 時間戳是 UTC 秒；加上交易所時差才落在美東的交易日
-    const offset: number = r?.meta?.gmtoffset ?? 0;
+    // 時間戳是 UTC 秒；加上交易所時差才落在當地交易日。多加 6 小時：
+    // Yahoo 只給現在的時差，外匯在英國夏令時間的日線時間戳是前一天 23:00 UTC（見 macro-store）
+    const offset: number = (r?.meta?.gmtoffset ?? 0) + 6 * 3600;
     const rows: UsPriceRow[] = [];
     ts.forEach((t, i) => {
       const close = num(q?.close?.[i]);

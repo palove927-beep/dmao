@@ -4,6 +4,7 @@ import { stockNameOr } from "@/lib/stock-name";
 import { taiwanToday, isStale } from "@/lib/market-day";
 import { getSupabase } from "@/lib/supabase";
 import { fetchUsHistory } from "@/lib/us-quote";
+import { findMacro } from "@/lib/macro";
 
 export const dynamic = "force-dynamic";
 
@@ -270,6 +271,32 @@ export async function GET(
 ) {
   const { ticker } = await params;
   const isTpex = tpexSet.has(ticker);
+
+  // 總經儀表板的指數與商品（macro-sox 等）：Yahoo 來源取近一年 K 線；
+  // 櫃買指數、美債 2 年期只有收盤價，從 macro_prices 讀近一年畫折線
+  const macro = findMacro(ticker);
+  if (macro) {
+    let prices: { date: string; open?: number; high?: number; low?: number; close: number; volume?: number }[] = [];
+    if (!macro.source) prices = await fetchUsHistory(macro.symbol);
+    if (prices.length === 0) {
+      try {
+        const since = new Date(Date.now() - 366 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+        const { data } = await getSupabase()
+          .from("macro_prices")
+          .select("date, close")
+          .eq("key", macro.key)
+          .gte("date", since)
+          .order("date", { ascending: true });
+        prices = (data ?? []).map((r) => ({ date: r.date, close: Number(r.close) }));
+      } catch {
+        // Supabase 無法連線：下面回查無資料
+      }
+    }
+    if (prices.length === 0) {
+      return NextResponse.json({ ok: false, error: "查無資料" }, { status: 404 });
+    }
+    return NextResponse.json({ ok: true, ticker, name: macro.label, currency: "USD", prices, source: "api" });
+  }
 
   // 美股（非數字代碼）：直接向 Yahoo／Stooq 取近一年日線，不寫進資料庫
   if (!/^\d+$/.test(ticker)) {

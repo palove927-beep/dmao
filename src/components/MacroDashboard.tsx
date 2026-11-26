@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { ChartCandlestick } from "lucide-react";
-import { GLOBAL_TABLE, MACRO_INSTRUMENTS, macroSignals, vixZone, type MacroGroup, type MacroQuote, type TipBlock } from "@/lib/macro";
+import { GLOBAL_TABLE, MACRO_INSTRUMENTS, macroSignals, vixZone, type MacroGroup, type MacroQuote, type TipBlock, macroTicker } from "@/lib/macro";
 
 type SignalLog = { date: string; signal_key: string; level: "alert" | "watch"; title: string; meaning: string };
 
@@ -193,16 +194,14 @@ export default function MacroDashboard() {
                   <div className="mdb-card-top">
                     <span className="mdb-name">{m.label}</span>
                     {m.layer && <span className="mdb-layer">{m.layer}</span>}
-                    <a
+                    <Link
                       className="mdb-go"
-                      href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(m.tv)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={`前往 ${m.label} 技術分析圖（TradingView）`}
-                      aria-label={`前往 ${m.label} 技術分析圖`}
+                      href={`/stock/${macroTicker(m.key)}`}
+                      title={`前往 ${m.label} 走勢圖`}
+                      aria-label={`前往 ${m.label} 走勢圖`}
                     >
                       <ChartCandlestick size={13} strokeWidth={2} />
-                    </a>
+                    </Link>
                     {m.tip && <Help label={m.label} blocks={m.tip} />}
                   </div>
                   <div className="mdb-price">
@@ -265,7 +264,7 @@ export default function MacroDashboard() {
         );
       })()}
 
-      <div className="mdb-note">資料來源：Yahoo Finance（櫃買指數：櫃買中心；美債 2 年期：美國財政部），每日收盤存於資料庫，延遲報價，僅供參考；台股慣例紅漲綠跌。蠟燭圖示可前往 TradingView 看技術分析圖。</div>
+      <div className="mdb-note">資料來源：Yahoo Finance（櫃買指數：櫃買中心；美債 2 年期：美國財政部），每日收盤存於資料庫，延遲報價，僅供參考；台股慣例紅漲綠跌。蠟燭圖示可前往該項目的走勢圖頁面。</div>
     </div>
   );
 }

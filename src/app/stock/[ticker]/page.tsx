@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { annotationKeywords, renderParagraph } from "@/lib/highlight";
 import { stockNameOr } from "@/lib/stock-name";
+import { findMacro } from "@/lib/macro";
 import type { TrackQuote } from "@/app/api/track/route";
 import {
   ComposedChart, Bar, BarChart, Cell, AreaChart, Area, XAxis, YAxis, Tooltip,
@@ -490,9 +491,11 @@ export default function StockDetailPage() {
                 {data.name === ticker ? stockNameOr(ticker) : data.name}
               </h1>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 15, color: "#6b7280" }}>
-                {ticker}
+                {/* 總經項目（macro-sox）顯示 Yahoo 代號；櫃買、美債 2 年期不是 Yahoo 來源，只顯示名稱 */}
+                {findMacro(ticker) ? (findMacro(ticker)!.source ? "" : findMacro(ticker)!.symbol) : ticker}
+                {!findMacro(ticker)?.source && (
                 <a
-                  href={/^\d+$/.test(ticker) ? `https://tw.stock.yahoo.com/quote/${ticker}` : `https://finance.yahoo.com/quote/${ticker}`}
+                  href={/^\d+$/.test(ticker) ? `https://tw.stock.yahoo.com/quote/${ticker}` : `https://finance.yahoo.com/quote/${encodeURIComponent(findMacro(ticker)?.symbol ?? ticker)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   title={`在 Yahoo 股市查看 ${ticker}`}
@@ -500,6 +503,7 @@ export default function StockDetailPage() {
                 >
                   <YahooIcon />
                 </a>
+                )}
               </span>
             </div>
 
