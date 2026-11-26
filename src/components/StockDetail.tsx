@@ -7,6 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import { annotationKeywords, renderParagraph } from "@/lib/highlight";
 import { stockNameOr } from "@/lib/stock-name";
 import { findMacro } from "@/lib/macro";
+import MacroSignalPanel from "@/components/MacroSignalPanel";
 import type { TrackQuote } from "@/app/api/track/route";
 import {
   ComposedChart, Bar, BarChart, Cell, AreaChart, Area, XAxis, YAxis, Tooltip,
@@ -792,6 +793,9 @@ export default function StockDetail({ ticker }: { ticker: string }) {
           </>
         )}
       </div>
+
+      {/* 總經項目：走勢圖下方顯示相關的非常態訊號 */}
+      {findMacro(ticker) && <MacroSignalPanel macroKey={findMacro(ticker)!.key} />}
     </div>
   );
 }

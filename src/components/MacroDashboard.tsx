@@ -50,7 +50,7 @@ function Help({ blocks, label }: { blocks: TipBlock[]; label: string }) {
             {Object.keys(b).map((k) => {
               if (k === "lines") return b.lines!.map((l, j) => <Line key={`l${j}`} text={l} />);
               if (k === "table") return (
-                <div key="t" className="mdb-tip-tbl">
+                <div key="t" className={`mdb-tip-tbl${b.table!.rows.every((r) => r[0].length <= 16) ? " bf" : ""}`}>
                   <table>
                     <thead><tr>{b.table!.head.map((h) => <th key={h}>{h}</th>)}</tr></thead>
                     <tbody>{b.table!.rows.map((r, ri) => <tr key={ri}>{r.map((c, ci) => <td key={ci}>{c}</td>)}</tr>)}</tbody>
@@ -307,7 +307,7 @@ const CSS = `
 .mdb-tip-tbl th { background:#f1f5f9; color:#1e3a5f; text-align:left; font-size:13px; padding:8px 12px; white-space:nowrap; }
 .mdb-tip-tbl td { padding:8px 12px; border-top:1px solid #f1f5f9; vertical-align:top; }
 .mdb-tip-tbl tbody tr:nth-child(even) td { background:#fafbfc; }
-.mdb-tip-tbl td:first-child { font-weight:600; color:#111827; }
+.mdb-tip-tbl.bf td:first-child { font-weight:600; color:#111827; }
 .mdb-help:hover .mdb-tip, .mdb-help:focus .mdb-tip, .mdb-help:focus-within .mdb-tip { display:block; }
 .mdb-signals { position:relative; }
 .mdb-gtitle-help { display:flex; align-items:center; justify-content:space-between; }
