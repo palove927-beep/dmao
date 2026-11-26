@@ -23,22 +23,37 @@ function Help({ lines, title }: { lines: string[]; title: string }) {
     <span className="mdb-help" tabIndex={0} aria-label={`${title}的看點`}>
       ?
       <span className="mdb-tip" role="tooltip">
-        <b>{title}</b>
-        {lines.map((l) => <span key={l}>{l}</span>)}
+        <b className="mdb-tip-title">{title}</b>
+        {lines.map((l, i) => {
+          if (/^(\d-\d[A-Z]([・]\d-\d[A-Z])*|燈號)$/.test(l)) return <span key={i} className="mdb-tip-slide">{l}</span>;
+          // 「標題：內容」把冒號前的短標題加粗，跟筆記頁的寫法一致
+          const m = l.match(/^([^：]{1,16})：(.+)$/);
+          return <span key={i}>{m ? <><strong>{m[1]}：</strong>{m[2]}</> : l}</span>;
+        })}
       </span>
     </span>
   );
 }
 
+// 與 /atypical 2-1M「全球市場連動速查表」相同；最後是儀表板額外的規則與燈號說明
 const SIGNAL_RULES = [
-  "費半一個月急跌 > 15%：台積電及電子族群承壓，隔天台股大機率跟跌",
-  "S&P 500 一個月下跌 > 5%：外資撤離新興市場、黃金上漲；台股外資賣壓",
-  "美元指數一個月急漲 > 5 點：台幣貶值；出口商匯兌受益，外資需賣台股",
-  "美元指數一個月急跌 > 5 點：台幣升值；外資買台股，出口商匯兌壓力",
-  "黃金一個月急漲 > 5%：市場恐慌；觀察 VIX，評估是否進入非常態",
-  "油價一個月急漲或急跌 > 20%：通膨與升降息預期改變",
-  "VIX ≥ 30：全球多個市場觀察非常態；準備資金，找尋買點",
-  "另外：費半跌破年線且年線向下、2 年期高於 10 年期（倒掛）、櫃買或加權跌破兩年均線",
+  "2-1M",
+  "費半急跌 > 15–20%：台積電及電子族群造成壓力；直接連動，隔天台股大機率跟跌",
+  "S&P 500 崩跌 > 5%：外資撤離新興市場、黃金上漲；台股外資賣壓，短期承壓",
+  "美元指數急漲 > 5 點：新興市場外資出走、台幣貶值；出口商匯兌受益，外資需賣台股，財報好價格差",
+  "美元指數急跌 > 5 點：新興市場資金回流、台幣升值；外資買台股，出口商匯兌壓力，財報差價格好",
+  "黃金急漲 > 5%：市場恐慌、風險資產承壓；觀察 VIX，評估是否進入非常態",
+  "油價急漲 > 20%：通膨預期升溫、升息預期強化；電子股估值受壓，物價通膨上升",
+  "油價急跌 > 20%：通膨預期降溫、降息空間打開；電子製造成本下降，同時也代表需求弱",
+  "VIX 突破 30：全球多個市場觀察非常態；準備資金，找尋買點",
+  "2-1B・2-1E・2-1K",
+  "費半跌破均線且長期向下：半導體長循環可能轉空，電子股要更謹慎，台股指數也會連動",
+  "殖利率倒掛：若由衰退預期帶動、甚至出現 2 年期高於 10 年期的倒掛，可能為長循環的轉折訊號",
+  "加權與櫃買：要同時看，分歧是警訊；櫃買常會率先反應",
+  "燈號",
+  "🔴 紅：課程寫出對台股的直接影響或行動（跟跌、外資賣壓、找買點）",
+  "🟡 黃：課程用「觀察」「可能」「警訊」描述的早期或間接徵兆（黃金急漲、油價急跌、費半跌破均線、殖利率倒掛、櫃買先跌破兩年線）",
+  "判斷期間：「急跌／急漲」以約一個月（21 個交易日）的變化衡量；美元指數看點數，其餘看百分比",
 ];
 
 function Spark({ data, color }: { data: number[]; color: string }) {
@@ -235,9 +250,13 @@ const CSS = `
   border-radius:50%; background:#e5e7eb; color:#4b5563; font-size:11px; font-weight:800; cursor:help; vertical-align:1px; outline:none; flex-shrink:0; }
 .mdb-help:hover, .mdb-help:focus { background:#1a56db; color:#fff; }
 .mdb-tip { display:none; position:absolute; left:0; right:0; top:0; z-index:20; min-height:100%; box-sizing:border-box;
+  max-height:70vh; overflow-y:auto;
   background:#fff; color:#1f2937; border:1px solid #93c5fd; border-radius:10px; padding:10px 12px;
   box-shadow:0 8px 24px rgba(15,23,42,.18); font-size:12px; font-weight:400; line-height:1.6; text-align:left; cursor:default; }
-.mdb-tip b { display:block; font-size:13px; color:#1e3a5f; margin-bottom:4px; }
+.mdb-tip .mdb-tip-title { display:block; font-size:13px; color:#1e3a5f; margin-bottom:2px; }
+.mdb-tip span.mdb-tip-slide { display:inline-block; margin-top:8px; font-size:11px; font-weight:600; color:#6b7280;
+  border:1px solid #e5e7eb; border-radius:6px; padding:0 6px; }
+.mdb-tip strong { color:#111827; }
 .mdb-tip span { display:block; margin-top:4px; }
 .mdb-help:hover .mdb-tip, .mdb-help:focus .mdb-tip, .mdb-help:focus-within .mdb-tip { display:block; }
 .mdb-signals { position:relative; }
