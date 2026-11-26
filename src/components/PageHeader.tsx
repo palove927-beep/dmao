@@ -35,6 +35,7 @@ const MAIN_NAV: NavItem[] = [
 const OTHER_PAGES = [
   { href: "/sectors", label: "26/08 族群熱度圖", source: "水溫表" },
   { href: "/pcb", label: "PCB 產業鏈", source: "產業鏈" },
+  { href: "/atypical", label: "非常態投資筆記", source: "課程筆記" },
 ];
 
 // 第一段用主色，第二段刻意調淡，視覺上就分得出親疏
