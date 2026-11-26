@@ -17,6 +17,30 @@ const pctColor = (v: number | null | undefined) =>
 const fmtPct = (v: number | null | undefined) =>
   v == null ? "-" : `${v > 0 ? "+" : ""}${v.toFixed(2)}%`;
 
+// 「?」說明：hover 或點一下（手機）顯示，覆蓋在卡片上方往下展開，不會超出畫面
+function Help({ lines, title }: { lines: string[]; title: string }) {
+  return (
+    <span className="mdb-help" tabIndex={0} aria-label={`${title}的看點`}>
+      ?
+      <span className="mdb-tip" role="tooltip">
+        <b>{title}</b>
+        {lines.map((l) => <span key={l}>{l}</span>)}
+      </span>
+    </span>
+  );
+}
+
+const SIGNAL_RULES = [
+  "費半一個月急跌 > 15%：台積電及電子族群承壓，隔天台股大機率跟跌",
+  "S&P 500 一個月下跌 > 5%：外資撤離新興市場、黃金上漲；台股外資賣壓",
+  "美元指數一個月急漲 > 5 點：台幣貶值；出口商匯兌受益，外資需賣台股",
+  "美元指數一個月急跌 > 5 點：台幣升值；外資買台股，出口商匯兌壓力",
+  "黃金一個月急漲 > 5%：市場恐慌；觀察 VIX，評估是否進入非常態",
+  "油價一個月急漲或急跌 > 20%：通膨與升降息預期改變",
+  "VIX ≥ 30：全球多個市場觀察非常態；準備資金，找尋買點",
+  "另外：費半跌破年線且年線向下、2 年期高於 10 年期（倒掛）、櫃買或加權跌破兩年均線",
+];
+
 function Spark({ data, color }: { data: number[]; color: string }) {
   if (data.length < 2) return null;
   const w = 100, h = 28;
@@ -85,7 +109,7 @@ export default function MacroDashboard() {
 
       {data && (
         <div className="mdb-signals">
-          <div className="mdb-gtitle">非常態訊號檢查</div>
+          <div className="mdb-gtitle mdb-gtitle-help">非常態訊號檢查 <Help title="判斷門檻（2-1 全球市場連動速查表）" lines={SIGNAL_RULES} /></div>
           {signals.length === 0 ? (
             <div className="mdb-ok">目前沒有觸發 2-1 速查表中的非常態門檻。</div>
           ) : (
@@ -113,7 +137,10 @@ export default function MacroDashboard() {
               return (
                 <div key={m.key} className="mdb-card">
                   <div className="mdb-card-top">
-                    <span className="mdb-name">{m.label}</span>
+                    <span className="mdb-name">
+                      {m.label}
+                      {m.tip && <Help title={m.label} lines={m.tip} />}
+                    </span>
                     {m.layer && <span className="mdb-layer">{m.layer}</span>}
                   </div>
                   <div className="mdb-price">
@@ -191,7 +218,7 @@ const CSS = `
 .mdb-dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; }
 .mdb-gtitle { font-size:13px; font-weight:700; color:#1e3a5f; margin:14px 0 8px; }
 .mdb-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
-.mdb-card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px; }
+.mdb-card { position:relative; background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px; }
 .mdb-card-top { display:flex; justify-content:space-between; align-items:center; gap:6px; }
 .mdb-name { font-size:13px; font-weight:600; color:#374151; }
 .mdb-layer { font-size:11px; color:#1a56db; background:#eff6ff; border-radius:999px; padding:0 7px; white-space:nowrap; }
@@ -205,6 +232,17 @@ const CSS = `
 .mdb-signals li span { font-size:13px; color:#374151; }
 .mdb-ok { background:#dcfce7; border:1px solid #bbf7d0; border-radius:8px; padding:8px 12px; font-size:14px; color:#166534; }
 .mdb-note { font-size:12px; color:#6b7280; margin-top:8px; }
+.mdb-help { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; margin-left:5px;
+  border-radius:50%; background:#e5e7eb; color:#4b5563; font-size:11px; font-weight:800; cursor:help; vertical-align:1px; outline:none; }
+.mdb-help:hover, .mdb-help:focus { background:#1a56db; color:#fff; }
+.mdb-tip { display:none; position:absolute; left:0; right:0; top:0; z-index:20; min-height:100%; box-sizing:border-box;
+  background:#fff; color:#1f2937; border:1px solid #93c5fd; border-radius:10px; padding:10px 12px;
+  box-shadow:0 8px 24px rgba(15,23,42,.18); font-size:12px; font-weight:400; line-height:1.6; text-align:left; cursor:default; }
+.mdb-tip b { display:block; font-size:13px; color:#1e3a5f; margin-bottom:4px; }
+.mdb-tip span { display:block; margin-top:4px; }
+.mdb-help:hover .mdb-tip, .mdb-help:focus .mdb-tip, .mdb-help:focus-within .mdb-tip { display:block; }
+.mdb-signals { position:relative; }
+.mdb-gtitle-help { display:flex; align-items:center; }
 .mdb-log { border:1px solid #e5e7eb; border-radius:10px; background:#fff; }
 .mdb-log-row { display:flex; gap:12px; padding:8px 12px; border-top:1px solid #f1f5f9; align-items:flex-start; }
 .mdb-log-row:first-child { border-top:none; }
