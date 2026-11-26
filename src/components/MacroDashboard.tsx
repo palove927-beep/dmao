@@ -137,11 +137,9 @@ export default function MacroDashboard() {
               return (
                 <div key={m.key} className="mdb-card">
                   <div className="mdb-card-top">
-                    <span className="mdb-name">
-                      {m.label}
-                      {m.tip && <Help title={m.label} lines={m.tip} />}
-                    </span>
+                    <span className="mdb-name">{m.label}</span>
                     {m.layer && <span className="mdb-layer">{m.layer}</span>}
+                    {m.tip && <Help title={m.label} lines={m.tip} />}
                   </div>
                   <div className="mdb-price">
                     {q?.price != null ? q.price.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits }) : "-"}
@@ -217,9 +215,10 @@ const CSS = `
 .mdb-vix-sub { font-weight:400; font-size:12px; color:#4b5563; }
 .mdb-dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; }
 .mdb-gtitle { font-size:13px; font-weight:700; color:#1e3a5f; margin:14px 0 8px; }
-.mdb-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
+.mdb-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:10px; }
 .mdb-card { position:relative; background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px; }
-.mdb-card-top { display:flex; justify-content:space-between; align-items:center; gap:6px; }
+.mdb-card-top { display:flex; align-items:center; gap:6px; }
+.mdb-card-top .mdb-name { flex:1; min-width:0; }
 .mdb-name { font-size:13px; font-weight:600; color:#374151; }
 .mdb-layer { font-size:11px; color:#1a56db; background:#eff6ff; border-radius:999px; padding:0 7px; white-space:nowrap; }
 .mdb-price { font-size:18px; font-weight:800; font-variant-numeric:tabular-nums; margin:2px 0; }
@@ -233,7 +232,7 @@ const CSS = `
 .mdb-ok { background:#dcfce7; border:1px solid #bbf7d0; border-radius:8px; padding:8px 12px; font-size:14px; color:#166534; }
 .mdb-note { font-size:12px; color:#6b7280; margin-top:8px; }
 .mdb-help { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; margin-left:5px;
-  border-radius:50%; background:#e5e7eb; color:#4b5563; font-size:11px; font-weight:800; cursor:help; vertical-align:1px; outline:none; }
+  border-radius:50%; background:#e5e7eb; color:#4b5563; font-size:11px; font-weight:800; cursor:help; vertical-align:1px; outline:none; flex-shrink:0; }
 .mdb-help:hover, .mdb-help:focus { background:#1a56db; color:#fff; }
 .mdb-tip { display:none; position:absolute; left:0; right:0; top:0; z-index:20; min-height:100%; box-sizing:border-box;
   background:#fff; color:#1f2937; border:1px solid #93c5fd; border-radius:10px; padding:10px 12px;
@@ -242,7 +241,7 @@ const CSS = `
 .mdb-tip span { display:block; margin-top:4px; }
 .mdb-help:hover .mdb-tip, .mdb-help:focus .mdb-tip, .mdb-help:focus-within .mdb-tip { display:block; }
 .mdb-signals { position:relative; }
-.mdb-gtitle-help { display:flex; align-items:center; }
+.mdb-gtitle-help { display:flex; align-items:center; justify-content:space-between; }
 .mdb-log { border:1px solid #e5e7eb; border-radius:10px; background:#fff; }
 .mdb-log-row { display:flex; gap:12px; padding:8px 12px; border-top:1px solid #f1f5f9; align-items:flex-start; }
 .mdb-log-row:first-child { border-top:none; }
