@@ -1,4 +1,4 @@
-// 總經儀表板的資料存取：Yahoo 日線 → Supabase（dmao_macro_prices），並逐日記錄非常態訊號。
+// 總經儀表板的資料存取：Yahoo 日線 → Supabase（macro_prices），並逐日記錄非常態訊號。
 // 每次 /api/macro 執行時都會補齊：
 //   - 價格：沒有資料的項目先補一年；有資料的從最後一筆日期往後補到今天（中間幾天沒開也會一次補齊）
 //   - 訊號：從最後檢查過的日期往後逐日重算；最近 3 天每次都重算，盤中數字收盤後會被更正
@@ -44,7 +44,7 @@ async function latestDates(): Promise<Record<string, string | null>> {
   const entries = await Promise.all(
     MACRO_INSTRUMENTS.map(async (m) => {
       const { data, error } = await sb
-        .from("dmao_macro_prices")
+        .from("macro_prices")
         .select("date")
         .eq("key", m.key)
         .order("date", { ascending: false })
@@ -61,7 +61,7 @@ async function upsertPrices(rows: PriceRow[]) {
   const now = new Date().toISOString();
   for (let i = 0; i < rows.length; i += 500) {
     const { error } = await sb
-      .from("dmao_macro_prices")
+      .from("macro_prices")
       .upsert(rows.slice(i, i + 500).map((r) => ({ ...r, updated_at: now })), { onConflict: "key,date" });
     if (error) throw new Error(error.message);
   }
@@ -96,7 +96,7 @@ export async function loadHistory(): Promise<Record<string, PriceRow[]>> {
   const since = new Date(Date.now() - HISTORY_DAYS * DAY).toISOString().slice(0, 10);
   const { rows, error } = await fetchAllRows<{ key: string; date: string; close: number | string }>((from, to) =>
     getSupabase()
-      .from("dmao_macro_prices")
+      .from("macro_prices")
       .select("key, date, close")
       .gte("date", since)
       .order("key", { ascending: true })
@@ -142,7 +142,7 @@ export function datesToCheck(history: Record<string, PriceRow[]>, lastChecked?: 
 export async function syncSignals(history: Record<string, PriceRow[]>): Promise<number> {
   const sb = getSupabase();
   const { data: lastRow, error } = await sb
-    .from("dmao_macro_signal_days")
+    .from("macro_signal_days")
     .select("date")
     .order("date", { ascending: false })
     .limit(1);
@@ -161,17 +161,17 @@ export async function syncSignals(history: Record<string, PriceRow[]>): Promise<
   }
 
   // 重算的日期先清掉舊訊號，再寫入（某天的訊號可能在收盤後消失）
-  const { error: delErr } = await sb.from("dmao_macro_signals").delete().gte("date", dates[0]);
+  const { error: delErr } = await sb.from("macro_signals").delete().gte("date", dates[0]);
   if (delErr) throw new Error(delErr.message);
   for (let i = 0; i < signalRows.length; i += 500) {
     const batch = signalRows.slice(i, i + 500).map((s) => ({
       date: s.date, signal_key: s.key, level: s.level, title: s.title, meaning: s.meaning,
     }));
-    const { error: e } = await sb.from("dmao_macro_signals").upsert(batch, { onConflict: "date,signal_key" });
+    const { error: e } = await sb.from("macro_signals").upsert(batch, { onConflict: "date,signal_key" });
     if (e) throw new Error(e.message);
   }
   for (let i = 0; i < dayRows.length; i += 500) {
-    const { error: e } = await sb.from("dmao_macro_signal_days").upsert(dayRows.slice(i, i + 500), { onConflict: "date" });
+    const { error: e } = await sb.from("macro_signal_days").upsert(dayRows.slice(i, i + 500), { onConflict: "date" });
     if (e) throw new Error(e.message);
   }
   return dates.length;
@@ -183,7 +183,7 @@ export async function recentSignals(days = 365): Promise<SignalLog[]> {
   const since = new Date(Date.now() - days * DAY).toISOString().slice(0, 10);
   const { rows, error } = await fetchAllRows<SignalLog>((from, to) =>
     getSupabase()
-      .from("dmao_macro_signals")
+      .from("macro_signals")
       .select("date, signal_key, level, title, meaning")
       .gte("date", since)
       .order("date", { ascending: false })

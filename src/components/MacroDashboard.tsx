@@ -146,7 +146,7 @@ export default function MacroDashboard() {
       ))}
       <div className="mdb-gtitle">訊號紀錄（近一年）</div>
       {source === "yahoo" ? (
-        <div className="mdb-note">尚未連上資料庫（請先在 Supabase 建立 dmao_macro_* 資料表），目前僅顯示即時數據，沒有訊號紀錄。</div>
+        <div className="mdb-note">尚未連上資料庫（請先在 Supabase 建立 macro_* 資料表），目前僅顯示即時數據，沒有訊號紀錄。</div>
       ) : (() => {
         const byDate = new Map<string, SignalLog[]>();
         for (const s of log) (byDate.get(s.date) ?? byDate.set(s.date, []).get(s.date)!).push(s);
