@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChartCandlestick } from "lucide-react";
 import { GLOBAL_TABLE, MACRO_INSTRUMENTS, macroSignals, vixZone, type MacroGroup, type MacroQuote, type TipBlock } from "@/lib/macro";
 
 type SignalLog = { date: string; signal_key: string; level: "alert" | "watch"; title: string; meaning: string };
@@ -192,16 +191,8 @@ export default function MacroDashboard() {
               return (
                 <div key={m.key} className="mdb-card">
                   <div className="mdb-card-top">
-                    <span className="mdb-name">{m.label}</span>
+                    <Link className="mdb-name" href={`/macro/${m.key}`} title={`前往 ${m.label} 走勢圖`}>{m.label}</Link>
                     {m.layer && <span className="mdb-layer">{m.layer}</span>}
-                    <Link
-                      className="mdb-go"
-                      href={`/macro/${m.key}`}
-                      title={`前往 ${m.label} 走勢圖`}
-                      aria-label={`前往 ${m.label} 走勢圖`}
-                    >
-                      <ChartCandlestick size={13} strokeWidth={2} />
-                    </Link>
                     {m.tip && <Help label={m.label} blocks={m.tip} />}
                   </div>
                   <div className="mdb-price">
@@ -264,7 +255,7 @@ export default function MacroDashboard() {
         );
       })()}
 
-      <div className="mdb-note">資料來源：Yahoo Finance（櫃買指數：櫃買中心；美債 2 年期：美國財政部），每日收盤存於資料庫，延遲報價，僅供參考；台股慣例紅漲綠跌。蠟燭圖示可前往該項目的走勢圖頁面。</div>
+      <div className="mdb-note">資料來源：Yahoo Finance（櫃買指數：櫃買中心；美債 2 年期：美國財政部），每日收盤存於資料庫，延遲報價，僅供參考；台股慣例紅漲綠跌。點名稱可前往該項目的走勢圖頁面。</div>
     </div>
   );
 }
@@ -283,7 +274,8 @@ const CSS = `
 .mdb-card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px; }
 .mdb-card-top { display:flex; align-items:center; gap:6px; }
 .mdb-card-top .mdb-name { flex:1; min-width:0; }
-.mdb-name { font-size:13px; font-weight:600; color:#374151; }
+.mdb-name { font-size:13px; font-weight:600; color:#1a56db; text-decoration:none; }
+.mdb-name:hover { text-decoration:underline; }
 .mdb-layer { font-size:11px; color:#1a56db; background:#eff6ff; border-radius:999px; padding:0 7px; white-space:nowrap; }
 .mdb-price { font-size:18px; font-weight:800; font-variant-numeric:tabular-nums; margin:2px 0; }
 .mdb-chg { display:flex; justify-content:space-between; gap:6px; font-size:12px; font-weight:600; font-variant-numeric:tabular-nums; margin-bottom:4px; }
@@ -298,9 +290,6 @@ const CSS = `
 .mdb-help { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; margin-left:5px;
   border-radius:50%; background:#e5e7eb; color:#4b5563; font-size:11px; font-weight:800; cursor:help; vertical-align:1px; outline:none; flex-shrink:0; }
 .mdb-help:hover, .mdb-help:focus { background:#1a56db; color:#fff; }
-.mdb-go { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:6px;
-  color:#4b5563; background:#f3f4f6; flex-shrink:0; text-decoration:none; }
-.mdb-go:hover { background:#1a56db; color:#fff; }
 .mdb-tip { display:none; position:absolute; left:0; right:0; top:0; z-index:20; box-sizing:border-box;
   max-height:70vh; overflow-y:auto; background:#fff; color:#1f2937; border:1px solid #93c5fd; border-radius:12px;
   padding:14px 16px; box-shadow:0 12px 32px rgba(15,23,42,.2); font-size:14px; font-weight:400; line-height:1.7;
