@@ -114,7 +114,13 @@ async function latestDates(): Promise<Record<string, string | null>> {
   return Object.fromEntries(entries);
 }
 
-async function upsertPrices(rows: PriceRow[]) {
+async function upsertPrices(input: PriceRow[]) {
+  // 同一批裡同一項目同一天只能出現一次，否則 upsert 會報
+  // 「ON CONFLICT DO UPDATE command cannot affect row a second time」。
+  // Yahoo 有時對當天回傳兩筆（日線＋即時點），往前補與往後補的範圍也可能重疊；保留後出現的那筆
+  const dedup = new Map<string, PriceRow>();
+  for (const r of input) dedup.set(`${r.key}|${r.date}`, r);
+  const rows = [...dedup.values()];
   const sb = getSupabase();
   const now = new Date().toISOString();
   for (let i = 0; i < rows.length; i += 500) {
