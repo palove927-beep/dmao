@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   directFromYahoo, loadHistory, quotesAsOf, recentSignals, resetSignals, syncPrices, syncSignals, type SignalLog,
 } from "@/lib/macro-store";
@@ -8,7 +8,20 @@ export const dynamic = "force-dynamic";
 // 第一次執行（或由一年延長到兩年）要補大量價格並重算訊號，給長一點的時限
 export const maxDuration = 60;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // ?debug=1：各項目在資料庫裡的筆數與日期範圍，排查補資料用
+  if (req.nextUrl.searchParams.get("debug") === "1") {
+    try {
+      const history = await loadHistory();
+      const stats = Object.fromEntries(
+        Object.entries(history).map(([k, rows]) => [k, { count: rows.length, first: rows[0]?.date ?? null, last: rows.at(-1)?.date ?? null }]),
+      );
+      return NextResponse.json({ ok: true, stats }, { headers: { "Cache-Control": "no-store" } });
+    } catch (e) {
+      return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 });
+    }
+  }
+
   let data: Record<string, MacroQuote>;
   let signals: SignalLog[] = [];
   let source: "supabase" | "yahoo" = "supabase";
