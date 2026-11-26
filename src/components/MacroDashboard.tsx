@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { MACRO_INSTRUMENTS, macroSignals, vixZone, type MacroGroup, type MacroQuote } from "@/lib/macro";
 
+type SignalLog = { date: string; signal_key: string; level: "alert" | "watch"; title: string; meaning: string };
+
 // 2-1 總經：國際股市與金融市場的即時儀表板，並依課程門檻標出非常態訊號
 const GROUPS: { key: MacroGroup; title: string }[] = [
   { key: "stocks", title: "國際股市（五層連動）" },
@@ -32,6 +34,9 @@ export default function MacroDashboard() {
   const [data, setData] = useState<Record<string, MacroQuote> | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [error, setError] = useState(false);
+  const [log, setLog] = useState<SignalLog[]>([]);
+  const [source, setSource] = useState<"supabase" | "yahoo" | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,7 +44,10 @@ export default function MacroDashboard() {
       try {
         const json = await (await fetch("/api/macro")).json();
         if (cancelled) return;
-        if (json.ok) { setData(json.data); setUpdatedAt(json.updatedAt); setError(false); }
+        if (json.ok) {
+          setData(json.data); setUpdatedAt(json.updatedAt); setError(false);
+          setLog(json.signals ?? []); setSource(json.source ?? null);
+        }
         else setError(true);
       } catch {
         if (!cancelled) setError(true);
@@ -136,7 +144,39 @@ export default function MacroDashboard() {
           )}
         </div>
       ))}
-      <div className="mdb-note">資料來源：Yahoo Finance，延遲報價，僅供參考；台股慣例紅漲綠跌。</div>
+      <div className="mdb-gtitle">訊號紀錄（近一年）</div>
+      {source === "yahoo" ? (
+        <div className="mdb-note">尚未連上資料庫（請先在 Supabase 建立 dmao_macro_* 資料表），目前僅顯示即時數據，沒有訊號紀錄。</div>
+      ) : (() => {
+        const byDate = new Map<string, SignalLog[]>();
+        for (const s of log) (byDate.get(s.date) ?? byDate.set(s.date, []).get(s.date)!).push(s);
+        const dates = [...byDate.keys()];
+        if (dates.length === 0) return <div className="mdb-note">{data ? "近一年沒有觸發任何非常態訊號。" : "載入中…"}</div>;
+        const shown = showAll ? dates : dates.slice(0, 15);
+        return (
+          <>
+            <div className="mdb-log">
+              {shown.map((d) => (
+                <div key={d} className="mdb-log-row">
+                  <div className="mdb-log-date">{d}</div>
+                  <div className="mdb-log-items">
+                    {byDate.get(d)!.map((s) => (
+                      <span key={s.signal_key} className={`mdb-pill ${s.level}`} title={s.meaning}>{s.title}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {dates.length > 15 && (
+              <button className="mdb-more" onClick={() => setShowAll((v) => !v)}>
+                {showAll ? "收合" : `顯示全部 ${dates.length} 天`}
+              </button>
+            )}
+          </>
+        );
+      })()}
+
+      <div className="mdb-note">資料來源：Yahoo Finance，每日收盤存於資料庫，延遲報價，僅供參考；台股慣例紅漲綠跌。</div>
     </div>
   );
 }
@@ -165,4 +205,13 @@ const CSS = `
 .mdb-signals li span { font-size:13px; color:#374151; }
 .mdb-ok { background:#dcfce7; border:1px solid #bbf7d0; border-radius:8px; padding:8px 12px; font-size:14px; color:#166534; }
 .mdb-note { font-size:12px; color:#6b7280; margin-top:8px; }
+.mdb-log { border:1px solid #e5e7eb; border-radius:10px; background:#fff; }
+.mdb-log-row { display:flex; gap:12px; padding:8px 12px; border-top:1px solid #f1f5f9; align-items:flex-start; }
+.mdb-log-row:first-child { border-top:none; }
+.mdb-log-date { font-size:13px; font-weight:700; color:#374151; font-variant-numeric:tabular-nums; flex-shrink:0; width:88px; }
+.mdb-log-items { display:flex; flex-wrap:wrap; gap:6px; }
+.mdb-pill { font-size:12px; border-radius:999px; padding:2px 10px; }
+.mdb-pill.alert { background:#fee2e2; color:#991b1b; }
+.mdb-pill.watch { background:#fef3c7; color:#92400e; }
+.mdb-more { margin-top:8px; font-size:13px; border:1px solid #d1d5db; background:#fff; border-radius:6px; padding:4px 12px; cursor:pointer; }
 `;

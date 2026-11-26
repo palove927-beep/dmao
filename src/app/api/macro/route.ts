@@ -1,30 +1,34 @@
 import { NextResponse } from "next/server";
-import { MACRO_INSTRUMENTS, buildQuote, type MacroQuote } from "@/lib/macro";
+import {
+  directFromYahoo, loadHistory, quotesAsOf, recentSignals, syncPrices, syncSignals, type SignalLog,
+} from "@/lib/macro-store";
+import type { MacroQuote } from "@/lib/macro";
 
 export const dynamic = "force-dynamic";
-
-const UA = { "User-Agent": "Mozilla/5.0" };
-
-async function fetchOne(key: string, symbol: string): Promise<MacroQuote> {
-  try {
-    const res = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=2y&interval=1d`,
-      { headers: UA, cache: "no-store", signal: AbortSignal.timeout(8000) },
-    );
-    if (!res.ok) throw new Error(String(res.status));
-    const r = (await res.json())?.chart?.result?.[0];
-    return buildQuote(key, r?.meta, r?.indicators?.quote?.[0]?.close ?? [], r?.timestamp ?? []);
-  } catch {
-    return buildQuote(key, undefined, [], []);
-  }
-}
+// 第一次執行要補一年的價格與訊號，給長一點的時限
+export const maxDuration = 60;
 
 export async function GET() {
-  const quotes = await Promise.all(MACRO_INSTRUMENTS.map((m) => fetchOne(m.key, m.symbol)));
-  const data: Record<string, MacroQuote> = {};
-  for (const q of quotes) data[q.key] = q;
+  let data: Record<string, MacroQuote>;
+  let signals: SignalLog[] = [];
+  let source: "supabase" | "yahoo" = "supabase";
+  let storeError: string | null = null;
+
+  try {
+    const live = await syncPrices();
+    const history = await loadHistory();
+    await syncSignals(history);
+    data = quotesAsOf(history, undefined, live);
+    signals = await recentSignals(365);
+  } catch (e) {
+    // 資料表尚未建立或 Supabase 無法連線：退回直接抓 Yahoo，頁面照常顯示
+    storeError = e instanceof Error ? e.message : String(e);
+    source = "yahoo";
+    data = await directFromYahoo();
+  }
+
   return NextResponse.json(
-    { ok: true, data, updatedAt: new Date().toISOString() },
+    { ok: true, data, signals, source, storeError, updatedAt: new Date().toISOString() },
     { headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=600" } },
   );
 }

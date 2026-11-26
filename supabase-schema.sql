@@ -38,3 +38,5 @@ create table dmao_eps_forecasts (
 
 create index idx_dmao_eps_forecasts_ticker on dmao_eps_forecasts(ticker);
 create index idx_dmao_eps_forecasts_article_id on dmao_eps_forecasts(article_id);
+
+-- 總經儀表板：見 supabase/macro.sql

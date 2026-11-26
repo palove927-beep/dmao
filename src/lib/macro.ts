@@ -48,7 +48,7 @@ export type MacroQuote = {
   spark: number[]; // 近三個月收盤，畫迷你走勢
 };
 
-export type MacroSignal = { level: "alert" | "watch" | "ok"; title: string; meaning: string };
+export type MacroSignal = { key: string; level: "alert" | "watch"; title: string; meaning: string };
 
 // VIX 區間（2-1J）
 export function vixZone(v: number | null): { label: string; color: string; meaning: string } | null {
@@ -68,40 +68,40 @@ export function macroSignals(q: Record<string, MacroQuote>): MacroSignal[] {
   const pts = (k: string) => q[k]?.change1m ?? null;
 
   const sox = pct("sox");
-  if (sox != null && sox <= -15) out.push({ level: "alert", title: `費半一個月急跌 ${Math.abs(sox).toFixed(1)}%`, meaning: "台積電及電子族群承壓；直接連動，隔天台股大機率跟跌" });
+  if (sox != null && sox <= -15) out.push({ key: "sox_crash", level: "alert", title: `費半一個月急跌 ${Math.abs(sox).toFixed(1)}%`, meaning: "台積電及電子族群承壓；直接連動，隔天台股大機率跟跌" });
   const s = q.sox;
   if (s?.price != null && s.ma240 != null) {
-    if (s.price < s.ma240 && s.ma240Rising === false) out.push({ level: "watch", title: "費半跌破年線且年線向下", meaning: "半導體長循環可能轉空，電子股要更謹慎，台股指數也會連動" });
+    if (s.price < s.ma240 && s.ma240Rising === false) out.push({ key: "sox_below_ma240", level: "watch", title: "費半跌破年線且年線向下", meaning: "半導體長循環可能轉空，電子股要更謹慎，台股指數也會連動" });
   }
 
   const spx = pct("spx");
-  if (spx != null && spx <= -5) out.push({ level: "alert", title: `S&P 500 一個月下跌 ${Math.abs(spx).toFixed(1)}%`, meaning: "外資撤離新興市場、黃金上漲；台股外資賣壓，短期承壓" });
+  if (spx != null && spx <= -5) out.push({ key: "spx_drop", level: "alert", title: `S&P 500 一個月下跌 ${Math.abs(spx).toFixed(1)}%`, meaning: "外資撤離新興市場、黃金上漲；台股外資賣壓，短期承壓" });
 
   const dxy = pts("dxy");
-  if (dxy != null && dxy >= 5) out.push({ level: "alert", title: `美元指數一個月急漲 ${dxy.toFixed(2)} 點`, meaning: "新興市場外資出走、台幣貶值；出口商匯兌受益，外資需賣台股，財報好價格差" });
-  if (dxy != null && dxy <= -5) out.push({ level: "alert", title: `美元指數一個月急跌 ${Math.abs(dxy).toFixed(2)} 點`, meaning: "新興市場資金回流、台幣升值；外資買台股，出口商匯兌壓力，財報差價格好" });
+  if (dxy != null && dxy >= 5) out.push({ key: "dxy_up", level: "alert", title: `美元指數一個月急漲 ${dxy.toFixed(2)} 點`, meaning: "新興市場外資出走、台幣貶值；出口商匯兌受益，外資需賣台股，財報好價格差" });
+  if (dxy != null && dxy <= -5) out.push({ key: "dxy_down", level: "alert", title: `美元指數一個月急跌 ${Math.abs(dxy).toFixed(2)} 點`, meaning: "新興市場資金回流、台幣升值；外資買台股，出口商匯兌壓力，財報差價格好" });
 
   const gold = pct("gold");
-  if (gold != null && gold >= 5) out.push({ level: "watch", title: `黃金一個月上漲 ${gold.toFixed(1)}%`, meaning: "市場恐慌、風險資產承壓；觀察 VIX，評估是否進入非常態" });
+  if (gold != null && gold >= 5) out.push({ key: "gold_up", level: "watch", title: `黃金一個月上漲 ${gold.toFixed(1)}%`, meaning: "市場恐慌、風險資產承壓；觀察 VIX，評估是否進入非常態" });
 
   const brent = pct("brent");
-  if (brent != null && brent >= 20) out.push({ level: "alert", title: `油價一個月急漲 ${brent.toFixed(1)}%`, meaning: "通膨預期升溫、升息預期強化；電子股估值受壓，物價通膨上升" });
-  if (brent != null && brent <= -20) out.push({ level: "watch", title: `油價一個月急跌 ${Math.abs(brent).toFixed(1)}%`, meaning: "通膨預期降溫、降息空間打開；電子製造成本下降，同時也代表需求弱" });
+  if (brent != null && brent >= 20) out.push({ key: "brent_up", level: "alert", title: `油價一個月急漲 ${brent.toFixed(1)}%`, meaning: "通膨預期升溫、升息預期強化；電子股估值受壓，物價通膨上升" });
+  if (brent != null && brent <= -20) out.push({ key: "brent_down", level: "watch", title: `油價一個月急跌 ${Math.abs(brent).toFixed(1)}%`, meaning: "通膨預期降溫、降息空間打開；電子製造成本下降，同時也代表需求弱" });
 
   const vix = q.vix?.price ?? null;
-  if (vix != null && vix >= 30) out.push({ level: "alert", title: `VIX 突破 30（${vix.toFixed(2)}）`, meaning: "全球多個市場觀察非常態；準備資金，找尋買點" });
+  if (vix != null && vix >= 30) out.push({ key: "vix_30", level: "alert", title: `VIX 突破 30（${vix.toFixed(2)}）`, meaning: "全球多個市場觀察非常態；準備資金，找尋買點" });
 
   const y10 = q.us10y?.price ?? null;
   const y2 = q.us2y?.price ?? null;
-  if (y10 != null && y2 != null && y2 > y10) out.push({ level: "watch", title: `殖利率倒掛（2 年 ${y2.toFixed(2)}% ＞ 10 年 ${y10.toFixed(2)}%）`, meaning: "若殖利率下行由衰退預期帶動並出現倒掛，可能為長循環的轉折訊號" });
+  if (y10 != null && y2 != null && y2 > y10) out.push({ key: "yield_inversion", level: "watch", title: `殖利率倒掛（2 年 ${y2.toFixed(2)}% ＞ 10 年 ${y10.toFixed(2)}%）`, meaning: "若殖利率下行由衰退預期帶動並出現倒掛，可能為長循環的轉折訊號" });
 
   // 2-1K：加權與櫃買要同時看，櫃買常率先跌破兩年均線
   const tw = q.twii, otc = q.twoii;
   if (otc?.price != null && otc.ma480 != null && tw?.price != null && tw.ma480 != null) {
     const otcBelow = otc.price < otc.ma480;
     const twBelow = tw.price < tw.ma480;
-    if (otcBelow && !twBelow) out.push({ level: "watch", title: "櫃買跌破兩年均線、加權仍在其上", meaning: "加權與櫃買分歧是警訊；櫃買反應市場氛圍，常會率先反應" });
-    if (otcBelow && twBelow) out.push({ level: "alert", title: "加權與櫃買都跌破兩年均線", meaning: "台股中長期分水嶺失守，留意是否進入非常態" });
+    if (otcBelow && !twBelow) out.push({ key: "otc_below_2y", level: "watch", title: "櫃買跌破兩年均線、加權仍在其上", meaning: "加權與櫃買分歧是警訊；櫃買反應市場氛圍，常會率先反應" });
+    if (otcBelow && twBelow) out.push({ key: "tw_both_below_2y", level: "alert", title: "加權與櫃買都跌破兩年均線", meaning: "台股中長期分水嶺失守，留意是否進入非常態" });
   }
   return out;
 }
