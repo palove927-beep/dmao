@@ -1,6 +1,5 @@
 import React from "react";
 import PageHeader from "@/components/PageHeader";
-import MacroDashboard from "@/components/MacroDashboard";
 
 // 非常態投資課程筆記（投資癮 WEALTHOLIC 課程投影片整理）。
 // 內文依原簡報文字整理（不含影片字幕），小標旁標示對應的投影片檔名（如 1-1A）。
@@ -84,6 +83,10 @@ const CSS = `
 .aty-checks > span { display:inline-flex; align-items:center; gap:6px; }
 .aty-check { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%;
   background:#60a5fa; color:#fff; font-size:12px; font-weight:800; }
+.aty-dash-link { display:flex; flex-direction:column; gap:2px; border:1px solid #bfdbfe; background:#eff6ff; border-radius:10px;
+  padding:12px 16px; margin:4px 0 18px; text-decoration:none; color:#1e3a5f; }
+.aty-dash-link:hover { background:#dbeafe; }
+.aty-dash-link span { font-size:13px; color:#4b5563; }
 .aty-foot { font-size:12px; color:#9ca3af; border-top:1px solid var(--line); padding-top:12px; margin-top:8px; }
 `;
 
@@ -385,7 +388,10 @@ export default function AtypicalPage() {
       {/* ───────────────────────── 2-1 ───────────────────────── */}
       <Part no="PART 2" title="總經・個經・心經" />
       <Section id="s2-1" no="2-1" title="總經：國際股市氛圍與金融市場連動">
-        <MacroDashboard />
+        <a href="/macro" className="aty-dash-link">
+          <b>即時市場儀表板 →</b>
+          <span>本單元提到的費半、美股、韓日港歐陸股市、加權／櫃買、美債殖利率、美元、台幣、黃金、原油、VIX，即時數據與非常態訊號檢查</span>
+        </a>
         <H3 slide="2-1A">第一層：費半與台股的關係</H3>
         <Cards items={[
           { title: "直接連動｜高度即時的市場連鎖反應", body: <><b>連動機制：</b>若費半盤中下跌 5%，需優先觀測台積電 ADR 的變化。<br /><b>連鎖效應：</b>隔日台股開盤極大機率受其牽動，產生連鎖反應走勢。</> },
