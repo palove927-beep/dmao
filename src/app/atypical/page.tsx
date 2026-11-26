@@ -78,6 +78,11 @@ const CSS = `
 .aty-slide { font-size:11px; font-weight:600; color:#9ca3af; border:1px solid var(--line); border-radius:6px;
   padding:0 6px; margin-left:8px; vertical-align:middle; font-variant-numeric:tabular-nums; }
 .aty-missing { background:#f9fafb; border:1px dashed #d1d5db; border-radius:10px; padding:10px 14px; color:var(--muted); font-size:14px; margin:10px 0 16px; }
+.aty-lead-red { color:#b91c1c; font-weight:600; }
+.aty-checks { display:flex; flex-wrap:wrap; gap:10px 20px; margin:10px 0 16px; }
+.aty-checks > span { display:inline-flex; align-items:center; gap:6px; }
+.aty-check { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%;
+  background:#60a5fa; color:#fff; font-size:12px; font-weight:800; }
 .aty-foot { font-size:12px; color:#9ca3af; border-top:1px solid var(--line); padding-top:12px; margin-top:8px; }
 `;
 
@@ -118,10 +123,10 @@ function Cards({ items }: { items: { title: string; body: React.ReactNode }[] })
 }
 
 // 投影片每個單元最後一頁的「單元總結」
-function Summary({ slide, items }: { slide?: string; items: React.ReactNode[] }) {
+function Summary({ slide, title = "單元總結", items }: { slide?: string; title?: string; items: React.ReactNode[] }) {
   return (
     <div className="aty-sum">
-      <div className="aty-sum-title">單元總結{slide && <span className="aty-slide">{slide}</span>}</div>
+      <div className="aty-sum-title">{title}{slide && <span className="aty-slide">{slide}</span>}</div>
       <ol>{items.map((t, i) => <li key={i}>{t}</li>)}</ol>
     </div>
   );
@@ -309,7 +314,9 @@ export default function AtypicalPage() {
         <Key><b>對應心態：</b>在緩跌時接受價格下跌的現實，降低部位、保留資金彈性。慢熊最大的傷害是讓你一路抱著「快到底了」的幻想，從 -10% 撐到 -30%、再從 -30% 撐到 -60%，真正可怕的不是慢熊本身，而是慢熊末端那最後兩道熊掌。</Key>
 
         <H3 slide="1-3F">型態四：局部崩塌型危機</H3>
-        <div className="aty-missing">這張投影片無法辨識文字。以下依 1-3G、1-3I 的內容補充：屬於個別性衝擊，護城河已消失、可能下市倒閉，操作方向為「盡量避開」；與型態五的差別在於，型態四是「體質崩壞」、被動掩蓋問題。</div>
+        <p className="aty-lead-red">特定產業或個股出現崩跌，但整體市場相對穩定。</p>
+        <p><b>案例：</b>生技股解盲失敗、公司爆發財務醜聞、特定族群被政策打壓等。</p>
+        <Key><b>對應心態：</b>局部崩塌時，同族群的其他公司往往也會受到影響。需判斷崩塌原因是否真的影響整個族群的基本面，還是只是情緒傳染。</Key>
 
         <H3 slide="1-3G">型態五：轉型陣痛期危機</H3>
         <p>公司有意識地進行轉型，分散客戶、改接高毛利訂單、開發新產品、設新廠、跑認證，因此短期財務鈍化甚至下滑，但公司明確是在為未來一兩年的轉型做準備。這種過渡期跟型態四的「體質崩壞」有本質上的差異：前者是主動投資未來，後者是被動掩蓋問題。</p>
@@ -367,7 +374,11 @@ export default function AtypicalPage() {
           ]}
         />
 
-        <div className="aty-missing">1-3Z（單元總結）這張投影片無法辨識文字，未收錄。</div>
+        <Summary slide="1-3Z" title="章節總結" items={[
+          "1-1：定義了非常態，知道它在哪裡出現、長什麼樣子。",
+          "1-2：把非常態放進短中長循環，理解它與個人投資屬性的混合狀態與心理陷阱。",
+          "1-3：整理一套判斷危機與轉機的框架，開始評估市場性質，再到六種型態與三個轉機訊號，最後確認自身狀態。",
+        ]} />
       </Section>
 
       {/* ───────────────────────── 2-1 ───────────────────────── */}
@@ -388,8 +399,12 @@ export default function AtypicalPage() {
         <List items={["需求端恐慌（客戶砍單、庫存過高等）", "系統性崩跌的拖累"]} />
         <Key><b>特別注意：</b>採購成本下降的下游應用端可能受益，資金可能轉往傳產、債券、內需等非科技類股（抗跌股）。</Key>
 
-        <H3 slide="2-1C">第二層：美股四大指數</H3>
-        <div className="aty-missing">這張投影片無法辨識文字。依 2-1Z 單元總結：道瓊看信心、S&P 500 看資金流向、那斯達克看科技景氣、費半看台股最直接的連動。</div>
+        <H3 slide="2-1C">第二層：韓股（與台股高度相近）</H3>
+        <div className="aty-checks">
+          {["產業結構很相似", "兩國都是半導體大國", "都是外資敏感型市場", "都以科技出口為核心"].map((t) => (
+            <span key={t}><span className="aty-check">✓</span>{t}</span>
+          ))}
+        </div>
 
         <H3 slide="2-1D">第三～五層：其他國際股市（觀察市場變化）</H3>
         <Table
@@ -850,7 +865,7 @@ export default function AtypicalPage() {
 
       <p className="aty-foot">
         資料來源：投資癮（WEALTHOLIC）非常態課程投影片 1-1 ～ 2-3，內文依原簡報文字整理，不含影片字幕。
-        1-3F、1-3Z、2-1C 三張投影片無法辨識文字，已在對應位置標示。
+        1-3F、1-3Z、2-1C 三張投影片的文字依提供的截圖補上。
       </p>
         </main>
       </div>
