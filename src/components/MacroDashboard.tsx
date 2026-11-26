@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChartCandlestick } from "lucide-react";
-import { GLOBAL_TABLE, MACRO_INSTRUMENTS, macroSignals, vixZone, type MacroGroup, type MacroQuote, type TipBlock, macroTicker } from "@/lib/macro";
+import { GLOBAL_TABLE, MACRO_INSTRUMENTS, macroSignals, vixZone, type MacroGroup, type MacroQuote, type TipBlock } from "@/lib/macro";
 
 type SignalLog = { date: string; signal_key: string; level: "alert" | "watch"; title: string; meaning: string };
 
@@ -196,7 +196,7 @@ export default function MacroDashboard() {
                     {m.layer && <span className="mdb-layer">{m.layer}</span>}
                     <Link
                       className="mdb-go"
-                      href={`/stock/${macroTicker(m.key)}`}
+                      href={`/macro/${m.key}`}
                       title={`前往 ${m.label} 走勢圖`}
                       aria-label={`前往 ${m.label} 走勢圖`}
                     >
