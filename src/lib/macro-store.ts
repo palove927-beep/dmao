@@ -1,6 +1,6 @@
 // 總經儀表板的資料存取：Yahoo 日線 → Supabase（macro_prices），並逐日記錄非常態訊號。
 // 每次 /api/macro 執行時都會補齊：
-//   - 價格：沒有資料的項目先補一年；有資料的從最後一筆日期往後補到今天（中間幾天沒開也會一次補齊）
+//   - 價格：保留至少兩年（不滿兩年就往前補）；並從最後一筆日期往後補到今天（中間幾天沒開也會一次補齊）
 //   - 訊號：從最後檢查過的日期往後逐日重算；最近 3 天每次都重算，盤中數字收盤後會被更正
 import { getSupabase } from "@/lib/supabase";
 import { fetchAllRows } from "@/lib/supabase-paginate";
@@ -126,28 +126,77 @@ async function upsertPrices(rows: PriceRow[]) {
 }
 
 // 補價格，同時回傳 Yahoo 的即時價（盤中顯示用）
-export async function syncPrices(): Promise<LivePrice> {
-  const latest = await latestDates();
+// 歷史至少保留兩年，兩年均線（480 日）才算得出來
+const BACKFILL_DAYS = 2 * 365 + 7;
+
+async function earliestDates(): Promise<Record<string, string | null>> {
+  const sb = getSupabase();
+  const entries = await Promise.all(
+    MACRO_INSTRUMENTS.map(async (m) => {
+      const { data, error } = await sb
+        .from("macro_prices")
+        .select("date")
+        .eq("key", m.key)
+        .order("date", { ascending: true })
+        .limit(1);
+      if (error) throw new Error(error.message);
+      return [m.key, data?.[0]?.date ?? null] as const;
+    }),
+  );
+  return Object.fromEntries(entries);
+}
+
+const yahooRange = (from: Date, to: Date) =>
+  `period1=${Math.floor(from.getTime() / 1000)}&period2=${Math.floor(to.getTime() / 1000)}`;
+
+// 補價格，同時回傳 Yahoo 的即時價（盤中顯示用）。
+// backfilled：這次有往前補舊歷史（例如由一年延長到兩年），訊號需要整段重算
+export async function syncPrices(): Promise<{ live: LivePrice; backfilled: boolean }> {
+  const [latest, earliest] = await Promise.all([latestDates(), earliestDates()]);
   const live: LivePrice = {};
+  const now = new Date();
+  const target = new Date(now.getTime() - BACKFILL_DAYS * DAY);
+  let backfilled = false;
   const fetched = await Promise.all(
     MACRO_INSTRUMENTS.map(async (m) => {
       const last = latest[m.key];
-      // 從最後一筆的前一天起抓（包含最後一筆，讓盤中寫入的數字被收盤價更正）
-      const query = last
-        ? `period1=${Math.floor((Date.parse(`${last}T00:00:00Z`) - DAY) / 1000)}&period2=${Math.floor(Date.now() / 1000)}`
-        : "range=1y";
+      const first = earliest[m.key];
+      const rows: PriceRow[] = [];
       try {
-        const r = await fetchSince(m, last ? new Date(Date.parse(`${last}T00:00:00Z`) - DAY) : new Date(Date.now() - 365 * DAY), query);
+        // 從最後一筆的前一天起抓到今天（包含最後一筆，讓盤中寫入的數字被收盤價更正）；
+        // 完全沒有資料時直接抓兩年
+        const from = last ? new Date(Date.parse(`${last}T00:00:00Z`) - DAY) : target;
+        const r = await fetchSince(m, from, yahooRange(from, now));
         live[m.key] = r.live;
-        return r.rows;
+        rows.push(...r.rows);
       } catch {
         live[m.key] = null;
-        return [];
       }
+      // 已有資料但不滿兩年：往前補到兩年前（只會發生一次）
+      if (first && Date.parse(`${first}T00:00:00Z`) > target.getTime() + 14 * DAY) {
+        try {
+          const end = new Date(Date.parse(`${first}T00:00:00Z`) + DAY);
+          const r = await fetchSince(m, target, yahooRange(target, end));
+          const older = r.rows.filter((x) => x.date < first);
+          if (older.length > 0) { rows.push(...older); backfilled = true; }
+        } catch {
+          // 補舊資料失敗不影響今天的數字，下次再試
+        }
+      }
+      return rows;
     }),
   );
   await upsertPrices(fetched.flat());
-  return live;
+  return { live, backfilled };
+}
+
+// 清空訊號紀錄，下次 syncSignals 會依目前的歷史整段重算
+export async function resetSignals() {
+  const sb = getSupabase();
+  const { error: e1 } = await sb.from("macro_signals").delete().gte("date", "1900-01-01");
+  if (e1) throw new Error(e1.message);
+  const { error: e2 } = await sb.from("macro_signal_days").delete().gte("date", "1900-01-01");
+  if (e2) throw new Error(e2.message);
 }
 
 export async function loadHistory(): Promise<Record<string, PriceRow[]>> {
