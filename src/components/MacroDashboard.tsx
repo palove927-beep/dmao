@@ -62,7 +62,7 @@ export default function MacroDashboard() {
   const vix = data?.vix?.price ?? null;
   const zone = vixZone(vix);
   const y10 = data?.us10y?.price ?? null;
-  const y2 = data?.us2y?.price ?? null;
+  const y2 = data?.ust2y?.price ?? null;
 
   return (
     <div className="mdb">
@@ -139,7 +139,7 @@ export default function MacroDashboard() {
           {g.key === "markets" && y10 != null && y2 != null && (
             <div className="mdb-note">
               10 年－2 年利差：<b style={{ color: y10 - y2 < 0 ? "#dc2626" : "#15803d" }}>{(y10 - y2).toFixed(3)}%</b>
-              {y10 - y2 < 0 ? "（倒掛）" : "（正斜率）"}；美債 2 年期以 CBOT 2 年殖利率期貨代表。
+              {y10 - y2 < 0 ? "（倒掛）" : "（正斜率）"}；美債殖利率 2 年期取自美國財政部每日殖利率曲線。
             </div>
           )}
         </div>

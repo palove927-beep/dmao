@@ -39,6 +39,64 @@ async function fetchYahoo(key: string, symbol: string, query: string): Promise<Y
   return { live: typeof live === "number" && Number.isFinite(live) ? live : null, rows };
 }
 
+// 櫃買指數：櫃買中心按月查詢（民國年），Yahoo 只有當日一筆、沒有歷史。
+// 收盤後才有當天資料，沒有盤中即時價，現價就用最後一筆收盤。
+async function fetchTpexIndex(key: string, from: Date): Promise<YahooResult> {
+  const months: { y: number; m: number }[] = [];
+  const end = new Date();
+  for (let d = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1)); d <= end; d.setUTCMonth(d.getUTCMonth() + 1)) {
+    months.push({ y: d.getUTCFullYear(), m: d.getUTCMonth() + 1 });
+  }
+  const rows: PriceRow[] = [];
+  // 一次 3 個月，避免對櫃買中心同時發太多請求
+  for (let i = 0; i < months.length; i += 3) {
+    const results = await Promise.all(months.slice(i, i + 3).map(async ({ y, m }) => {
+      const res = await fetch(
+        `https://www.tpex.org.tw/web/stock/iNdex_info/inxh/Inx_result.php?l=zh-tw&d=${y - 1911}/${String(m).padStart(2, "0")}&o=json`,
+        { headers: UA, cache: "no-store", signal: AbortSignal.timeout(8000) },
+      );
+      if (!res.ok) throw new Error(`TPEx ${y}/${m} ${res.status}`);
+      const json = await res.json();
+      const data: string[][] = json?.tables?.[0]?.data ?? [];
+      return data.map((r) => ({ key, date: r[0].replace(/\//g, "-"), close: Number(String(r[4]).replace(/,/g, "")) }));
+    }));
+    for (const r of results.flat()) if (r.close > 0 && /^\d{4}-\d{2}-\d{2}$/.test(r.date)) rows.push(r);
+  }
+  return { live: rows.at(-1)?.close ?? null, rows };
+}
+
+// 美國財政部每日殖利率曲線（CSV，按年份）。只有收盤後的官方數字，現價就用最後一筆。
+async function fetchTreasury(key: string, column: string, from: Date): Promise<YahooResult> {
+  const rows: PriceRow[] = [];
+  for (let y = from.getUTCFullYear(); y <= new Date().getUTCFullYear(); y++) {
+    const res = await fetch(
+      `https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/${y}/all?type=daily_treasury_yield_curve&field_tdr_date_value=${y}&page&_format=csv`,
+      { headers: UA, cache: "no-store", signal: AbortSignal.timeout(10000) },
+    );
+    if (!res.ok) throw new Error(`Treasury ${y} ${res.status}`);
+    const [header, ...lines] = (await res.text()).trim().split(/\r?\n/);
+    const cols = header.split(",").map((c) => c.replace(/"/g, ""));
+    const idx = cols.indexOf(column);
+    if (idx < 0) throw new Error(`Treasury column ${column} not found`);
+    for (const line of lines) {
+      const f = line.split(",");
+      const [mm, dd, yyyy] = f[0].split("/");
+      const v = Number(f[idx]);
+      if (yyyy && v > 0) rows.push({ key, date: `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`, close: v });
+    }
+  }
+  const since = from.toISOString().slice(0, 10);
+  const sorted = rows.filter((r) => r.date >= since).sort((a, b) => a.date.localeCompare(b.date));
+  return { live: sorted.at(-1)?.close ?? null, rows: sorted };
+}
+
+// 依資料來源抓 from 之後的日線
+function fetchSince(m: { key: string; symbol: string; source?: "tpex" | "treasury" }, from: Date, yahooQuery: string) {
+  if (m.source === "tpex") return fetchTpexIndex(m.key, from);
+  if (m.source === "treasury") return fetchTreasury(m.key, m.symbol, from);
+  return fetchYahoo(m.key, m.symbol, yahooQuery);
+}
+
 async function latestDates(): Promise<Record<string, string | null>> {
   const sb = getSupabase();
   const entries = await Promise.all(
@@ -79,7 +137,7 @@ export async function syncPrices(): Promise<LivePrice> {
         ? `period1=${Math.floor((Date.parse(`${last}T00:00:00Z`) - DAY) / 1000)}&period2=${Math.floor(Date.now() / 1000)}`
         : "range=1y";
       try {
-        const r = await fetchYahoo(m.key, m.symbol, query);
+        const r = await fetchSince(m, last ? new Date(Date.parse(`${last}T00:00:00Z`) - DAY) : new Date(Date.now() - 365 * DAY), query);
         live[m.key] = r.live;
         return r.rows;
       } catch {
@@ -201,7 +259,7 @@ export async function directFromYahoo(): Promise<Record<string, MacroQuote>> {
   await Promise.all(
     MACRO_INSTRUMENTS.map(async (m) => {
       try {
-        const r = await fetchYahoo(m.key, m.symbol, "range=2y");
+        const r = await fetchSince(m, new Date(Date.now() - 2 * 365 * DAY), "range=2y");
         history[m.key] = r.rows;
         live[m.key] = r.live;
       } catch {

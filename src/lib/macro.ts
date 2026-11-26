@@ -7,6 +7,9 @@ export type MacroInstrument = {
   key: string;
   label: string;
   symbol: string; // Yahoo Finance 代號
+  // 預設 Yahoo。櫃買指數 Yahoo 沒有歷史資料，改抓櫃買中心；
+  // 美債 2 年期 Yahoo 沒有現貨殖利率（2YY=F 期貨常停在舊價），改抓美國財政部每日殖利率曲線
+  source?: "tpex" | "treasury";
   group: MacroGroup;
   layer?: string; // 2-1 的五層連動
   digits?: number;
@@ -25,9 +28,9 @@ export const MACRO_INSTRUMENTS: MacroInstrument[] = [
   { key: "stoxx", label: "歐洲 STOXX 50", symbol: "^STOXX50E", group: "stocks", layer: "第四層" },
   { key: "sse", label: "上證指數", symbol: "000001.SS", group: "stocks", layer: "第五層" },
   { key: "twii", label: "加權指數", symbol: "^TWII", group: "taiwan" },
-  { key: "twoii", label: "櫃買指數", symbol: "^TWOII", group: "taiwan" },
+  { key: "twoii", label: "櫃買指數", symbol: "TPEx", group: "taiwan", source: "tpex" },
   { key: "us10y", label: "美債 10 年殖利率", symbol: "^TNX", group: "markets", digits: 3, suffix: "%" },
-  { key: "us2y", label: "美債 2 年殖利率", symbol: "2YY=F", group: "markets", digits: 3, suffix: "%" },
+  { key: "ust2y", label: "美債 2 年殖利率", symbol: "2 Yr", group: "markets", digits: 2, suffix: "%", source: "treasury" },
   { key: "dxy", label: "美元指數", symbol: "DX-Y.NYB", group: "markets" },
   { key: "twd", label: "美元／台幣", symbol: "TWD=X", group: "markets", digits: 3 },
   { key: "gold", label: "黃金", symbol: "GC=F", group: "markets" },
@@ -92,7 +95,7 @@ export function macroSignals(q: Record<string, MacroQuote>): MacroSignal[] {
   if (vix != null && vix >= 30) out.push({ key: "vix_30", level: "alert", title: `VIX 突破 30（${vix.toFixed(2)}）`, meaning: "全球多個市場觀察非常態；準備資金，找尋買點" });
 
   const y10 = q.us10y?.price ?? null;
-  const y2 = q.us2y?.price ?? null;
+  const y2 = q.ust2y?.price ?? null;
   if (y10 != null && y2 != null && y2 > y10) out.push({ key: "yield_inversion", level: "watch", title: `殖利率倒掛（2 年 ${y2.toFixed(2)}% ＞ 10 年 ${y10.toFixed(2)}%）`, meaning: "若殖利率下行由衰退預期帶動並出現倒掛，可能為長循環的轉折訊號" });
 
   // 2-1K：加權與櫃買要同時看，櫃買常率先跌破兩年均線
@@ -121,9 +124,10 @@ export function buildQuote(key: string, meta: Record<string, unknown> | undefine
   });
   const live = num(meta?.regularMarketPrice);
   const price = live ?? closes.at(-1) ?? null;
-  // 現價若已是今天的收盤，前一筆才是昨收
-  const lastClose = closes.at(-1) ?? null;
-  const prev = lastClose != null && price != null && Math.abs(lastClose - price) < 1e-9 ? closes.at(-2) ?? null : lastClose;
+  // 日線的最後一筆就是目前（或最近）這個交易日，前一筆才是昨收。
+  // 不能拿即時價去比對最後一筆是否相等：兩者常只差浮點尾數（8774.862 vs 8774.8603…），
+  // 比對失敗就會把今天的收盤當成昨收，今日漲跌變成 0。
+  const prev = closes.length >= 2 ? closes[closes.length - 2] : null;
   const changePercent = price != null && prev ? ((price - prev) / prev) * 100 : null;
 
   const base1m = closes.length > 21 ? closes[closes.length - 22] : null;
