@@ -1,5 +1,6 @@
 import React from "react";
 import PageHeader from "@/components/PageHeader";
+import MacroDashboard from "@/components/MacroDashboard";
 
 // 非常態投資課程筆記（投資癮 WEALTHOLIC 課程投影片整理）。
 // 內文依原簡報文字整理（不含影片字幕），小標旁標示對應的投影片檔名（如 1-1A）。
@@ -384,6 +385,7 @@ export default function AtypicalPage() {
       {/* ───────────────────────── 2-1 ───────────────────────── */}
       <Part no="PART 2" title="總經・個經・心經" />
       <Section id="s2-1" no="2-1" title="總經：國際股市氛圍與金融市場連動">
+        <MacroDashboard />
         <H3 slide="2-1A">第一層：費半與台股的關係</H3>
         <Cards items={[
           { title: "直接連動｜高度即時的市場連鎖反應", body: <><b>連動機制：</b>若費半盤中下跌 5%，需優先觀測台積電 ADR 的變化。<br /><b>連鎖效應：</b>隔日台股開盤極大機率受其牽動，產生連鎖反應走勢。</> },
