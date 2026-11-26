@@ -26,8 +26,11 @@ async function fetchYahoo(key: string, symbol: string, query: string): Promise<Y
   const r = (await res.json())?.chart?.result?.[0];
   const ts: number[] = r?.timestamp ?? [];
   const closes: unknown[] = r?.indicators?.quote?.[0]?.close ?? [];
-  // 時間戳加上交易所時差，日期才會落在當地的交易日
-  const offset: number = r?.meta?.gmtoffset ?? 0;
+  // 時間戳加上交易所時差，日期才會落在當地的交易日。
+  // 再多加 6 小時：Yahoo 只給「現在」的時差，外匯（如 TWD=X）在英國夏令時間時，
+  // 日線時間戳是前一天 23:00 UTC，不加的話整個夏天都會被記到前一天、週五被併掉。
+  // 日線時間戳都落在當地開盤時段，加 6 小時不會讓其他市場跨到隔天。
+  const offset: number = (r?.meta?.gmtoffset ?? 0) + 6 * 3600;
   const rows: PriceRow[] = [];
   ts.forEach((t, i) => {
     const c = closes[i];
@@ -172,6 +175,7 @@ export async function syncPrices(): Promise<{ live: LivePrice; backfilled: boole
         // 從最後一筆的前一天起抓到今天（包含最後一筆，讓盤中寫入的數字被收盤價更正）；
         // 完全沒有資料時直接抓兩年
         const from = last ? new Date(Date.parse(`${last}T00:00:00Z`) - DAY) : target;
+        if (!last) backfilled = true; // 整段新補的項目，訊號也要整段重算
         const r = await fetchSince(m, from, yahooRange(from, now));
         live[m.key] = r.live;
         rows.push(...r.rows);
